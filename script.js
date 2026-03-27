@@ -33,11 +33,25 @@ function customerArrives() {
 function serveCustomer(index) {
     if (seats[index].occupied) {
         let pay = (seats[index].order === "Miso Ramen") ? 25 : 10;
-        gameState.money += pay;
-        seats[index].occupied = false;
-        seats[index].order = "";
-        saveGame();
-        updateUI();
+        
+        // 1. Find the customer visually
+        let seatEl = document.getElementById(`seat-${index}`);
+        let customerDiv = seatEl.querySelector('.customer');
+        
+        // 2. Change them into money and play the float animation
+        if(customerDiv) {
+            customerDiv.innerHTML = `+$${pay}`;
+            customerDiv.classList.add('served-anim');
+        }
+
+        // 3. Wait half a second for the animation to finish before clearing the seat
+        setTimeout(() => {
+            gameState.money += pay;
+            seats[index].occupied = false;
+            seats[index].order = "";
+            saveGame();
+            updateUI();
+        }, 500); // 500 milliseconds = 0.5 seconds
     }
 }
 
@@ -68,12 +82,15 @@ function updateUI() {
 
     seats.forEach((seat, i) => {
         let seatEl = document.getElementById(`seat-${i}`);
-        if (seat.occupied) {
-            seatEl.classList.add('occupied');
-            seatEl.innerHTML = `👤<br><span class="order-tag">${seat.order}</span>`;
-        } else {
-            seatEl.classList.remove('occupied');
-            seatEl.innerHTML = "Empty";
+        
+        // Only update the HTML if a new customer just sat down
+        // (We don't want to interrupt the float-away animation)
+        if (seat.occupied && !seatEl.innerHTML.includes('customer')) {
+            seatEl.innerHTML = `<div class="customer">👤<br><span class="order-tag">${seat.order}</span></div>`;
+            seatEl.style.borderColor = "#e63946";
+        } else if (!seat.occupied) {
+            seatEl.innerHTML = `<span class="empty-text">Empty</span>`;
+            seatEl.style.borderColor = "#ccc";
         }
     });
 
@@ -86,13 +103,18 @@ function updateUI() {
 }
 
 // Loops
-setInterval(customerArrives, 3000); // Customer every 3 seconds
+setInterval(customerArrives, 3000); // Customer arrives every 3 seconds
 
 setInterval(() => {
     if(gameState.hasChef) {
-        seats.forEach((s, i) => { if(s.occupied) serveCustomer(i); });
+        // Find a random occupied seat and serve it
+        let occupiedSeats = [];
+        seats.forEach((s, i) => { if(s.occupied) occupiedSeats.push(i); });
+        if(occupiedSeats.length > 0) {
+            serveCustomer(occupiedSeats[0]);
+        }
     }
-}, 1000); // Chef checks seats every second
+}, 1500); // Chef serves someone every 1.5 seconds
 
 function saveGame() { localStorage.setItem('ramenSave', JSON.stringify(gameState)); }
 function loadGame() {

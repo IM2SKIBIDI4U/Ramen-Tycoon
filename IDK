@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Ramen Tycoon</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <h1>🍜 Ramen Tycoon</h1>
+        <div class="stats">
+            <p>Money: $<span id="money">0</span></p>
+            <p>Bowls Sold: <span id="bowls">0</span></p>
+        </div>
+
+        <button id="cook-btn">Cook & Sell Ramen</button>
+
+        <div class="upgrades">
+            <h3>Upgrades</h3>
+            <button id="buy-chef" class="upgrade-btn">Hire Apprentice (Cost: $50)</button>
+            <p>Apprentices: <span id="chef-count">0</span> (Cooks 1 bowl/sec)</p>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

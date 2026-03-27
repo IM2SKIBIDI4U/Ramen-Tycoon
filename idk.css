@@ -1,0 +1,9 @@
+body { font-family: sans-serif; background: #fdf6e3; text-align: center; }
+.game-container { margin-top: 50px; }
+.stats { font-size: 1.5rem; font-weight: bold; margin-bottom: 20px; }
+button { padding: 15px 30px; font-size: 1rem; cursor: pointer; border-radius: 8px; border: none; }
+#cook-btn { background: #e63946; color: white; transition: transform 0.1s; }
+#cook-btn:active { transform: scale(0.95); }
+.upgrades { margin-top: 40px; border-top: 2px solid #ccc; padding-top: 20px; }
+.upgrade-btn { background: #457b9d; color: white; }
+.upgrade-btn:disabled { background: #ccc; }

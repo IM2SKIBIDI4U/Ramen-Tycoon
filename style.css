@@ -1,9 +1,8 @@
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Segoe UI', sans-serif;
     background-color: #fdf6e3;
     display: flex;
     justify-content: center;
-    margin: 0;
     padding: 20px;
 }
 
@@ -20,11 +19,12 @@ body {
 .stats-bar {
     display: flex;
     justify-content: space-around;
-    background: #eee;
-    padding: 10px;
+    background: #f0f0f0;
+    padding: 15px;
     border-radius: 10px;
     margin-bottom: 20px;
     font-weight: bold;
+    font-size: 1.1rem;
 }
 
 #dining-area {
@@ -36,7 +36,7 @@ body {
 
 .seat {
     width: 100px;
-    height: 120px;
+    height: 130px;
     border: 3px dashed #ddd;
     border-radius: 15px;
     display: flex;
@@ -44,30 +44,31 @@ body {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.2s;
-    font-size: 0.9rem;
+    background: #fff;
+    transition: 0.2s;
 }
 
 .seat.occupied {
     border: 3px solid #e63946;
     background-color: #fff5f5;
-    transform: scale(1.05);
 }
 
 .order-tag {
     color: #457b9d;
+    font-size: 0.8rem;
     font-weight: bold;
-    margin-top: 5px;
+    margin-top: 10px;
 }
 
 .upgrade-btn {
     background: #457b9d;
     color: white;
     border: none;
-    padding: 12px 20px;
+    padding: 12px;
+    margin: 5px;
     border-radius: 8px;
     cursor: pointer;
-    font-weight: bold;
+    width: 80%;
 }
 
 .upgrade-btn:disabled {
@@ -76,8 +77,7 @@ body {
 }
 
 .reset-btn {
-    display: block;
-    margin: 20px auto 0;
+    margin-top: 20px;
     background: none;
     border: none;
     color: #999;

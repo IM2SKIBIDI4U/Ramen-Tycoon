@@ -4,7 +4,7 @@ body {
     display: flex;
     justify-content: center;
     padding: 20px;
-    overflow-x: hidden; /* Stops scrollbars during animations */
+    overflow-x: hidden; 
 }
 
 .game-container {
@@ -68,13 +68,9 @@ body {
     position: relative;
 }
 
-.empty-text {
-    color: #ccc;
-    font-size: 0.9rem;
-}
+.empty-text { color: #ccc; font-size: 0.9rem; }
 
 /* --- THE ANIMATIONS --- */
-
 .customer {
     font-size: 2rem;
     animation: walkIn 0.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
@@ -94,17 +90,13 @@ body {
     margin-top: 5px;
 }
 
-/* Walking in from the left (the door) */
 @keyframes walkIn {
     0% { transform: translateX(-250px) scale(0.5); opacity: 0; }
     70% { transform: translateX(10px) scale(1.1); opacity: 1; }
     100% { transform: translateX(0) scale(1); opacity: 1; }
 }
 
-/* Floating up when served */
-.served-anim {
-    animation: floatAway 0.5s ease-in forwards !important;
-}
+.served-anim { animation: floatAway 0.5s ease-in forwards !important; }
 
 @keyframes floatAway {
     0% { transform: translateY(0) scale(1); opacity: 1; }
@@ -128,3 +120,21 @@ body {
 .upgrade-btn:hover:not(:disabled) { transform: scale(1.05); }
 .upgrade-btn:disabled { background: #ccc; cursor: not-allowed; }
 .reset-btn { margin-top: 20px; background: none; border: none; color: #999; text-decoration: underline; cursor: pointer; }
+
+/* --- SECRET ADMIN PANEL STYLES --- */
+#admin-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #111;
+    padding: 40px;
+    border-radius: 15px;
+    border: 2px solid #00ff00;
+    box-shadow: 0 0 50px rgba(0, 255, 0, 0.3);
+    z-index: 1000;
+    text-align: center;
+    min-width: 300px;
+}
+
+.hidden { display: none !important; }

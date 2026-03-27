@@ -34,24 +34,21 @@ function serveCustomer(index) {
     if (seats[index].occupied) {
         let pay = (seats[index].order === "Miso Ramen") ? 25 : 10;
         
-        // 1. Find the customer visually
         let seatEl = document.getElementById(`seat-${index}`);
         let customerDiv = seatEl.querySelector('.customer');
         
-        // 2. Change them into money and play the float animation
         if(customerDiv) {
             customerDiv.innerHTML = `+$${pay}`;
             customerDiv.classList.add('served-anim');
         }
 
-        // 3. Wait half a second for the animation to finish before clearing the seat
         setTimeout(() => {
             gameState.money += pay;
             seats[index].occupied = false;
             seats[index].order = "";
             saveGame();
             updateUI();
-        }, 500); // 500 milliseconds = 0.5 seconds
+        }, 500); 
     }
 }
 
@@ -83,8 +80,6 @@ function updateUI() {
     seats.forEach((seat, i) => {
         let seatEl = document.getElementById(`seat-${i}`);
         
-        // Only update the HTML if a new customer just sat down
-        // (We don't want to interrupt the float-away animation)
         if (seat.occupied && !seatEl.innerHTML.includes('customer')) {
             seatEl.innerHTML = `<div class="customer">👤<br><span class="order-tag">${seat.order}</span></div>`;
             seatEl.style.borderColor = "#e63946";
@@ -94,7 +89,6 @@ function updateUI() {
         }
     });
 
-    // Button states
     document.getElementById('buy-miso').disabled = (gameState.money < 100 || gameState.hasMiso);
     if(gameState.hasMiso) document.getElementById('buy-miso').innerText = "Miso Unlocked!";
     
@@ -102,19 +96,17 @@ function updateUI() {
     if(gameState.hasChef) document.getElementById('buy-chef').innerText = "Chef Hired!";
 }
 
-// Loops
-setInterval(customerArrives, 3000); // Customer arrives every 3 seconds
+setInterval(customerArrives, 3000); 
 
 setInterval(() => {
     if(gameState.hasChef) {
-        // Find a random occupied seat and serve it
         let occupiedSeats = [];
         seats.forEach((s, i) => { if(s.occupied) occupiedSeats.push(i); });
         if(occupiedSeats.length > 0) {
             serveCustomer(occupiedSeats[0]);
         }
     }
-}, 1500); // Chef serves someone every 1.5 seconds
+}, 1500); 
 
 function saveGame() { localStorage.setItem('ramenSave', JSON.stringify(gameState)); }
 function loadGame() {
@@ -124,4 +116,44 @@ function loadGame() {
 function resetGame() {
     localStorage.clear();
     location.reload();
+}
+
+// ==========================================
+// 🛠️ SECRET ADMIN PANEL LOGIC 🛠️
+// ==========================================
+
+// Method 1: The Console Command
+window.rafayIsTheBest = function() {
+    document.getElementById('admin-panel').classList.remove('hidden');
+    return "Welcome to the mainframe, Boss Rafay.";
+}
+
+// Method 2: The Keyboard Cheat Code
+let secretCode = "rafay";
+let typedKeys = "";
+
+document.addEventListener('keydown', (e) => {
+    typedKeys += e.key.toLowerCase();
+    
+    // Keep only the last 5 letters typed
+    if (typedKeys.length > secretCode.length) {
+        typedKeys = typedKeys.slice(-secretCode.length);
+    }
+    
+    // Check if it matches!
+    if (typedKeys === secretCode) {
+        document.getElementById('admin-panel').classList.remove('hidden');
+        typedKeys = ""; // Reset the keys so you can type it again later
+    }
+});
+
+// Admin Button Functions
+function cheatMoney() {
+    gameState.money += 1000;
+    saveGame();
+    updateUI();
+}
+
+function closeAdmin() {
+    document.getElementById('admin-panel').classList.add('hidden');
 }

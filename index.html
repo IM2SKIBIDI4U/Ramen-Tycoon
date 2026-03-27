@@ -1,23 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ramen Tycoon</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="game-container">
-        <h1>🍜 Ramen Tycoon</h1>
-        <div class="stats">
-            <p>Money: $<span id="money">0</span></p>
-            <p>Bowls Sold: <span id="bowls">0</span></p>
+        <h1>🍜 Ramen Shop Tycoon</h1>
+        
+        <div class="stats-bar">
+            <div class="stat">Money: <span id="money">$0</span></div>
+            <div class="stat">Menu: <span id="menu-list">Basic Ramen</span></div>
         </div>
 
-        <button id="cook-btn">Cook & Sell Ramen</button>
+        <div id="dining-area">
+            <div id="seat-0" class="seat" onclick="serveCustomer(0)">Empty</div>
+            <div id="seat-1" class="seat" onclick="serveCustomer(1)">Empty</div>
+            <div id="seat-2" class="seat" onclick="serveCustomer(2)">Empty</div>
+        </div>
 
-        <div class="upgrades">
-            <h3>Upgrades</h3>
-            <button id="buy-chef" class="upgrade-btn">Hire Apprentice (Cost: $50)</button>
-            <p>Apprentices: <span id="chef-count">0</span> (Cooks 1 bowl/sec)</p>
+        <div class="shop-section">
+            <h3>Shop Upgrades</h3>
+            <button id="buy-miso" class="upgrade-btn" onclick="buyMiso()">Unlock Miso Ramen ($100)</button>
+            <p style="font-size: 0.8rem; color: #666;">(Miso earns $25 per bowl!)</p>
+            <button class="reset-btn" onclick="resetGame()">Reset Game</button>
         </div>
     </div>
     <script src="script.js"></script>

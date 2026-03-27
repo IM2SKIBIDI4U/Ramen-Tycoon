@@ -3,54 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ramen Tycoon</title>
+    <title>Ramen Tycoon - Roblox Style</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="game-container">
         <h1>🍜 Ramen Shop Tycoon</h1>
         
-        <div class="stats-bar">
-            <div class="stat">Money: <span id="money" style="color:#2a9d8f;">$0</span></div>
-            <div class="stat">Top Menu Item: <br><span id="top-menu" style="color:#e63946;">Basic Ramen</span></div>
-            <div class="stat">Multiplier: <span id="multiplier-text">x1</span></div>
+        <div class="atm-section">
+            <div class="wallet-display">Wallet: <span id="money" style="color:#00b894;">$0</span></div>
+            <div class="vault-box">
+                <h3>🏧 Vault Balance</h3>
+                <div id="vault-money" class="vault-amount">$0</div>
+                <button id="btn-collect" class="tycoon-pad affordable" onclick="collectVault()">Step to Collect</button>
+            </div>
         </div>
 
         <div class="restaurant-floor">
-            <div class="door">🚪<br>In</div>
-            
             <div id="dining-area">
-                <div id="seat-0" class="seat" onclick="serveCustomer(0)"><span class="empty-text">Empty</span></div>
-                <div id="seat-1" class="seat" onclick="serveCustomer(1)"><span class="empty-text">Empty</span></div>
-                <div id="seat-2" class="seat" onclick="serveCustomer(2)"><span class="empty-text">Empty</span></div>
-                <div id="seat-3" class="seat" onclick="serveCustomer(3)"><span class="empty-text">Empty</span></div>
-                <div id="seat-4" class="seat" onclick="serveCustomer(4)"><span class="empty-text">Empty</span></div>
-                <div id="seat-5" class="seat" onclick="serveCustomer(5)"><span class="empty-text">Empty</span></div>
-                <div id="seat-6" class="seat" onclick="serveCustomer(6)"><span class="empty-text">Empty</span></div>
-                <div id="seat-7" class="seat" onclick="serveCustomer(7)"><span class="empty-text">Empty</span></div>
-                <div id="seat-8" class="seat" onclick="serveCustomer(8)"><span class="empty-text">Empty</span></div>
-                <div id="seat-9" class="seat" onclick="serveCustomer(9)"><span class="empty-text">Empty</span></div>
+                <div id="seat-0" class="seat" onclick="serveCustomer(0)"></div>
+                <div id="seat-1" class="seat" onclick="serveCustomer(1)"></div>
+                <div id="seat-2" class="seat" onclick="serveCustomer(2)"></div>
+                <div id="seat-3" class="seat" onclick="serveCustomer(3)"></div>
+                <div id="seat-4" class="seat" onclick="serveCustomer(4)"></div>
+                <div id="seat-5" class="seat" onclick="serveCustomer(5)"></div>
+                <div id="seat-6" class="seat" onclick="serveCustomer(6)"></div>
+                <div id="seat-7" class="seat" onclick="serveCustomer(7)"></div>
+                <div id="seat-8" class="seat" onclick="serveCustomer(8)"></div>
+                <div id="seat-9" class="seat" onclick="serveCustomer(9)"></div>
             </div>
         </div>
 
-        <div class="shop-section">
-            <h3>Shop Upgrades</h3>
-            <div class="upgrade-grid">
-                <button id="btn-recipe" class="upgrade-btn" onclick="buyRecipe()">Research Recipe ($100)</button>
-                <button id="btn-chef" class="upgrade-btn" onclick="buyChef()">Hire Auto-Chef ($250)</button>
-                <button id="btn-marketing" class="upgrade-btn" onclick="buyMarketing()">Marketing (Faster Customers) ($150)</button>
-                <button id="btn-vip" class="upgrade-btn" style="background:#f4a261;" onclick="buyVIP()">VIP Seating (5x Tip Chance) ($2000)</button>
-                <button id="btn-golden" class="upgrade-btn" style="background:#e9c46a; color:black;" onclick="buyGoldenBowls()">Golden Bowls (2x All Money) ($5000)</button>
-            </div>
-            <hr>
-            <button class="reset-btn" onclick="resetGame()">Reset Game</button>
+        <div class="tycoon-section">
+            <h3>🔴 Next Tycoon Unlocks</h3>
+            <div id="tycoon-pads-container" class="pad-container">
+                </div>
+            
+            <hr style="border: 2px solid #333; margin: 30px 0 10px 0;">
+            <button class="reset-btn" onclick="resetGame()">Reset Tycoon Progress</button>
         </div>
     </div>
 
     <div id="admin-panel" class="hidden">
         <h2 style="color: #00ff00;">👨‍💻 Boss Rafay's Terminal</h2>
-        <button class="upgrade-btn" style="background: #2a9d8f;" onclick="cheatMoney()">Hack: +$1,000,000</button>
-        <button class="reset-btn" style="color: #ff4d4d;" onclick="closeAdmin()">Close Terminal</button>
+        <button class="tycoon-pad affordable" onclick="cheatMoney()">Hack: +$1,000,000</button>
+        <button class="reset-btn" style="color: #ff4d4d; margin-top: 15px;" onclick="closeAdmin()">Close Terminal</button>
     </div>
 
     <script src="script.js"></script>

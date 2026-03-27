@@ -13,7 +13,7 @@ body {
     border-radius: 20px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.1);
     width: 100%;
-    max-width: 800px; /* Made wider for 10 tables */
+    max-width: 800px;
     text-align: center;
 }
 
@@ -38,51 +38,94 @@ body {
     margin-bottom: 30px;
 }
 
-.door {
-    font-size: 1.5rem;
-    color: #888;
-    padding-right: 20px;
-    border-right: 4px solid #ddd;
-    margin-right: 20px;
-}
+.door { font-size: 1.5rem; color: #888; padding-right: 20px; border-right: 4px solid #ddd; margin-right: 20px; }
 
 #dining-area {
     display: flex;
-    flex-wrap: wrap; /* Allows tables to wrap to the next line */
+    flex-wrap: wrap;
     justify-content: center;
     gap: 10px;
     flex-grow: 1;
 }
 
 .seat {
-    width: 85px; /* Slightly smaller to fit 10 */
-    height: 110px;
+    width: 85px;
+    height: 120px;
     border: 3px dashed #ccc;
     border-radius: 12px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-end;
+    padding-bottom: 10px;
     cursor: pointer;
     background: #fff;
     position: relative;
+    overflow: hidden;
 }
 
-.empty-text { color: #ccc; font-size: 0.8rem; }
+.empty-text { color: #ccc; font-size: 0.8rem; margin: auto; }
 
-/* --- ANIMATIONS --- */
-.customer { font-size: 1.8rem; animation: walkIn 0.5s ease-out forwards; display: flex; flex-direction: column; align-items: center; }
-.vip-customer { filter: drop-shadow(0 0 5px gold); }
+/* --- NEW REALISTIC ANIMATED CHARACTERS --- */
+
+.customer-wrapper {
+    animation: walkIn 0.4s ease-out forwards;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+/* The Person's Body Structure */
+.person {
+    width: 40px;
+    height: 50px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    animation: breathe 1s infinite alternate ease-in-out;
+}
+
+/* Their Head */
+.person .head {
+    width: 24px;
+    height: 24px;
+    background: #ffcba4; /* Default skin tone */
+    border-radius: 50%;
+    box-shadow: inset -3px -3px rgba(0,0,0,0.1);
+    z-index: 2;
+}
+
+/* Their Shirt */
+.person .body {
+    width: 36px;
+    height: 26px;
+    background: #457b9d; /* Blue shirt */
+    border-radius: 20px 20px 5px 5px;
+    margin-top: -4px;
+    box-shadow: inset -4px -4px rgba(0,0,0,0.1);
+}
+
+/* VIPs get Gold Shirts and Sunglasses! */
+.vip-person .head { background: #f4a261; border: 2px solid gold; }
+.vip-person .body { background: gold; }
+
+/* Breathing Animation */
+@keyframes breathe {
+    0% { transform: translateY(0px); }
+    100% { transform: translateY(4px); }
+}
+
+/* Walking in from the left */
+@keyframes walkIn {
+    0% { transform: translateX(-100px); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
+}
 
 .order-tag {
-    color: #457b9d; font-size: 0.7rem; font-weight: bold; background: white;
-    padding: 2px 4px; border-radius: 5px; border: 1px solid #457b9d; margin-top: 5px;
-    text-align: center;
-}
-
-@keyframes walkIn {
-    0% { transform: translateX(-150px) scale(0.5); opacity: 0; }
-    100% { transform: translateX(0) scale(1); opacity: 1; }
+    color: #333; font-size: 0.65rem; font-weight: bold; background: white;
+    padding: 3px 5px; border-radius: 5px; border: 1px solid #457b9d; margin-top: 8px;
+    text-align: center; width: 90%; z-index: 3; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .served-anim { animation: floatAway 0.5s ease-in forwards !important; }
@@ -93,18 +136,11 @@ body {
 
 /* --- BUTTONS --- */
 .upgrade-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
-.upgrade-btn {
-    background: #457b9d; color: white; border: none; padding: 12px;
-    border-radius: 8px; cursor: pointer; width: 45%; font-weight: bold; transition: 0.2s;
-}
+.upgrade-btn { background: #457b9d; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; width: 45%; font-weight: bold; transition: 0.2s; }
 .upgrade-btn:hover:not(:disabled) { transform: scale(1.05); }
 .upgrade-btn:disabled { background: #ccc !important; color: #666 !important; cursor: not-allowed; transform: none; }
 .reset-btn { margin-top: 20px; background: none; border: none; color: #999; text-decoration: underline; cursor: pointer; }
 
 /* ADMIN PANEL */
-#admin-panel {
-    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    background: #111; padding: 40px; border-radius: 15px; border: 2px solid #00ff00;
-    box-shadow: 0 0 50px rgba(0, 255, 0, 0.3); z-index: 1000; text-align: center;
-}
+#admin-panel { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #111; padding: 40px; border-radius: 15px; border: 2px solid #00ff00; box-shadow: 0 0 50px rgba(0, 255, 0, 0.3); z-index: 1000; text-align: center; }
 .hidden { display: none !important; }

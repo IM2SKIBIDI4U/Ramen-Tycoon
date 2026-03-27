@@ -1,8 +1,9 @@
-// --- GAME STATE ---
+// --- INITIAL STATE ---
 let gameState = {
     money: 0,
     unlockedItems: ["Basic Ramen"],
-    hasMiso: false
+    hasMiso: false,
+    hasChef: false
 };
 
 const seats = [
@@ -11,40 +12,30 @@ const seats = [
     { occupied: false, order: "" }
 ];
 
-// --- INITIALIZE ---
+// --- RUN ON START ---
 loadGame();
 updateUI();
 
-// --- CORE FUNCTIONS ---
+// --- GAME LOGIC ---
 
 function customerArrives() {
-    // Find empty seats
-    const emptyIndices = [];
-    seats.forEach((s, i) => { if(!s.occupied) emptyIndices.push(i); });
+    let emptySeats = [];
+    seats.forEach((s, i) => { if(!s.occupied) emptySeats.push(i); });
 
-    if (emptyIndices.length > 0) {
-        const randomIndex = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
+    if (emptySeats.length > 0) {
+        let randomIndex = emptySeats[Math.floor(Math.random() * emptySeats.length)];
         seats[randomIndex].occupied = true;
-        
-        // Randomly pick an item from unlocked menu
-        const menu = gameState.unlockedItems;
-        seats[randomIndex].order = menu[Math.floor(Math.random() * menu.length)];
-        
+        seats[randomIndex].order = gameState.unlockedItems[Math.floor(Math.random() * gameState.unlockedItems.length)];
         updateUI();
     }
 }
 
 function serveCustomer(index) {
-    const seat = seats[index];
-    if (seat.occupied) {
-        // Calculate Pay
-        let pay = 10;
-        if (seat.order === "Miso Ramen") pay = 25;
-        
+    if (seats[index].occupied) {
+        let pay = (seats[index].order === "Miso Ramen") ? 25 : 10;
         gameState.money += pay;
-        seat.occupied = false;
-        seat.order = "";
-        
+        seats[index].occupied = false;
+        seats[index].order = "";
         saveGame();
         updateUI();
     }
@@ -60,16 +51,23 @@ function buyMiso() {
     }
 }
 
-// --- SYSTEM FUNCTIONS ---
+function buyChef() {
+    if (gameState.money >= 250 && !gameState.hasChef) {
+        gameState.money -= 250;
+        gameState.hasChef = true;
+        saveGame();
+        updateUI();
+    }
+}
+
+// --- UTILITY ---
 
 function updateUI() {
-    // Update Stats
     document.getElementById('money').innerText = "$" + gameState.money;
     document.getElementById('menu-list').innerText = gameState.unlockedItems.join(", ");
 
-    // Update Seats
     seats.forEach((seat, i) => {
-        const seatEl = document.getElementById(`seat-${i}`);
+        let seatEl = document.getElementById(`seat-${i}`);
         if (seat.occupied) {
             seatEl.classList.add('occupied');
             seatEl.innerHTML = `👤<br><span class="order-tag">${seat.order}</span>`;
@@ -79,33 +77,29 @@ function updateUI() {
         }
     });
 
-    // Update Button
-    const misoBtn = document.getElementById('buy-miso');
-    if (gameState.hasMiso) {
-        misoBtn.innerText = "Miso Unlocked!";
-        misoBtn.disabled = true;
-    } else {
-        misoBtn.disabled = gameState.money < 100;
+    // Button states
+    document.getElementById('buy-miso').disabled = (gameState.money < 100 || gameState.hasMiso);
+    if(gameState.hasMiso) document.getElementById('buy-miso').innerText = "Miso Unlocked!";
+    
+    document.getElementById('buy-chef').disabled = (gameState.money < 250 || gameState.hasChef);
+    if(gameState.hasChef) document.getElementById('buy-chef').innerText = "Chef Hired!";
+}
+
+// Loops
+setInterval(customerArrives, 3000); // Customer every 3 seconds
+
+setInterval(() => {
+    if(gameState.hasChef) {
+        seats.forEach((s, i) => { if(s.occupied) serveCustomer(i); });
     }
-}
+}, 1000); // Chef checks seats every second
 
-function saveGame() {
-    localStorage.setItem('ramenTycoonSave', JSON.stringify(gameState));
-}
-
+function saveGame() { localStorage.setItem('ramenSave', JSON.stringify(gameState)); }
 function loadGame() {
-    const saved = localStorage.getItem('ramenTycoonSave');
-    if (saved) {
-        gameState = JSON.parse(saved);
-    }
+    let saved = localStorage.getItem('ramenSave');
+    if(saved) gameState = JSON.parse(saved);
 }
-
 function resetGame() {
-    if(confirm("Are you sure you want to start your shop over from scratch?")) {
-        localStorage.clear();
-        location.reload();
-    }
+    localStorage.clear();
+    location.reload();
 }
-
-// Customer arrival loop
-setInterval(customerArrives, 4000);

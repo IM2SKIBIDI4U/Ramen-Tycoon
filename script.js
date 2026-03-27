@@ -1,53 +1,111 @@
-// Game State
-let money = 0;
-let bowlsSold = 0;
-let chefCount = 0;
-let chefCost = 50;
+// --- GAME STATE ---
+let gameState = {
+    money: 0,
+    unlockedItems: ["Basic Ramen"],
+    hasMiso: false
+};
 
-// DOM Elements
-const moneyDisplay = document.getElementById('money');
-const bowlsDisplay = document.getElementById('bowls');
-const chefCountDisplay = document.getElementById('chef-count');
-const cookBtn = document.getElementById('cook-btn');
-const buyChefBtn = document.getElementById('buy-chef');
+const seats = [
+    { occupied: false, order: "" },
+    { occupied: false, order: "" },
+    { occupied: false, order: "" }
+];
 
-// Cooking Logic
-function sellRamen() {
-    money += 10;
-    bowlsSold += 1;
-    updateDisplay();
-}
+// --- INITIALIZE ---
+loadGame();
+updateUI();
 
-// Upgrade Logic
-function buyChef() {
-    if (money >= chefCost) {
-        money -= chefCost;
-        chefCount++;
-        chefCost = Math.floor(chefCost * 1.5); // Increase price for next chef
-        updateDisplay();
+// --- CORE FUNCTIONS ---
+
+function customerArrives() {
+    // Find empty seats
+    const emptyIndices = [];
+    seats.forEach((s, i) => { if(!s.occupied) emptyIndices.push(i); });
+
+    if (emptyIndices.length > 0) {
+        const randomIndex = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
+        seats[randomIndex].occupied = true;
+        
+        // Randomly pick an item from unlocked menu
+        const menu = gameState.unlockedItems;
+        seats[randomIndex].order = menu[Math.floor(Math.random() * menu.length)];
+        
+        updateUI();
     }
 }
 
-// Update the UI
-function updateDisplay() {
-    moneyDisplay.innerText = money;
-    bowlsDisplay.innerText = bowlsSold;
-    chefCountDisplay.innerText = chefCount;
-    buyChefBtn.innerText = `Hire Apprentice (Cost: $${chefCost})`;
-    
-    // Disable upgrade button if not enough money
-    buyChefBtn.disabled = money < chefCost;
+function serveCustomer(index) {
+    const seat = seats[index];
+    if (seat.occupied) {
+        // Calculate Pay
+        let pay = 10;
+        if (seat.order === "Miso Ramen") pay = 25;
+        
+        gameState.money += pay;
+        seat.occupied = false;
+        seat.order = "";
+        
+        saveGame();
+        updateUI();
+    }
 }
 
-// Automatic Cooking (Idle Income)
-setInterval(() => {
-    if (chefCount > 0) {
-        money += (chefCount * 10);
-        bowlsSold += chefCount;
-        updateDisplay();
+function buyMiso() {
+    if (gameState.money >= 100 && !gameState.hasMiso) {
+        gameState.money -= 100;
+        gameState.hasMiso = true;
+        gameState.unlockedItems.push("Miso Ramen");
+        saveGame();
+        updateUI();
     }
-}, 1000);
+}
 
-// Event Listeners
-cookBtn.addEventListener('click', sellRamen);
-buyChefBtn.addEventListener('click', buyChef);
+// --- SYSTEM FUNCTIONS ---
+
+function updateUI() {
+    // Update Stats
+    document.getElementById('money').innerText = "$" + gameState.money;
+    document.getElementById('menu-list').innerText = gameState.unlockedItems.join(", ");
+
+    // Update Seats
+    seats.forEach((seat, i) => {
+        const seatEl = document.getElementById(`seat-${i}`);
+        if (seat.occupied) {
+            seatEl.classList.add('occupied');
+            seatEl.innerHTML = `👤<br><span class="order-tag">${seat.order}</span>`;
+        } else {
+            seatEl.classList.remove('occupied');
+            seatEl.innerHTML = "Empty";
+        }
+    });
+
+    // Update Button
+    const misoBtn = document.getElementById('buy-miso');
+    if (gameState.hasMiso) {
+        misoBtn.innerText = "Miso Unlocked!";
+        misoBtn.disabled = true;
+    } else {
+        misoBtn.disabled = gameState.money < 100;
+    }
+}
+
+function saveGame() {
+    localStorage.setItem('ramenTycoonSave', JSON.stringify(gameState));
+}
+
+function loadGame() {
+    const saved = localStorage.getItem('ramenTycoonSave');
+    if (saved) {
+        gameState = JSON.parse(saved);
+    }
+}
+
+function resetGame() {
+    if(confirm("Are you sure you want to start your shop over from scratch?")) {
+        localStorage.clear();
+        location.reload();
+    }
+}
+
+// Customer arrival loop
+setInterval(customerArrives, 4000);

@@ -4,6 +4,7 @@ body {
     display: flex;
     justify-content: center;
     padding: 20px;
+    overflow-x: hidden; /* Stops scrollbars during animations */
 }
 
 .game-container {
@@ -12,7 +13,7 @@ body {
     border-radius: 20px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.1);
     width: 100%;
-    max-width: 500px;
+    max-width: 600px;
     text-align: center;
 }
 
@@ -27,17 +28,36 @@ body {
     font-size: 1.1rem;
 }
 
+.restaurant-floor {
+    display: flex;
+    align-items: center;
+    background: #fafafa;
+    border: 2px solid #eee;
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 30px;
+    position: relative;
+}
+
+.door {
+    font-size: 1.5rem;
+    color: #888;
+    padding-right: 20px;
+    border-right: 4px solid #ddd;
+    margin-right: 20px;
+}
+
 #dining-area {
     display: flex;
     justify-content: center;
     gap: 15px;
-    margin: 40px 0;
+    flex-grow: 1;
 }
 
 .seat {
     width: 100px;
     height: 130px;
-    border: 3px dashed #ddd;
+    border: 3px dashed #ccc;
     border-radius: 15px;
     display: flex;
     flex-direction: column;
@@ -45,21 +65,53 @@ body {
     justify-content: center;
     cursor: pointer;
     background: #fff;
-    transition: 0.2s;
+    position: relative;
 }
 
-.seat.occupied {
-    border: 3px solid #e63946;
-    background-color: #fff5f5;
+.empty-text {
+    color: #ccc;
+    font-size: 0.9rem;
+}
+
+/* --- THE ANIMATIONS --- */
+
+.customer {
+    font-size: 2rem;
+    animation: walkIn 0.8s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .order-tag {
     color: #457b9d;
     font-size: 0.8rem;
     font-weight: bold;
-    margin-top: 10px;
+    background: white;
+    padding: 2px 6px;
+    border-radius: 10px;
+    border: 1px solid #457b9d;
+    margin-top: 5px;
 }
 
+/* Walking in from the left (the door) */
+@keyframes walkIn {
+    0% { transform: translateX(-250px) scale(0.5); opacity: 0; }
+    70% { transform: translateX(10px) scale(1.1); opacity: 1; }
+    100% { transform: translateX(0) scale(1); opacity: 1; }
+}
+
+/* Floating up when served */
+.served-anim {
+    animation: floatAway 0.5s ease-in forwards !important;
+}
+
+@keyframes floatAway {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(-50px) scale(1.5); opacity: 0; color: #2a9d8f; }
+}
+
+/* --- BUTTON STYLES --- */
 .upgrade-btn {
     background: #457b9d;
     color: white;
@@ -69,18 +121,10 @@ body {
     border-radius: 8px;
     cursor: pointer;
     width: 80%;
+    font-weight: bold;
+    transition: 0.2s;
 }
 
-.upgrade-btn:disabled {
-    background: #ccc;
-    cursor: not-allowed;
-}
-
-.reset-btn {
-    margin-top: 20px;
-    background: none;
-    border: none;
-    color: #999;
-    text-decoration: underline;
-    cursor: pointer;
-}
+.upgrade-btn:hover:not(:disabled) { transform: scale(1.05); }
+.upgrade-btn:disabled { background: #ccc; cursor: not-allowed; }
+.reset-btn { margin-top: 20px; background: none; border: none; color: #999; text-decoration: underline; cursor: pointer; }

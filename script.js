@@ -1,30 +1,34 @@
-// ==========================================
-// EXPANDED DATA & MENUS
-// ==========================================
-const TRACK_TABLES = []; let tCost = 50;
-for (let i = 2; i <= 1000; i++) { TRACK_TABLES.push({ name: `Table ${i}`, cost: tCost }); tCost = Math.floor(tCost * 1.5); }
-
-const RAMEN_NAMES = ["Basic Shoyu", "Miso Pork", "Spicy Tonkotsu", "Chicken Paitan", "Seafood Ramen", "Veggie Udon", "Truffle Ramen", "Wagyu Beef", "Dragon Fire", "Golden Emperor"];
-const TRACK_RECIPES = []; let rCost = 150; let rVal = 100;
-for (let i = 0; i < 100; i++) { 
-    let rName = RAMEN_NAMES[i] || `Legendary Tier ${i+1}`;
-    TRACK_RECIPES.push({ name: rName, cost: rCost, value: rVal }); 
-    rCost = Math.floor(rCost * 1.5); rVal = Math.floor(rVal * 1.3); 
+const TRACK_TABLES = []; let tCost = 100;
+for (let i = 2; i <= 1000; i++) { 
+    TRACK_TABLES.push({ name: `Table ${i}`, cost: tCost }); 
+    tCost = Math.floor(tCost * 1.8); 
 }
 
-const TRACK_AUTO = [{ name: "Hire Monkey Waiter", cost: 1000 }];
+const RAMEN_NAMES = ["Basic Shoyu", "Miso Pork", "Spicy Tonkotsu", "Chicken Paitan", "Seafood Ramen", "Veggie Udon", "Truffle Ramen", "Wagyu Beef", "Dragon Fire", "Golden Emperor"];
+const TRACK_RECIPES = []; let rCost = 300; let rVal = 100;
+for (let i = 0; i < 100; i++) { 
+    let rName = RAMEN_NAMES[i] || `Tier ${i+1} Ramen`;
+    TRACK_RECIPES.push({ name: rName, cost: rCost, value: rVal }); 
+    rCost = Math.floor(rCost * 2.0); 
+    rVal = Math.floor(rVal * 1.5); 
+}
+
+const TRACK_AUTO = [{ name: "Monkey Waiters", cost: 1000 }];
 
 const TRACK_SPECIAL = [
-    { name: "Neon Sign (Faster Spawns)", cost: 2000 },
-    { name: "Comfy Chairs (+VIP Chance)", cost: 5000 },
+    { name: "Neon Sign (Fast Spawns)", cost: 2000 },
+    { name: "Comfy Chairs (+VIP)", cost: 5000 },
     { name: "Bulk Noodles (Half Price)", cost: 10000 },
     { name: "Bulk Broth (Half Price)", cost: 15000 },
-    { name: "Tip Jar (+10% Pay)", cost: 25000 },
-    { name: "Arcade Machine ($/sec)", cost: 50000 },
-    { name: "Fast Shoes (Monkey x2 Speed)", cost: 100000 },
-    { name: "Golden Pots (x2 Pay)", cost: 500000 },
-    { name: "Secret Spice (+50% Pay)", cost: 1000000 },
-    { name: "Gold Leaf (+20% VIP)", cost: 5000000 }
+    { name: "Boba Bar (Passive Income)", cost: 30000 },
+    { name: "Tip Jar (+10% Pay)", cost: 75000 },
+    { name: "Arcade Machine ($/sec)", cost: 150000 },
+    { name: "Fast Shoes (Monkey x2 Speed)", cost: 500000 },
+    { name: "Security Gorilla (10s Tax)", cost: 2000000 },
+    { name: "Golden Pots (x2 Pay)", cost: 10000000 },
+    { name: "Secret Spice (+50% Pay)", cost: 50000000 },
+    { name: "Gold Leaf (+VIP)", cost: 250000000 },
+    { name: "Franchise License (10x Profit)", cost: 100000000000 }
 ];
 
 let game = {
@@ -32,7 +36,7 @@ let game = {
     idxTable: 0, idxRecipe: 0, idxAuto: 0, idxSpecial: 0,
     currentMenuPrice: 50, chefOwned: false,
     inv: { noodle: 10, broth: 10, spice: 10, egg: 10 },
-    upgrades: { fastSpawn: false, comfyChairs: false, cheapNoodle: false, cheapBroth: false, tipJar: false, arcade: false, fastMonkey: false, goldenPots: false, secretSpice: false, goldLeaf: false }
+    upgrades: { fastSpawn: false, comfyChairs: false, cheapNoodle: false, cheapBroth: false, bobaBar: false, tipJar: false, arcade: false, fastMonkey: false, security: false, goldenPots: false, secretSpice: false, goldLeaf: false, franchise: false }
 };
 
 const shirtColors = ["#a2d2ff", "#ffc8dd", "#bde0fe", "#fdcb6e", "#00cec9"];
@@ -42,9 +46,6 @@ let currentTaxBracket = 1000000;
 let taxActive = false;
 let taxTimer = 100;
 
-// ==========================================
-// TABS & INIT
-// ==========================================
 function switchTab(tab) {
     document.getElementById('view-dining').classList.remove('active-view');
     document.getElementById('view-kitchen').classList.remove('active-view');
@@ -65,12 +66,9 @@ function initTables() {
     }
 }
 
-// ==========================================
-// CUSTOMER FLOW & QUEUE
-// ==========================================
 function customerArrives() {
     if (waitList.length < 15) {
-        const isVIP = Math.random() < (game.upgrades.goldLeaf ? 0.30 : (game.upgrades.comfyChairs ? 0.10 : 0.05));
+        const isVIP = Math.random() < (game.upgrades.goldLeaf ? 0.05 : 0.01);
         waitList.push(isVIP ? "🐼" : "🐒");
         renderWaitList();
     }
@@ -89,32 +87,37 @@ function checkEmptySeats() {
         if (!seats[i].occupied) {
             const char = waitList.shift();
             renderWaitList();
-            spawnWalkingCustomer(i, char);
+            spawnWalkingCustomer(i, char); // Triggers the animation
             break; 
         }
     }
 }
 
+// 🌟 THE WALKING IN ANIMATION 🌟
 function spawnWalkingCustomer(seatIdx, char) {
-    seats[seatIdx].occupied = true; // Reserve it instantly so others don't take it
+    seats[seatIdx].occupied = true; // Reserve the seat so no one else takes it
     seats[seatIdx].patience = 100;
     
     const walker = document.createElement('div');
     walker.className = "walking-customer waddle-anim";
     walker.innerText = char;
     
+    // Start at the door
     const door = document.querySelector('.door-frame');
     const doorRect = door.getBoundingClientRect();
     walker.style.left = (doorRect.left + doorRect.width/2 - 15) + "px";
     walker.style.top = doorRect.top + "px";
     document.body.appendChild(walker);
 
+    // Wait 50ms for CSS to apply, then move to the table
     setTimeout(() => {
         const seatEl = document.getElementById(`seat-${seatIdx}`);
         const seatRect = seatEl.getBoundingClientRect();
+        
         walker.style.left = seatRect.left + "px";
         walker.style.top = (seatRect.top + 10) + "px";
 
+        // Wait 1.5 seconds for the walking to finish, then sit them down
         setTimeout(() => {
             walker.remove();
             seats[seatIdx].isVIP = (char === "🐼");
@@ -123,14 +126,11 @@ function spawnWalkingCustomer(seatIdx, char) {
             seats[seatIdx].needsToPay = false;
             seats[seatIdx].cookStep = 0;
             seats[seatIdx].colorIndex = Math.floor(Math.random() * shirtColors.length);
-            updateUI();
-        }, 1200);
+            updateUI(); // Customer visually appears at the table
+        }, 1500);
     }, 50);
 }
 
-// ==========================================
-// INTERACTION LOGIC
-// ==========================================
 function handleTableClick(index) {
     let seat = seats[index];
     if (!seat.occupied) return;
@@ -162,22 +162,25 @@ function collectPayment(index) {
     if(game.upgrades.tipJar) multiplier += 0.1;
     if(game.upgrades.goldenPots) multiplier *= 2;
     if(game.upgrades.secretSpice) multiplier *= 1.5;
+    if(game.upgrades.franchise) multiplier *= 10; 
     
     game.wallet += (game.currentMenuPrice * multiplier);
     checkTaxMilestone();
     
-    spawnLeavingCustomer(index, seat.isVIP ? "🐼" : "🐒");
+    spawnLeavingCustomer(index, seat.isVIP ? "🐼" : "🐒"); // Triggers leaving animation
     seat.occupied = false;
     seat.needsToPay = false;
     
     saveGame(); updateUI();
 }
 
+// 🌟 THE LEAVING ANIMATION 🌟
 function spawnLeavingCustomer(seatIdx, char) {
     const walker = document.createElement('div');
     walker.className = "leaving-customer waddle-anim";
     walker.innerText = char;
     
+    // Start at the table
     const seatEl = document.getElementById(`seat-${seatIdx}`);
     const seatRect = seatEl.getBoundingClientRect();
     walker.style.left = seatRect.left + "px";
@@ -187,6 +190,7 @@ function spawnLeavingCustomer(seatIdx, char) {
     const door = document.querySelector('.door-frame');
     const doorRect = door.getBoundingClientRect();
 
+    // Walk to the door and fade out
     setTimeout(() => {
         walker.style.left = (doorRect.left + doorRect.width/2 - 15) + "px";
         walker.style.top = doorRect.top + "px";
@@ -195,9 +199,6 @@ function spawnLeavingCustomer(seatIdx, char) {
     }, 50);
 }
 
-// ==========================================
-// KITCHEN COOKING (PLAYER'S JOB)
-// ==========================================
 function buyIngredient(type, amount, cost) {
     if (type === 'noodle' && game.upgrades.cheapNoodle) cost = Math.floor(cost / 2);
     if (type === 'broth' && game.upgrades.cheapBroth) cost = Math.floor(cost / 2);
@@ -245,9 +246,6 @@ function clickStove(index) {
     updateUI(); updateKitchenUI();
 }
 
-// ==========================================
-// MONKEY WAITER (DINING ROOM AUTOMATION)
-// ==========================================
 function runMonkeyLoop() {
     if(game.chefOwned) {
         for(let i = 0; i < game.tablesOwned; i++) {
@@ -287,35 +285,37 @@ function animateMonkeyChefToTable(index) {
     }, 50);
 }
 
-// ==========================================
-// PATIENCE SYSTEM
-// ==========================================
 setInterval(() => {
+    let seatedCount = 0;
     seats.forEach((seat, i) => {
-        if (seat.occupied && !seat.isCooking) {
-            seat.patience -= 1.5; 
-            
-            let bar = document.getElementById(`patience-bar-${i}`);
-            if (bar) {
-                bar.style.width = seat.patience + "%";
-                if(seat.patience < 30) bar.style.backgroundColor = "#d63031";
-                else bar.style.backgroundColor = "#00b894";
-            }
+        if (seat.occupied) {
+            seatedCount++;
+            if (!seat.isCooking) {
+                seat.patience -= 1.5; 
+                let bar = document.getElementById(`patience-bar-${i}`);
+                if (bar) {
+                    bar.style.width = seat.patience + "%";
+                    if(seat.patience < 30) bar.style.backgroundColor = "#d63031";
+                    else bar.style.backgroundColor = "#00b894";
+                }
 
-            if (seat.patience <= 0) {
-                seat.occupied = false;
-                seat.needsMenu = false;
-                seat.needsToPay = false;
-                spawnLeavingCustomer(i, "💢"); 
-                updateUI(); updateKitchenUI();
+                if (seat.patience <= 0) {
+                    seat.occupied = false;
+                    seat.needsMenu = false;
+                    seat.needsToPay = false;
+                    spawnLeavingCustomer(i, "💢"); // Leaves angry if out of patience
+                    updateUI(); updateKitchenUI();
+                }
             }
         }
     });
+
+    if(game.upgrades.bobaBar && seatedCount > 0) {
+        game.wallet += (seatedCount * 2);
+        updateUI();
+    }
 }, 200);
 
-// ==========================================
-// THE ENFORCER BOSS
-// ==========================================
 function checkTaxMilestone() {
     if (!taxActive && game.wallet >= currentTaxBracket) {
         triggerTaxEvent();
@@ -324,14 +324,15 @@ function checkTaxMilestone() {
 
 function triggerTaxEvent() {
     taxActive = true;
-    taxTimer = 100;
+    taxTimer = game.upgrades.security ? 200 : 100; 
     
     document.getElementById('enforcer-overlay').classList.remove('hidden');
     document.getElementById('tax-amount').innerText = "$" + formatMoney(currentTaxBracket);
     
     let taxInterval = setInterval(() => {
         taxTimer -= 2; 
-        document.getElementById('tax-timer-fill').style.width = taxTimer + "%";
+        let percent = game.upgrades.security ? (taxTimer/200)*100 : taxTimer;
+        document.getElementById('tax-timer-fill').style.width = percent + "%";
         
         if (taxTimer <= 0) {
             clearInterval(taxInterval);
@@ -356,26 +357,29 @@ function raidRestaurant() {
     location.reload();
 }
 
-// ==========================================
-// UPGRADES & UI RENDERING
-// ==========================================
 function buyTable() { let u = TRACK_TABLES[game.idxTable]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.tablesOwned++; game.idxTable++; saveGame(); updateUI(); updateKitchenUI(); } }
 function buyRecipe() { let u = TRACK_RECIPES[game.idxRecipe]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.currentMenuPrice = u.value; document.getElementById('stat-menu').innerText = u.name + ` ($${formatMoney(u.value)})`; game.idxRecipe++; saveGame(); updateUI(); } }
 function buyAuto() { let u = TRACK_AUTO[game.idxAuto]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.chefOwned = true; game.idxAuto++; saveGame(); updateUI(); runMonkeyLoop(); } }
+
 function buySpecial() { 
     let u = TRACK_SPECIAL[game.idxSpecial]; 
     if (u && game.wallet >= u.cost) { 
         game.wallet -= u.cost; 
-        if(game.idxSpecial === 0) game.upgrades.fastSpawn = true;
-        if(game.idxSpecial === 1) game.upgrades.comfyChairs = true;
-        if(game.idxSpecial === 2) game.upgrades.cheapNoodle = true;
-        if(game.idxSpecial === 3) game.upgrades.cheapBroth = true;
-        if(game.idxSpecial === 4) game.upgrades.tipJar = true;
-        if(game.idxSpecial === 5) game.upgrades.arcade = true;
-        if(game.idxSpecial === 6) game.upgrades.fastMonkey = true;
-        if(game.idxSpecial === 7) game.upgrades.goldenPots = true;
-        if(game.idxSpecial === 8) game.upgrades.secretSpice = true;
-        if(game.idxSpecial === 9) game.upgrades.goldLeaf = true;
+        switch(game.idxSpecial) {
+            case 0: game.upgrades.fastSpawn = true; break;
+            case 1: game.upgrades.comfyChairs = true; break;
+            case 2: game.upgrades.cheapNoodle = true; break;
+            case 3: game.upgrades.cheapBroth = true; break;
+            case 4: game.upgrades.bobaBar = true; break;
+            case 5: game.upgrades.tipJar = true; break;
+            case 6: game.upgrades.arcade = true; break;
+            case 7: game.upgrades.fastMonkey = true; break;
+            case 8: game.upgrades.security = true; break;
+            case 9: game.upgrades.goldenPots = true; break;
+            case 10: game.upgrades.secretSpice = true; break;
+            case 11: game.upgrades.goldLeaf = true; break;
+            case 12: game.upgrades.franchise = true; break;
+        }
         game.idxSpecial++; saveGame(); updateUI(); 
     } 
 }
@@ -420,6 +424,8 @@ function updateUI() {
             if (seat.isVIP) html += `<div class="vip-panda">🐼</div>`;
             else html += `<div class="customer-wrapper"><div class="person"><div class="head"></div><div class="body" style="background: ${shirtColors[seat.colorIndex]};"></div></div></div>`;
             
+            if(game.upgrades.bobaBar) html += `<div style="position:absolute; bottom:25px; left:5px; font-size:1rem; z-index:3;">🧋</div>`;
+
             if (seat.isCooking) html += `<span class="status-text cooking">Cooking</span>`;
             else if (seat.needsMenu) html += `<span class="status-text order" style="color:#e67e22;">Menu?</span>`;
             else if (seat.needsToPay) html += `<span class="status-text order" style="color:#05c46b;">Pay</span>`;
@@ -459,9 +465,6 @@ function updateKitchenUI() {
     });
 }
 
-// ==========================================
-// GOD PANEL CHEATS
-// ==========================================
 let typed = "";
 document.addEventListener('keydown', (e) => {
     typed += e.key.toLowerCase();
@@ -483,17 +486,13 @@ function adminForceVIPs() {
 }
 function closeAdmin() { document.getElementById('admin-panel').classList.add('hidden'); }
 
-// ==========================================
-// SAVE/LOAD
-// ==========================================
-function saveGame() { localStorage.setItem('RamenGodChef_V2', JSON.stringify({ game, currentTaxBracket })); }
+function saveGame() { localStorage.setItem('RamenGodChef_V5', JSON.stringify({ game, currentTaxBracket })); }
 function loadGame() { 
-    let s = localStorage.getItem('RamenGodChef_V2'); 
+    let s = localStorage.getItem('RamenGodChef_V5'); 
     if(s) { 
         let parsed = JSON.parse(s);
         game = { ...game, ...parsed.game }; 
         if(parsed.currentTaxBracket) currentTaxBracket = parsed.currentTaxBracket;
-        if(!game.upgrades) game.upgrades = { fastSpawn: false, comfyChairs: false, cheapNoodle: false, cheapBroth: false, tipJar: false, arcade: false, fastMonkey: false, goldenPots: false, secretSpice: false, goldLeaf: false };
         if(game.idxRecipe > 0) document.getElementById('stat-menu').innerText = TRACK_RECIPES[game.idxRecipe-1].name + ` ($${formatMoney(game.currentMenuPrice)})`;
     } 
 }

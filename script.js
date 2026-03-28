@@ -10,15 +10,16 @@ for (let i = 1; i <= 100; i++) { TRACK_RECIPES.push({ name: `Recipe Tier ${i}`, 
 const TRACK_AUTO = [{ name: "Hire Kitchen Monkey", cost: 500 }];
 
 let game = {
-    wallet: 0, tablesOwned: 1,
+    wallet: 100, // Start with a little money to buy first ingredients
+    tablesOwned: 1,
     idxTable: 0, idxRecipe: 0, idxAuto: 0,
-    currentMenuPrice: 50, chefOwned: false
+    currentMenuPrice: 50, chefOwned: false,
+    // NEW: Inventory System (Start with enough for 10 bowls)
+    inv: { noodle: 10, broth: 10, spice: 10, egg: 10 }
 };
 
-const COOK_TIME_MS = 5000; // EXACTLY 5 SECONDS TO COOK
+const COOK_TIME_MS = 5000; // EXACTLY 5 SECONDS
 const shirtColors = ["#a2d2ff", "#ffc8dd", "#bde0fe", "#fdcb6e", "#00cec9"];
-
-// Added isVIP flag to track if the Red Panda is sitting there
 let seats = Array.from({length: 50}, () => ({ occupied: false, isCooking: false, colorIndex: 0, isVIP: false }));
 
 // ==========================================
@@ -37,6 +38,19 @@ function initTables() {
 }
 
 // ==========================================
+// PANTRY LOGIC
+// ==========================================
+function buyIngredient(type, amount, cost) {
+    if (game.wallet >= cost) {
+        game.wallet -= cost;
+        game.inv[type] += amount;
+        document.getElementById('out-of-stock-msg').classList.add('hidden'); // Hide warning if shown
+        updateUI();
+        saveGame();
+    }
+}
+
+// ==========================================
 // GAMEPLAY LOGIC
 // ==========================================
 function customerArrives() {
@@ -45,39 +59,58 @@ function customerArrives() {
     
     if (emptySeats.length > 0) {
         let r = emptySeats[Math.floor(Math.random() * emptySeats.length)];
-        seats[r].occupied = true; 
-        seats[r].isCooking = false;
+        seats[r].occupied = true; seats[r].isCooking = false;
         seats[r].colorIndex = Math.floor(Math.random() * shirtColors.length);
-        
-        // 5% Chance for VIP Red Panda to spawn!
-        seats[r].isVIP = Math.random() < 0.05; 
-        
+        seats[r].isVIP = Math.random() < 0.05; // 5% chance VIP
         updateUI();
     }
-    setTimeout(customerArrives, 2000); // New customer every 2 seconds
+    setTimeout(customerArrives, 2000);
 }
 
 function startCooking(index) {
+    // 1. CHECK INVENTORY FIRST
     if (seats[index].occupied && !seats[index].isCooking) {
+        if (game.inv.noodle < 1 || game.inv.broth < 1 || game.inv.spice < 1 || game.inv.egg < 1) {
+            document.getElementById('out-of-stock-msg').classList.remove('hidden');
+            return false; // Failed to start
+        }
+
+        // Deduct ingredients
+        game.inv.noodle--; game.inv.broth--; game.inv.spice--; game.inv.egg--;
         seats[index].isCooking = true;
         
-        // Spawn the pot and egg IN THE KITCHEN
+        // Spawn the BOWL in the kitchen
         let stoves = document.getElementById('stoves-container');
-        let pot = document.createElement('div');
-        pot.className = 'kitchen-pot';
-        pot.id = `pot-${index}`;
-        pot.innerHTML = `
-            <div class="egg-drop">🥚</div>
+        let bowl = document.createElement('div');
+        bowl.className = 'cooking-bowl step-1';
+        bowl.id = `bowl-${index}`;
+        bowl.innerHTML = `
+            <div class="bowl-label" id="label-${index}">Boiling...</div>
             <div class="pot-bar-container"><div class="pot-bar" id="bar-${index}"></div></div>
         `;
-        stoves.appendChild(pot);
+        stoves.appendChild(bowl);
         
         let startTime = Date.now();
+        let eggDropped = false;
+
         let cookInterval = setInterval(() => {
             let elapsed = Date.now() - startTime;
             let percent = (elapsed / COOK_TIME_MS) * 100;
             let bar = document.getElementById(`bar-${index}`);
             if(bar) bar.style.width = percent + "%";
+
+            // VISUAL COOKING PHASES
+            if (elapsed > 1500 && elapsed < 3000) {
+                bowl.className = 'cooking-bowl step-2';
+                document.getElementById(`label-${index}`).innerText = "Seasoning...";
+            }
+            if (elapsed >= 3000 && !eggDropped) {
+                eggDropped = true; // Prevents spamming the animation
+                bowl.className = 'cooking-bowl step-3';
+                document.getElementById(`label-${index}`).innerText = "Adding Egg...";
+                // TRIGGER THE EGG ANIMATION
+                bowl.innerHTML += `<div class="egg-drop">🥚</div>`;
+            }
 
             if (elapsed >= COOK_TIME_MS) {
                 clearInterval(cookInterval);
@@ -85,24 +118,23 @@ function startCooking(index) {
             }
         }, 50);
         
-        updateUI(); // Updates the table text to "Wait..."
+        updateUI(); 
+        return true; // Successfully started
     }
+    return false;
 }
 
 function finishCooking(index) {
     if (seats[index].occupied && seats[index].isCooking) {
-        // VIP pays 10x the normal amount
         let multiplier = seats[index].isVIP ? 10 : 1;
         game.wallet += (game.currentMenuPrice * multiplier);
         
-        // Clear the table
         seats[index].occupied = false; 
         seats[index].isCooking = false;
         seats[index].isVIP = false;
         
-        // Remove the pot from the kitchen
-        let pot = document.getElementById(`pot-${index}`);
-        if(pot) pot.remove();
+        let bowl = document.getElementById(`bowl-${index}`);
+        if(bowl) bowl.remove();
 
         saveGame(); updateUI();
     }
@@ -113,17 +145,20 @@ function runMonkeyLoop() {
     if(game.chefOwned) {
         for(let i=0; i < game.tablesOwned; i++) {
             if(seats[i].occupied && !seats[i].isCooking) {
-                // Monkey appears on the table to take the order, which sends the food to the kitchen
-                let seatEl = document.getElementById(`seat-${i}`);
-                if(seatEl) {
-                    let monkey = document.createElement('div');
-                    monkey.className = "monkey-chef";
-                    monkey.innerText = "🐒";
-                    seatEl.appendChild(monkey);
-                    setTimeout(() => monkey.remove(), 500); // Monkey jumps away
+                // If startCooking returns true, the monkey successfully cooked.
+                // If it returns false (out of ingredients), the monkey stops and waits for you to buy more.
+                let success = startCooking(i);
+                if (success) {
+                    let seatEl = document.getElementById(`seat-${i}`);
+                    if(seatEl) {
+                        let monkey = document.createElement('div');
+                        monkey.className = "monkey-chef";
+                        monkey.innerText = "🐒";
+                        seatEl.appendChild(monkey);
+                        setTimeout(() => monkey.remove(), 500);
+                    }
+                    break; 
                 }
-                startCooking(i);
-                break; // Monkey takes one order at a time
             }
         }
     }
@@ -131,15 +166,12 @@ function runMonkeyLoop() {
 }
 
 // ==========================================
-// UPGRADES
+// UPGRADES & UI
 // ==========================================
 function buyTable() { let u = TRACK_TABLES[game.idxTable]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.tablesOwned++; game.idxTable++; saveGame(); updateUI(); } }
 function buyRecipe() { let u = TRACK_RECIPES[game.idxRecipe]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.currentMenuPrice = u.value; game.idxRecipe++; saveGame(); updateUI(); } }
 function buyAuto() { let u = TRACK_AUTO[game.idxAuto]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.chefOwned = true; game.idxAuto++; saveGame(); updateUI(); runMonkeyLoop(); } }
 
-// ==========================================
-// UI & SYSTEMS
-// ==========================================
 function formatMoney(n) {
     if (n >= 1e12) return (n / 1e12).toFixed(2) + "T";
     if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
@@ -160,31 +192,28 @@ function updateUI() {
     document.getElementById('money').innerText = "$" + formatMoney(game.wallet);
     document.getElementById('stat-menu').innerText = `Tier ${game.idxRecipe} ($${formatMoney(game.currentMenuPrice)})`;
 
+    // Update Inventory UI
+    document.getElementById('inv-noodle').innerText = game.inv.noodle;
+    document.getElementById('inv-broth').innerText = game.inv.broth;
+    document.getElementById('inv-spice').innerText = game.inv.spice;
+    document.getElementById('inv-egg').innerText = game.inv.egg;
+
     seats.forEach((seat, i) => {
         let el = document.getElementById(`seat-${i}`); if (!el) return;
         if (i >= game.tablesOwned) { el.classList.add('locked'); return; } else { el.classList.remove('locked'); }
         
         let html = "";
-        
         if (seat.occupied) {
-            // Check if VIP or Normal Customer
-            if (seat.isVIP) {
-                html += `<div class="vip-panda">🐼</div>`;
-            } else {
-                html += `<div class="customer-wrapper"><div class="person"><div class="head"></div><div class="body" style="background: ${shirtColors[seat.colorIndex]};"></div></div></div>`;
-            }
-            // Check if cooking
-            if (seat.isCooking) {
-                html += `<span class="status-text cooking">Wait...</span>`;
-            } else {
-                html += `<span class="status-text order">Click!</span>`;
-            }
+            if (seat.isVIP) html += `<div class="vip-panda">🐼</div>`;
+            else html += `<div class="customer-wrapper"><div class="person"><div class="head"></div><div class="body" style="background: ${shirtColors[seat.colorIndex]};"></div></div></div>`;
+            
+            if (seat.isCooking) html += `<span class="status-text cooking">Wait...</span>`;
+            else html += `<span class="status-text order">Click!</span>`;
         } else {
             html += `<span class="status-text empty">Empty</span>`;
         }
         html += `<div class="belt-strip"></div>`;
         
-        // Prevent flickering by only replacing HTML if it has changed
         let stateString = `${seat.occupied}-${seat.isCooking}-${seat.isVIP}`;
         if (el.getAttribute('data-state') !== stateString) {
             el.innerHTML = html;
@@ -207,13 +236,26 @@ document.addEventListener('keydown', (e) => {
 });
 function cheatMoney(amt) { game.wallet += amt; saveGame(); updateUI(); }
 function adminMaxTables() { game.tablesOwned = 50; game.idxTable = 50; saveGame(); updateUI(); }
+function adminMaxIngredients() { 
+    game.inv.noodle += 1000; game.inv.broth += 1000; game.inv.spice += 1000; game.inv.egg += 1000; 
+    document.getElementById('out-of-stock-msg').classList.add('hidden');
+    saveGame(); updateUI(); 
+}
 function closeAdmin() { document.getElementById('admin-panel').classList.add('hidden'); }
 
 // ==========================================
 // SAVE/LOAD
 // ==========================================
-function saveGame() { localStorage.setItem('RamenVIPKitchen_V1', JSON.stringify(game)); }
-function loadGame() { let s = localStorage.getItem('RamenVIPKitchen_V1'); if(s) { game = { ...game, ...JSON.parse(s) }; } }
+function saveGame() { localStorage.setItem('RamenMasterChef_V1', JSON.stringify(game)); }
+function loadGame() { 
+    let s = localStorage.getItem('RamenMasterChef_V1'); 
+    if(s) { 
+        let parsed = JSON.parse(s);
+        game = { ...game, ...parsed }; 
+        // Ensure inventory exists for older saves
+        if(!game.inv) game.inv = { noodle: 10, broth: 10, spice: 10, egg: 10 };
+    } 
+}
 function resetGame() { localStorage.clear(); location.reload(); }
 
 initTables(); loadGame(); updateUI(); customerArrives();

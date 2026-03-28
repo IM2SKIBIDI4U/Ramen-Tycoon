@@ -15,7 +15,20 @@ for (let i = 0; i < 100; i++) {
     rVal = Math.floor(rVal * 1.5); 
 }
 
-// 3. BRAND NEW 10-TIER MONKEY UPGRADES!
+// BRAND NEW WOK TRACK (Scales perfectly with mid-to-late game)
+const TRACK_WOK = [
+    { name: "Double Wok (Cook 2x)", cost: 100000 },
+    { name: "Triple Wok (Cook 3x)", cost: 500000 },
+    { name: "Quad Wok (Cook 4x)", cost: 2000000 },
+    { name: "Penta Wok (Cook 5x)", cost: 10000000 },
+    { name: "Hexa Wok (Cook 6x)", cost: 50000000 },
+    { name: "Hepta Wok (Cook 7x)", cost: 250000000 },
+    { name: "Octa Wok (Cook 8x)", cost: 1000000000 },
+    { name: "Nona Wok (Cook 9x)", cost: 5000000000 },
+    { name: "Deca Wok (Cook 10x)", cost: 25000000000 }
+];
+
+// 3. 10-TIER MONKEY UPGRADES!
 const TRACK_AUTO = [
     { name: "Hire Monkey Waiter", cost: 1500 },
     { name: "Rollerblades", cost: 7500 },
@@ -29,7 +42,7 @@ const TRACK_AUTO = [
     { name: "Ascended Monkeys", cost: 1000000000 }
 ];
 
-// 4. BUSINESS UPGRADES (Removed fastMonkey since it has its own track now, adjusted costs)
+// Cleaned up Special track (Removed old woks)
 const TRACK_SPECIAL = [
     { name: "Neon Sign (Fast Spawns)", cost: 3000 },
     { name: "Comfy Chairs (+VIP)", cost: 8000 },
@@ -38,9 +51,8 @@ const TRACK_SPECIAL = [
     { name: "Boba Bar (Passive Income)", cost: 60000 },
     { name: "Tip Jar (+10% Pay)", cost: 120000 },
     { name: "Arcade Machine ($/sec)", cost: 250000 },
-    { name: "Premium Ingredients (+20%)", cost: 750000 }, // Replaced FastMonkey
+    { name: "Premium Ingredients (+20%)", cost: 750000 },
     { name: "Security Gorilla (10s Tax)", cost: 3000000 },
-    { name: "Batch Wok (Cook 5x)", cost: 8000000 },
     { name: "Golden Pots (x2 Pay)", cost: 25000000 },
     { name: "Secret Spice (+50% Pay)", cost: 100000000 },
     { name: "Gold Leaf (+VIP)", cost: 500000000 },
@@ -48,11 +60,12 @@ const TRACK_SPECIAL = [
 ];
 
 const defaultInv = { noodle: 10, broth: 10, spice: 10, egg: 10 };
-const defaultUpgrades = { fastSpawn: false, comfyChairs: false, cheapNoodle: false, cheapBroth: false, bobaBar: false, tipJar: false, arcade: false, premiumIng: false, security: false, batchCooking: false, goldenPots: false, secretSpice: false, goldLeaf: false, franchise: false };
+// Removed old woks from defaults too
+const defaultUpgrades = { fastSpawn: false, comfyChairs: false, cheapNoodle: false, cheapBroth: false, bobaBar: false, tipJar: false, arcade: false, premiumIng: false, security: false, goldenPots: false, secretSpice: false, goldLeaf: false, franchise: false };
 
 let game = {
     wallet: 150, tablesOwned: 1,
-    idxTable: 0, idxRecipe: 0, idxAuto: 0, idxSpecial: 0,
+    idxTable: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxSpecial: 0,
     currentMenuPrice: 50,
     inv: { ...defaultInv },
     upgrades: { ...defaultUpgrades }
@@ -159,7 +172,7 @@ function handleTableClick(index) {
         seat.needsMenu = false;
         seat.patience = 100;
         updateUI();
-    } else if (seat.needsServing) { // NEW SERVE MECHANIC
+    } else if (seat.needsServing) {
         seat.needsServing = false;
         seat.needsToPay = true;
         seat.patience = 100;
@@ -260,16 +273,20 @@ function clickStove(index) {
         
         setTimeout(() => {
             seat.isCooking = false;
-            seat.needsServing = true; // NEW: Needs to be walked to table
+            seat.needsServing = true; 
             seat.patience = 100;
 
-            if (game.upgrades.batchCooking) {
+            // NEW WOK MAGIC: game.idxWok perfectly matches how many EXTRA bowls to serve!
+            // Lvl 0 = 0 extra, Lvl 1 = 1 extra (2 total), etc.
+            let maxExtra = game.idxWok; 
+
+            if (maxExtra > 0) {
                 let extraServed = 0;
                 for (let j = 0; j < game.tablesOwned; j++) {
-                    if (extraServed >= 4) break; 
+                    if (extraServed >= maxExtra) break; 
                     if (j !== index && seats[j].occupied && seats[j].isCooking) {
                         seats[j].isCooking = false;
-                        seats[j].needsServing = true; // Also goes to needsServing
+                        seats[j].needsServing = true; 
                         seats[j].patience = 100;
                         extraServed++;
                     }
@@ -283,17 +300,15 @@ function clickStove(index) {
 }
 
 function runMonkeyLoop() {
-    if(game.idxAuto > 0) { // Monkeys owned
+    if(game.idxAuto > 0) {
         for(let i = 0; i < game.tablesOwned; i++) {
             let s = seats[i];
-            // Monkeys handle Menu, Serving Food, and Collecting Pay. They DO NOT cook.
             if(s.occupied && (s.needsMenu || s.needsServing || (!s.isCooking && !s.needsServing && !s.needsToPay) || s.needsToPay)) {
                 animateMonkeyChefToTable(i);
                 break;
             }
         }
     }
-    // Monkey Speed Scaling (starts super slow at 3 seconds, goes down to 0.1 seconds)
     const speeds = [9999, 3000, 2500, 2000, 1500, 1000, 800, 600, 400, 200, 100];
     let loopSpeed = speeds[game.idxAuto] || 3000;
     
@@ -407,7 +422,7 @@ function buyAuto() {
     if (u && game.wallet >= u.cost) { 
         game.wallet -= u.cost; 
         game.idxAuto++; 
-        if (game.idxAuto === 1) runMonkeyLoop(); // Kick off the loop if first monkey
+        if (game.idxAuto === 1) runMonkeyLoop();
         saveGame(); updateUI(); 
     } 
 }
@@ -416,12 +431,21 @@ function buySpecial() {
     let u = TRACK_SPECIAL[game.idxSpecial]; 
     if (u && game.wallet >= u.cost) { 
         game.wallet -= u.cost; 
-        const specialKeys = ["fastSpawn", "comfyChairs", "cheapNoodle", "cheapBroth", "bobaBar", "tipJar", "arcade", "premiumIng", "security", "batchCooking", "goldenPots", "secretSpice", "goldLeaf", "franchise"];
-        let upgradeName = specialKeys[game.idxSpecial];
-        game.upgrades[upgradeName] = true;
+        const specialKeys = ["fastSpawn", "comfyChairs", "cheapNoodle", "cheapBroth", "bobaBar", "tipJar", "arcade", "premiumIng", "security", "goldenPots", "secretSpice", "goldLeaf", "franchise"];
+        game.upgrades[specialKeys[game.idxSpecial]] = true;
         game.idxSpecial++; 
         saveGame(); updateUI(); 
     } 
+}
+
+// NEW BUY WOK FUNCTION
+function buyWok() {
+    let u = TRACK_WOK[game.idxWok];
+    if (u && game.wallet >= u.cost) {
+        game.wallet -= u.cost;
+        game.idxWok++;
+        saveGame(); updateUI();
+    }
 }
 
 setInterval(() => { if(game.upgrades.arcade) { game.wallet += 10; updateUI(); } }, 1000);
@@ -483,6 +507,7 @@ function updateUI() {
 
     renderPad('pad-table', TRACK_TABLES, game.idxTable, 'buyTable', '🪑 TABLES');
     renderPad('pad-recipe', TRACK_RECIPES, game.idxRecipe, 'buyRecipe', '🍲 RECIPES');
+    renderPad('pad-wok', TRACK_WOK, game.idxWok, 'buyWok', '🍳 THE WOK'); // NEW RENDER CALL
     renderPad('pad-auto', TRACK_AUTO, game.idxAuto, 'buyAuto', '🐒 STAFF');
     renderPad('pad-special', TRACK_SPECIAL, game.idxSpecial, 'buySpecial', '✨ BUSINESS');
 }
@@ -528,7 +553,7 @@ function adminForceVIPs() {
 }
 function closeAdmin() { document.getElementById('admin-panel').classList.add('hidden'); }
 
-// DEEP MERGE SYSTEM
+// DEEP MERGE SYSTEM + LEGACY CONVERTER
 function saveGame() { 
     localStorage.setItem('RamenMonkeySaveData', JSON.stringify({ game, currentTaxBracket })); 
 }
@@ -542,7 +567,13 @@ function loadGame() {
         game.inv = { ...defaultInv, ...(parsed.game.inv || {}) };
         game.upgrades = { ...defaultUpgrades, ...(parsed.game.upgrades || {}) };
 
-        // Make sure older saves get the new "needsServing" variable automatically applied
+        // LEGACY CONVERTER: If they bought the old woks, give them the new Wok Levels automatically!
+        if (game.idxWok === undefined) {
+            game.idxWok = 0;
+            if (parsed.game.upgrades && parsed.game.upgrades.batchCooking) game.idxWok = 4; // Give them Penta Wok
+            else if (parsed.game.upgrades && parsed.game.upgrades.tripleWok) game.idxWok = 2; // Give them Triple Wok
+        }
+
         seats = seats.map(seat => ({ ...seat, needsServing: false }));
 
         if(parsed.currentTaxBracket) currentTaxBracket = parsed.currentTaxBracket;
@@ -552,4 +583,4 @@ function loadGame() {
 function resetGame() { if(confirm("Erase history?")) { localStorage.clear(); location.reload(); } }
 
 initTables(); loadGame(); updateUI(); updateKitchenUI(); customerArrives();
-if (game.idxAuto > 0) runMonkeyLoop(); // Starts monkey loop if previously purchased
+if (game.idxAuto > 0) runMonkeyLoop();

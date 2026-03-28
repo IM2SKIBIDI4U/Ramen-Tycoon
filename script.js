@@ -1,84 +1,95 @@
 // ==========================================
-// MASSIVE UPGRADE DATA (4 SEPARATE TRACKS)
+// 🚀 PROCEDURAL GENERATION (INFINITE TYCOON)
 // ==========================================
 
-const TRACK_TABLES = [
-    { name: "Buy Table 2", cost: 50 }, { name: "Buy Table 3", cost: 200 },
-    { name: "Buy Table 4", cost: 1000 }, { name: "Buy Table 5", cost: 5000 },
-    { name: "Buy Table 6", cost: 25000 }, { name: "Buy Table 7", cost: 100000 },
-    { name: "Buy Table 8", cost: 500000 }, { name: "Buy Table 9", cost: 2500000 },
-    { name: "Buy Table 10", cost: 10000000 }
-];
+// 1. Generate 100 Tables
+const TRACK_TABLES = [];
+let tableCost = 50;
+for (let i = 2; i <= 101; i++) {
+    TRACK_TABLES.push({ name: `Buy Table ${i}`, cost: tableCost });
+    tableCost = Math.floor(tableCost * 1.6); // Price goes up 60% each time
+}
 
-const TRACK_RECIPES = [
-    { name: "Shio Ramen", cost: 150, value: 100 }, { name: "Shoyu Ramen", cost: 500, value: 250 },
-    { name: "Miso Ramen", cost: 1500, value: 600 }, { name: "Spicy Beef", cost: 4500, value: 1500 },
-    { name: "Tonkotsu", cost: 12000, value: 3500 }, { name: "Seafood Bowl", cost: 30000, value: 8000 },
-    { name: "Chicken Paitan", cost: 75000, value: 18000 }, { name: "Veggie Delight", cost: 150000, value: 35000 },
-    { name: "Tsukemen", cost: 350000, value: 80000 }, { name: "Curry Ramen", cost: 800000, value: 180000 },
-    { name: "Black Garlic", cost: 2000000, value: 450000 }, { name: "Truffle Oil", cost: 5000000, value: 1000000 },
-    { name: "Wagyu Beef", cost: 12000000, value: 2500000 }, { name: "Gold Leaf", cost: 30000000, value: 6000000 },
-    { name: "Dragon Breath", cost: 75000000, value: 15000000 }, { name: "Phoenix Fire", cost: 200000000, value: 40000000 },
-    { name: "Kraken Squid", cost: 500000000, value: 100000000 }, { name: "Leviathan Soup", cost: 1000000000, value: 250000000 },
-    { name: "Cosmic Broth", cost: 2500000000, value: 600000000 }, { name: "Galactic Ramen", cost: 10000000000, value: 2500000000 }
-];
+// 2. Generate 1000 Ramen Recipes
+const TRACK_RECIPES = [];
+let recipeCost = 150;
+let recipeVal = 100;
+const prefixes = ["Basic", "Spicy", "Deluxe", "Golden", "Diamond", "Neon", "Cyber", "Quantum", "Galactic", "Divine", "Omniversal"];
+const bases = ["Shio", "Shoyu", "Miso", "Tonkotsu", "Udon", "Wagyu", "Dragon", "Leviathan", "Stardust"];
 
-const TRACK_AUTO = [
-    { name: "Hire Chef (Auto)", cost: 400, speed: 2500 },
-    { name: "Knife Skills (Fast)", cost: 2000, speed: 1800 },
-    { name: "Pro Chef", cost: 10000, speed: 1200 },
-    { name: "Master Chef", cost: 50000, speed: 700 },
-    { name: "Ninja Chef", cost: 250000, speed: 400 },
-    { name: "God Chef", cost: 1000000, speed: 150 }
-];
+for (let i = 1; i <= 1000; i++) {
+    let p = prefixes[Math.floor((i - 1) / 100) % prefixes.length];
+    let b = bases[(i - 1) % bases.length];
+    TRACK_RECIPES.push({
+        name: `Tier ${i}: ${p} ${b}`,
+        cost: recipeCost,
+        value: recipeVal
+    });
+    recipeCost = Math.floor(recipeCost * 1.35); // Cost scales up 35%
+    recipeVal = Math.floor(recipeVal * 1.25);   // Profit scales up 25%
+}
 
-const TRACK_MULT = [
-    { name: "Tip Jar (x2)", cost: 1000, mult: 2 },
-    { name: "Cozy Decor (x5)", cost: 8000, mult: 5 },
-    { name: "VIP Lounge (x10)", cost: 40000, mult: 10 },
-    { name: "Golden Bowls (x25)", cost: 250000, mult: 25 },
-    { name: "Diamond Sticks (x100)", cost: 2000000, mult: 100 },
-    { name: "Michelin Star (x500)", cost: 15000000, mult: 500 },
-    { name: "Emperor's Blessing (x5000)", cost: 500000000, mult: 5000 }
-];
+// 3. Generate 100 Chef Upgrades
+const TRACK_AUTO = [];
+let chefCost = 400;
+let chefSpeed = 2500; // Starts at 2.5 seconds
+for (let i = 1; i <= 100; i++) {
+    let title = i === 1 ? "Hire Chef" : `Chef Level ${i}`;
+    TRACK_AUTO.push({ name: title, cost: chefCost, speed: Math.max(50, chefSpeed) });
+    chefCost = Math.floor(chefCost * 1.7);
+    chefSpeed = Math.floor(chefSpeed * 0.92); // Gets 8% faster each level!
+}
+
+// 4. Generate 100 Multipliers
+const TRACK_MULT = [];
+let multCost = 1000;
+let multVal = 2;
+for (let i = 1; i <= 100; i++) {
+    TRACK_MULT.push({ name: `Boost x${multVal}`, cost: multCost, mult: multVal });
+    multCost = Math.floor(multCost * 2.1); // Cost more than doubles
+    multVal += Math.floor(multVal * 0.5);  // Multiplier gets 50% bigger
+}
 
 // ==========================================
-// GAME STATE (V3 SAVE SYSTEM)
+// GAME STATE (V4)
 // ==========================================
 let gameState = {
-    wallet: 0,
-    vault: 0,
-    tablesOwned: 1,
-    
-    // Track indices
-    idxTable: 0,
-    idxRecipe: 0,
-    idxAuto: 0,
-    idxMult: 0,
-
-    // Active Stats
-    currentMenuName: "Basic Ramen",
-    currentMenuPrice: 50,
-    chefOwned: false,
-    chefSpeed: 0, // 0 means no chef
-    moneyMultiplier: 1
+    wallet: 0, vault: 0, tablesOwned: 1,
+    idxTable: 0, idxRecipe: 0, idxAuto: 0, idxMult: 0,
+    currentMenuName: "Starter Noodles", currentMenuPrice: 50,
+    chefOwned: false, chefSpeed: 0, moneyMultiplier: 1
 };
 
-let seats = Array.from({length: 10}, () => ({ occupied: false, isServed: false, colorIndex: 0 }));
-const shirtColors = ["#a2d2ff", "#ffc8dd", "#bde0fe", "#ffafcc", "#cdb4db"];
+// We now support 100 tables!
+let seats = Array.from({length: 100}, () => ({ occupied: false, isServed: false, colorIndex: 0 }));
+const shirtColors = ["#a2d2ff", "#ffc8dd", "#bde0fe", "#ffafcc", "#cdb4db", "#fdcb6e", "#00cec9"];
 
 loadGame();
+initTables(); // Builds the HTML for the tables
 updateUI();
 runCustomerLoop();
 if (gameState.chefOwned) runChefLoop();
 
-// --- THE ROBLOX ATM ---
+// --- BUILD HTML TABLES DYNAMICALLY ---
+function initTables() {
+    let diningArea = document.getElementById('dining-area');
+    if (diningArea.children.length === 0) {
+        for (let i = 0; i < 100; i++) {
+            let div = document.createElement('div');
+            div.id = `seat-${i}`;
+            div.className = 'seat locked';
+            div.onclick = () => serveCustomer(i);
+            diningArea.appendChild(div);
+        }
+    }
+}
+
+// --- ATM ---
 function collectVault() {
     if (gameState.vault > 0) {
         gameState.wallet += gameState.vault;
         gameState.vault = 0;
-        saveGame();
-        updateUI();
+        saveGame(); updateUI();
     }
 }
 
@@ -86,11 +97,9 @@ function collectVault() {
 function customerArrives() {
     let emptySeats = [];
     let tablesToScan = gameState.tablesOwned || 1;
-
     for(let i = 0; i < tablesToScan; i++) {
         if(seats[i] && !seats[i].occupied) emptySeats.push(i);
     }
-
     if (emptySeats.length > 0) {
         let rIndex = emptySeats[Math.floor(Math.random() * emptySeats.length)];
         seats[rIndex].occupied = true;
@@ -103,123 +112,95 @@ function customerArrives() {
 function serveCustomer(index) {
     if (seats[index].occupied && !seats[index].isServed) {
         seats[index].isServed = true; 
-        
-        // Calculate Total Value
         let finalValue = gameState.currentMenuPrice * gameState.moneyMultiplier;
         
         let seatEl = document.getElementById(`seat-${index}`);
         let bowl = document.createElement('div');
-        bowl.className = 'sliding-bowl';
-        bowl.innerText = '🍜';
+        bowl.className = 'sliding-bowl'; bowl.innerText = '🍜';
         seatEl.appendChild(bowl);
 
         setTimeout(() => {
-            seatEl.innerHTML = `<span class="served-anim" style="font-size:1.1rem; color:#00b894;">+$${formatMoney(finalValue)}</span>`;
-            
+            seatEl.innerHTML = `<span class="served-anim" style="font-size:1rem; color:#00b894;">+$${formatMoney(finalValue)}</span>`;
             setTimeout(() => {
                 gameState.vault += finalValue;
                 seats[index].occupied = false;
                 seats[index].isServed = false;
-                saveGame();
-                updateUI();
+                saveGame(); updateUI();
             }, 800); 
-
         }, 600); 
     }
 }
 
-// --- UPGRADE BUYERS ---
+// --- UPGRADES ---
 function buyTable() {
     let upg = TRACK_TABLES[gameState.idxTable];
     if (upg && gameState.wallet >= upg.cost) {
-        gameState.wallet -= upg.cost;
-        gameState.tablesOwned++;
-        gameState.idxTable++;
+        gameState.wallet -= upg.cost; gameState.tablesOwned++; gameState.idxTable++;
         saveGame(); updateUI();
     }
 }
-
 function buyRecipe() {
     let upg = TRACK_RECIPES[gameState.idxRecipe];
     if (upg && gameState.wallet >= upg.cost) {
-        gameState.wallet -= upg.cost;
-        gameState.currentMenuName = upg.name;
-        gameState.currentMenuPrice = upg.value;
-        gameState.idxRecipe++;
+        gameState.wallet -= upg.cost; gameState.currentMenuName = upg.name; gameState.currentMenuPrice = upg.value; gameState.idxRecipe++;
         saveGame(); updateUI();
     }
 }
-
 function buyAuto() {
     let upg = TRACK_AUTO[gameState.idxAuto];
     if (upg && gameState.wallet >= upg.cost) {
-        gameState.wallet -= upg.cost;
-        let wasNoChef = !gameState.chefOwned;
-        gameState.chefOwned = true;
-        gameState.chefSpeed = upg.speed;
-        gameState.idxAuto++;
+        gameState.wallet -= upg.cost; let wasNoChef = !gameState.chefOwned;
+        gameState.chefOwned = true; gameState.chefSpeed = upg.speed; gameState.idxAuto++;
         saveGame(); updateUI();
-        if (wasNoChef) runChefLoop(); // Start the loop if just bought
+        if (wasNoChef) runChefLoop();
     }
 }
-
 function buyMult() {
     let upg = TRACK_MULT[gameState.idxMult];
     if (upg && gameState.wallet >= upg.cost) {
-        gameState.wallet -= upg.cost;
-        gameState.moneyMultiplier = upg.mult;
-        gameState.idxMult++;
+        gameState.wallet -= upg.cost; gameState.moneyMultiplier = upg.mult; gameState.idxMult++;
         saveGame(); updateUI();
     }
 }
 
-// --- TIMERS ---
+// --- LOOPS ---
 function runCustomerLoop() { 
     customerArrives(); 
-    // Max 10 tables, speeds up arrival time
-    let speed = Math.max(500, 2500 - (gameState.tablesOwned * 200));
+    let speed = Math.max(100, 2000 - (gameState.tablesOwned * 50)); // Gets super fast with more tables!
     setTimeout(runCustomerLoop, speed); 
 }
-
 function runChefLoop() {
     if(gameState.chefOwned && gameState.chefSpeed > 0) {
         let tablesToScan = gameState.tablesOwned || 1;
         for(let i=0; i < tablesToScan; i++) {
             if(seats[i] && seats[i].occupied && !seats[i].isServed) {
                 serveCustomer(i);
-                break; // Serve one per tick
+                break; 
             }
         }
     }
-    // Call again based on current speed
-    if (gameState.chefOwned) {
-        setTimeout(runChefLoop, gameState.chefSpeed);
-    }
+    if (gameState.chefOwned) setTimeout(runChefLoop, gameState.chefSpeed);
 }
 
-// --- UTILS & UI ---
+// --- NUMBER FORMATTING (Handles Trillions, Quadrillions, Quintillions!) ---
 function formatMoney(num) {
-    if (num >= 1000000000) return (num / 1000000000).toFixed(2) + "B";
-    if (num >= 1000000) return (num / 1000000).toFixed(2) + "M";
+    if (num >= 1e18) return (num / 1e18).toFixed(2) + "Qi";
+    if (num >= 1e15) return (num / 1e15).toFixed(2) + "Qa";
+    if (num >= 1e12) return (num / 1e12).toFixed(2) + "T";
+    if (num >= 1e9) return (num / 1e9).toFixed(2) + "B";
+    if (num >= 1e6) return (num / 1e6).toFixed(2) + "M";
     return num.toLocaleString();
 }
 
 function renderPad(elementId, trackArray, currentIndex, trackClass, buyFunction, title) {
     let container = document.getElementById(elementId);
     let nextUpgrade = trackArray[currentIndex];
-
     if (!nextUpgrade) {
         container.innerHTML = `<button class="tycoon-pad maxed">${title}<br>MAXED OUT</button>`;
     } else {
         let canAfford = gameState.wallet >= nextUpgrade.cost;
         let affordClass = canAfford ? `affordable ${trackClass}` : "";
-        container.innerHTML = `
-            <button class="tycoon-pad ${affordClass}" onclick="${buyFunction}()">
-                <b>${title}</b><br><br>
-                ${nextUpgrade.name}<br>
-                <span style="font-size: 0.8em;">$${formatMoney(nextUpgrade.cost)}</span>
-            </button>
-        `;
+        container.innerHTML = `<button class="tycoon-pad ${affordClass}" onclick="${buyFunction}()"><b>${title}</b><br><br>${nextUpgrade.name}<br><span style="font-size: 0.8em;">$${formatMoney(nextUpgrade.cost)}</span></button>`;
     }
 }
 
@@ -227,12 +208,12 @@ function updateUI() {
     document.getElementById('money').innerText = "$" + formatMoney(gameState.wallet);
     document.getElementById('vault-money').innerText = "$" + formatMoney(gameState.vault);
     document.getElementById('stat-menu').innerText = `${gameState.currentMenuName} ($${formatMoney(gameState.currentMenuPrice)})`;
-    document.getElementById('stat-mult').innerText = `x${gameState.moneyMultiplier.toLocaleString()}`;
+    document.getElementById('stat-mult').innerText = `x${formatMoney(gameState.moneyMultiplier)}`;
 
     let safeTables = gameState.tablesOwned || 1;
-
     seats.forEach((seat, i) => {
         let seatEl = document.getElementById(`seat-${i}`);
+        if (!seatEl) return;
         if (i >= safeTables) {
             seatEl.classList.add('locked'); return;
         } else {
@@ -241,15 +222,7 @@ function updateUI() {
         
         if (seat.occupied && !seat.isServed && !seatEl.innerHTML.includes('customer-wrapper')) {
             let shirtColor = shirtColors[seat.colorIndex];
-            seatEl.innerHTML = `
-                <div class="customer-wrapper">
-                    <div class="person">
-                        <div class="head"></div>
-                        <div class="body" style="background: ${shirtColor};"></div>
-                    </div>
-                    <span class="order-tag">${gameState.currentMenuName}</span>
-                </div>
-                <div class="belt-strip"></div>`;
+            seatEl.innerHTML = `<div class="customer-wrapper"><div class="person"><div class="head"></div><div class="body" style="background: ${shirtColor};"></div></div><span class="order-tag">Tier ${Math.max(1, gameState.idxRecipe)}</span></div><div class="belt-strip"></div>`;
             seatEl.style.borderColor = "#333";
         } else if (!seat.occupied && !seat.isServed) {
             seatEl.innerHTML = `<span class="empty-text">Click to Serve</span><div class="belt-strip"></div>`;
@@ -257,17 +230,16 @@ function updateUI() {
         }
     });
 
-    // Render the 4 tracks
     renderPad('pad-table', TRACK_TABLES, gameState.idxTable, 'track-table', 'buyTable', '🪑 TABLES');
     renderPad('pad-recipe', TRACK_RECIPES, gameState.idxRecipe, 'track-recipe', 'buyRecipe', '🍲 RECIPES');
     renderPad('pad-auto', TRACK_AUTO, gameState.idxAuto, 'track-auto', 'buyAuto', '👨‍🍳 CHEFS');
     renderPad('pad-mult', TRACK_MULT, gameState.idxMult, 'track-mult', 'buyMult', '✨ BOOSTS');
 }
 
-// SAVE DATA VERSION 3!
-function saveGame() { localStorage.setItem('ramenRobloxV3', JSON.stringify(gameState)); }
+// SAVE V4
+function saveGame() { localStorage.setItem('ramenRobloxV4', JSON.stringify(gameState)); }
 function loadGame() {
-    let saved = localStorage.getItem('ramenRobloxV3');
+    let saved = localStorage.getItem('ramenRobloxV4');
     if(saved) {
         let parsed = JSON.parse(saved);
         gameState = { ...gameState, ...parsed };
@@ -281,10 +253,7 @@ let typedKeys = "";
 document.addEventListener('keydown', (e) => {
     typedKeys += e.key.toLowerCase();
     if (typedKeys.length > secretCode.length) typedKeys = typedKeys.slice(-secretCode.length);
-    if (typedKeys === secretCode) {
-        document.getElementById('admin-panel').classList.remove('hidden');
-        typedKeys = ""; 
-    }
+    if (typedKeys === secretCode) { document.getElementById('admin-panel').classList.remove('hidden'); typedKeys = ""; }
 });
-function cheatMoney() { gameState.wallet += 10000000; saveGame(); updateUI(); }
+function cheatMoney() { gameState.wallet += 1e15; saveGame(); updateUI(); } // Gives 1 Quadrillion!
 function closeAdmin() { document.getElementById('admin-panel').classList.add('hidden'); }

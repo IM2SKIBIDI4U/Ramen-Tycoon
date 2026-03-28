@@ -1,11 +1,9 @@
 // ==========================================
 // EXPANDED DATA & MENUS
 // ==========================================
-// 1000 Tables potential
 const TRACK_TABLES = []; let tCost = 50;
 for (let i = 2; i <= 1000; i++) { TRACK_TABLES.push({ name: `Table ${i}`, cost: tCost }); tCost = Math.floor(tCost * 1.5); }
 
-// 10 Specific Custom Ramen names, then it generates the rest up to 100
 const RAMEN_NAMES = ["Basic Shoyu", "Miso Pork", "Spicy Tonkotsu", "Chicken Paitan", "Seafood Ramen", "Veggie Udon", "Truffle Ramen", "Wagyu Beef", "Dragon Fire", "Golden Emperor"];
 const TRACK_RECIPES = []; let rCost = 150; let rVal = 100;
 for (let i = 0; i < 100; i++) { 
@@ -14,9 +12,8 @@ for (let i = 0; i < 100; i++) {
     rCost = Math.floor(rCost * 1.5); rVal = Math.floor(rVal * 1.3); 
 }
 
-const TRACK_AUTO = [{ name: "Hire Kitchen Monkey", cost: 1000 }];
+const TRACK_AUTO = [{ name: "Hire Monkey Waiter", cost: 1000 }];
 
-// 10 NEW SPECIAL UPGRADES
 const TRACK_SPECIAL = [
     { name: "Neon Sign (Faster Spawns)", cost: 2000 },
     { name: "Comfy Chairs (+VIP Chance)", cost: 5000 },
@@ -39,8 +36,11 @@ let game = {
 };
 
 const shirtColors = ["#a2d2ff", "#ffc8dd", "#bde0fe", "#fdcb6e", "#00cec9"];
-// Initialize 1000 table slots
-let seats = Array.from({length: 1000}, () => ({ occupied: false, isCooking: false, cookStep: 0, colorIndex: 0, isVIP: false }));
+let seats = Array.from({length: 1000}, () => ({ occupied: false, needsMenu: false, isCooking: false, cookStep: 0, needsToPay: false, patience: 100, colorIndex: 0, isVIP: false }));
+let waitList = [];
+let currentTaxBracket = 1000000;
+let taxActive = false;
+let taxTimer = 100;
 
 // ==========================================
 // TABS & INIT
@@ -50,7 +50,6 @@ function switchTab(tab) {
     document.getElementById('view-kitchen').classList.remove('active-view');
     document.getElementById('btn-dining').classList.remove('active');
     document.getElementById('btn-kitchen').classList.remove('active');
-    
     document.getElementById(`view-${tab}`).classList.add('active-view');
     document.getElementById(`btn-${tab}`).classList.add('active');
 }
@@ -61,17 +60,145 @@ function initTables() {
         for (let i = 0; i < 1000; i++) {
             let div = document.createElement('div');
             div.id = `seat-${i}`; div.className = 'seat locked';
-            div.onclick = () => takeOrder(i);
             diningArea.appendChild(div);
         }
     }
 }
 
 // ==========================================
-// PANTRY
+// CUSTOMER FLOW & QUEUE
+// ==========================================
+function customerArrives() {
+    if (waitList.length < 15) {
+        const isVIP = Math.random() < (game.upgrades.goldLeaf ? 0.30 : (game.upgrades.comfyChairs ? 0.10 : 0.05));
+        waitList.push(isVIP ? "🐼" : "🐒");
+        renderWaitList();
+    }
+    checkEmptySeats();
+    let spawnRate = game.upgrades.fastSpawn ? 1000 : 2500;
+    setTimeout(customerArrives, spawnRate);
+}
+
+function renderWaitList() {
+    document.getElementById('wait-list').innerHTML = waitList.map(m => `<div class="waiting-monkey">${m}</div>`).join('');
+}
+
+function checkEmptySeats() {
+    if (waitList.length === 0) return;
+    for (let i = 0; i < game.tablesOwned; i++) {
+        if (!seats[i].occupied) {
+            const char = waitList.shift();
+            renderWaitList();
+            spawnWalkingCustomer(i, char);
+            break; 
+        }
+    }
+}
+
+function spawnWalkingCustomer(seatIdx, char) {
+    seats[seatIdx].occupied = true; // Reserve it instantly so others don't take it
+    seats[seatIdx].patience = 100;
+    
+    const walker = document.createElement('div');
+    walker.className = "walking-customer waddle-anim";
+    walker.innerText = char;
+    
+    const door = document.querySelector('.door-frame');
+    const doorRect = door.getBoundingClientRect();
+    walker.style.left = (doorRect.left + doorRect.width/2 - 15) + "px";
+    walker.style.top = doorRect.top + "px";
+    document.body.appendChild(walker);
+
+    setTimeout(() => {
+        const seatEl = document.getElementById(`seat-${seatIdx}`);
+        const seatRect = seatEl.getBoundingClientRect();
+        walker.style.left = seatRect.left + "px";
+        walker.style.top = (seatRect.top + 10) + "px";
+
+        setTimeout(() => {
+            walker.remove();
+            seats[seatIdx].isVIP = (char === "🐼");
+            seats[seatIdx].needsMenu = true; 
+            seats[seatIdx].isCooking = false;
+            seats[seatIdx].needsToPay = false;
+            seats[seatIdx].cookStep = 0;
+            seats[seatIdx].colorIndex = Math.floor(Math.random() * shirtColors.length);
+            updateUI();
+        }, 1200);
+    }, 50);
+}
+
+// ==========================================
+// INTERACTION LOGIC
+// ==========================================
+function handleTableClick(index) {
+    let seat = seats[index];
+    if (!seat.occupied) return;
+
+    if (seat.needsMenu) {
+        seat.needsMenu = false;
+        seat.patience = 100;
+        updateUI();
+    } else if (seat.needsToPay) {
+        collectPayment(index);
+    } else if (!seat.isCooking) {
+        takeOrder(index);
+        seat.patience = 100;
+    }
+}
+
+function takeOrder(index) {
+    if (seats[index].occupied && !seats[index].isCooking && !seats[index].needsMenu && !seats[index].needsToPay) {
+        seats[index].isCooking = true;
+        seats[index].cookStep = 0;
+        seats[index].patience = 100;
+        updateUI(); updateKitchenUI();
+    }
+}
+
+function collectPayment(index) {
+    let seat = seats[index];
+    let multiplier = seat.isVIP ? 10 : 1;
+    if(game.upgrades.tipJar) multiplier += 0.1;
+    if(game.upgrades.goldenPots) multiplier *= 2;
+    if(game.upgrades.secretSpice) multiplier *= 1.5;
+    
+    game.wallet += (game.currentMenuPrice * multiplier);
+    checkTaxMilestone();
+    
+    spawnLeavingCustomer(index, seat.isVIP ? "🐼" : "🐒");
+    seat.occupied = false;
+    seat.needsToPay = false;
+    
+    saveGame(); updateUI();
+}
+
+function spawnLeavingCustomer(seatIdx, char) {
+    const walker = document.createElement('div');
+    walker.className = "leaving-customer waddle-anim";
+    walker.innerText = char;
+    
+    const seatEl = document.getElementById(`seat-${seatIdx}`);
+    const seatRect = seatEl.getBoundingClientRect();
+    walker.style.left = seatRect.left + "px";
+    walker.style.top = seatRect.top + "px";
+    document.body.appendChild(walker);
+
+    const door = document.querySelector('.door-frame');
+    const doorRect = door.getBoundingClientRect();
+
+    setTimeout(() => {
+        walker.style.left = (doorRect.left + doorRect.width/2 - 15) + "px";
+        walker.style.top = doorRect.top + "px";
+        walker.style.opacity = "0";
+        setTimeout(() => walker.remove(), 1000);
+    }, 50);
+}
+
+// ==========================================
+// KITCHEN COOKING (PLAYER'S JOB)
 // ==========================================
 function buyIngredient(type, amount, cost) {
-    // Apply bulk upgrade discounts
     if (type === 'noodle' && game.upgrades.cheapNoodle) cost = Math.floor(cost / 2);
     if (type === 'broth' && game.upgrades.cheapBroth) cost = Math.floor(cost / 2);
 
@@ -83,116 +210,154 @@ function buyIngredient(type, amount, cost) {
     }
 }
 
-// ==========================================
-// GAMEPLAY LOGIC (MANUAL COOKING)
-// ==========================================
-function customerArrives() {
-    let emptySeats = [];
-    for(let i = 0; i < game.tablesOwned; i++) { if(!seats[i].occupied) emptySeats.push(i); }
-    
-    if (emptySeats.length > 0) {
-        let r = emptySeats[Math.floor(Math.random() * emptySeats.length)];
-        seats[r].occupied = true; seats[r].isCooking = false; seats[r].cookStep = 0;
-        seats[r].colorIndex = Math.floor(Math.random() * shirtColors.length);
-        
-        let vipChance = 0.05;
-        if(game.upgrades.comfyChairs) vipChance += 0.05;
-        if(game.upgrades.goldLeaf) vipChance += 0.20;
-        seats[r].isVIP = Math.random() < vipChance;
-        
-        updateUI();
-    }
-    let spawnRate = game.upgrades.fastSpawn ? 1000 : 2500;
-    setTimeout(customerArrives, spawnRate);
-}
-
-// Step 0: Take order in Dining Room, sends to Kitchen
-function takeOrder(index) {
-    if (seats[index].occupied && !seats[index].isCooking) {
-        seats[index].isCooking = true;
-        seats[index].cookStep = 0;
-        updateUI(); updateKitchenUI();
-    }
-}
-
-// Step 1 to 3: Clicking the Stoves in the Kitchen
 function clickStove(index) {
     let seat = seats[index];
     if (!seat.isCooking) return;
-
     let msg = document.getElementById('out-of-stock-msg');
     
     if (seat.cookStep === 0) {
-        // Boil: Needs Noodle + Broth
-        if (game.inv.noodle < 1 || game.inv.broth < 1) { msg.classList.remove('hidden'); return false; }
+        if (game.inv.noodle < 1 || game.inv.broth < 1) { msg.classList.remove('hidden'); return; }
         game.inv.noodle--; game.inv.broth--;
         seat.cookStep = 1;
     } 
     else if (seat.cookStep === 1) {
-        // Season: Needs Spice
-        if (game.inv.spice < 1) { msg.classList.remove('hidden'); return false; }
+        if (game.inv.spice < 1) { msg.classList.remove('hidden'); return; }
         game.inv.spice--;
         seat.cookStep = 2;
     } 
     else if (seat.cookStep === 2) {
-        // Finish: Needs Egg
-        if (game.inv.egg < 1) { msg.classList.remove('hidden'); return false; }
+        if (game.inv.egg < 1) { msg.classList.remove('hidden'); return; }
         game.inv.egg--;
         seat.cookStep = 3;
         
-        // Visuals & Payout
-        updateKitchenUI(); // Shows step 3 immediately
+        updateKitchenUI();
         let bowlEl = document.getElementById(`manual-bowl-${index}`);
         if(bowlEl) bowlEl.innerHTML += `<div class="egg-drop">🥚</div>`;
         
-        setTimeout(() => finishCooking(index), 400); // Tiny delay to see egg
-        return true;
+        setTimeout(() => {
+            seat.isCooking = false;
+            seat.needsToPay = true;
+            seat.patience = 100;
+            saveGame(); updateUI(); updateKitchenUI();
+        }, 400);
+        return;
     }
-    
     updateUI(); updateKitchenUI();
-    return true; // Used for monkey logic
-}
-
-function finishCooking(index) {
-    if (seats[index].occupied && seats[index].isCooking) {
-        let multiplier = seats[index].isVIP ? 10 : 1;
-        if(game.upgrades.tipJar) multiplier += 0.1;
-        if(game.upgrades.goldenPots) multiplier *= 2;
-        if(game.upgrades.secretSpice) multiplier *= 1.5;
-
-        game.wallet += (game.currentMenuPrice * multiplier);
-        
-        seats[index].occupied = false; 
-        seats[index].isCooking = false;
-        seats[index].isVIP = false;
-        
-        saveGame(); updateUI(); updateKitchenUI();
-    }
 }
 
 // ==========================================
-// MONKEY & PASSIVE
+// MONKEY WAITER (DINING ROOM AUTOMATION)
 // ==========================================
 function runMonkeyLoop() {
     if(game.chefOwned) {
         for(let i = 0; i < game.tablesOwned; i++) {
-            if(seats[i].occupied) {
-                if(!seats[i].isCooking) { takeOrder(i); break; }
-                else if(seats[i].cookStep < 3) { clickStove(i); break; }
+            let s = seats[i];
+            if(s.occupied && (s.needsMenu || (!s.isCooking && !s.needsToPay) || s.needsToPay)) {
+                animateMonkeyChefToTable(i);
+                break;
             }
         }
     }
-    let speed = game.upgrades.fastMonkey ? 250 : 600;
-    setTimeout(runMonkeyLoop, speed);
+    setTimeout(runMonkeyLoop, game.upgrades.fastMonkey ? 400 : 800);
 }
 
-// Arcade passive income
-setInterval(() => {
-    if(game.upgrades.arcade) { game.wallet += 10; updateUI(); }
-}, 1000);
+function animateMonkeyChefToTable(index) {
+    const monkey = document.createElement('div');
+    monkey.className = "monkey-chef-walking";
+    monkey.innerText = "🤵🐒";
+    
+    const startBtn = document.getElementById('btn-dining').getBoundingClientRect();
+    monkey.style.left = startBtn.left + "px";
+    monkey.style.top = startBtn.top + "px";
+    document.body.appendChild(monkey);
+
+    const targetSeat = document.getElementById(`seat-${index}`).getBoundingClientRect();
+    
+    setTimeout(() => {
+        monkey.style.left = targetSeat.left + "px";
+        monkey.style.top = targetSeat.top + "px";
+        
+        setTimeout(() => {
+            monkey.remove();
+            let s = seats[index];
+            if(s.needsMenu) { s.needsMenu = false; s.patience = 100; updateUI(); }
+            else if(s.needsToPay) collectPayment(index);
+            else if(!s.isCooking) takeOrder(index);
+        }, 400);
+    }, 50);
+}
 
 // ==========================================
-// UPGRADES & UI
+// PATIENCE SYSTEM
+// ==========================================
+setInterval(() => {
+    seats.forEach((seat, i) => {
+        if (seat.occupied && !seat.isCooking) {
+            seat.patience -= 1.5; 
+            
+            let bar = document.getElementById(`patience-bar-${i}`);
+            if (bar) {
+                bar.style.width = seat.patience + "%";
+                if(seat.patience < 30) bar.style.backgroundColor = "#d63031";
+                else bar.style.backgroundColor = "#00b894";
+            }
+
+            if (seat.patience <= 0) {
+                seat.occupied = false;
+                seat.needsMenu = false;
+                seat.needsToPay = false;
+                spawnLeavingCustomer(i, "💢"); 
+                updateUI(); updateKitchenUI();
+            }
+        }
+    });
+}, 200);
+
+// ==========================================
+// THE ENFORCER BOSS
+// ==========================================
+function checkTaxMilestone() {
+    if (!taxActive && game.wallet >= currentTaxBracket) {
+        triggerTaxEvent();
+    }
+}
+
+function triggerTaxEvent() {
+    taxActive = true;
+    taxTimer = 100;
+    
+    document.getElementById('enforcer-overlay').classList.remove('hidden');
+    document.getElementById('tax-amount').innerText = "$" + formatMoney(currentTaxBracket);
+    
+    let taxInterval = setInterval(() => {
+        taxTimer -= 2; 
+        document.getElementById('tax-timer-fill').style.width = taxTimer + "%";
+        
+        if (taxTimer <= 0) {
+            clearInterval(taxInterval);
+            if (taxActive) raidRestaurant(); 
+        }
+    }, 100);
+}
+
+function payEnforcer() {
+    if (game.wallet >= currentTaxBracket) {
+        game.wallet -= currentTaxBracket;
+        taxActive = false;
+        document.getElementById('enforcer-overlay').classList.add('hidden');
+        currentTaxBracket *= 1000; 
+        updateUI(); saveGame();
+    }
+}
+
+function raidRestaurant() {
+    alert("THE ENFORCER TOOK EVERYTHING! YOU ARE BANKRUPT!");
+    localStorage.clear();
+    location.reload();
+}
+
+// ==========================================
+// UPGRADES & UI RENDERING
 // ==========================================
 function buyTable() { let u = TRACK_TABLES[game.idxTable]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.tablesOwned++; game.idxTable++; saveGame(); updateUI(); updateKitchenUI(); } }
 function buyRecipe() { let u = TRACK_RECIPES[game.idxRecipe]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.currentMenuPrice = u.value; document.getElementById('stat-menu').innerText = u.name + ` ($${formatMoney(u.value)})`; game.idxRecipe++; saveGame(); updateUI(); } }
@@ -201,7 +366,6 @@ function buySpecial() {
     let u = TRACK_SPECIAL[game.idxSpecial]; 
     if (u && game.wallet >= u.cost) { 
         game.wallet -= u.cost; 
-        // Apply logic
         if(game.idxSpecial === 0) game.upgrades.fastSpawn = true;
         if(game.idxSpecial === 1) game.upgrades.comfyChairs = true;
         if(game.idxSpecial === 2) game.upgrades.cheapNoodle = true;
@@ -215,6 +379,8 @@ function buySpecial() {
         game.idxSpecial++; saveGame(); updateUI(); 
     } 
 }
+
+setInterval(() => { if(game.upgrades.arcade) { game.wallet += 10; updateUI(); } }, 1000);
 
 function formatMoney(n) {
     if (n >= 1e15) return (n / 1e15).toFixed(2) + "Q";
@@ -246,36 +412,40 @@ function updateUI() {
         
         let html = "";
         if (seat.occupied) {
+            if (seat.needsMenu) html += `<div class="menu-request">📜?</div>`;
+            if (seat.needsToPay) html += `<div class="pay-request">$</div>`;
+            
+            html += `<div class="patience-container"><div id="patience-bar-${i}" class="patience-fill" style="width:${seat.patience}%; background-color:${seat.patience < 30 ? '#d63031' : '#00b894'}"></div></div>`;
+
             if (seat.isVIP) html += `<div class="vip-panda">🐼</div>`;
             else html += `<div class="customer-wrapper"><div class="person"><div class="head"></div><div class="body" style="background: ${shirtColors[seat.colorIndex]};"></div></div></div>`;
             
-            if (seat.isCooking) html += `<span class="status-text cooking">In Kitchen</span>`;
-            else html += `<span class="status-text order">Take Order!</span>`;
+            if (seat.isCooking) html += `<span class="status-text cooking">Cooking</span>`;
+            else if (seat.needsMenu) html += `<span class="status-text order" style="color:#e67e22;">Menu?</span>`;
+            else if (seat.needsToPay) html += `<span class="status-text order" style="color:#05c46b;">Pay</span>`;
+            else html += `<span class="status-text order">Order!</span>`;
         } else {
             html += `<span class="status-text empty" style="color:#aaa;">Empty</span>`;
         }
         html += `<div class="belt-strip"></div>`;
         
-        let stateString = `${seat.occupied}-${seat.isCooking}-${seat.isVIP}`;
-        if (el.getAttribute('data-state') !== stateString) {
-            el.innerHTML = html; el.setAttribute('data-state', stateString);
-        }
+        el.innerHTML = html;
+        el.onclick = () => handleTableClick(i);
     });
 
     renderPad('pad-table', TRACK_TABLES, game.idxTable, 'buyTable', '🪑 TABLES');
     renderPad('pad-recipe', TRACK_RECIPES, game.idxRecipe, 'buyRecipe', '🍲 RECIPES');
-    renderPad('pad-auto', TRACK_AUTO, game.idxAuto, 'buyAuto', '🐒 STAFF');
+    renderPad('pad-auto', TRACK_AUTO, game.idxAuto, 'buyAuto', '🤵 STAFF');
     renderPad('pad-special', TRACK_SPECIAL, game.idxSpecial, 'buySpecial', '✨ BUSINESS');
 }
 
 function updateKitchenUI() {
     let container = document.getElementById('stoves-container');
-    container.innerHTML = ""; // Clear and rebuild
+    container.innerHTML = ""; 
     
     seats.forEach((seat, i) => {
         if (seat.occupied && seat.isCooking) {
-            let labelText = ["Click to Boil", "Click to Season", "Add Egg", "Done!"][seat.cookStep];
-            
+            let labelText = ["1. Boil", "2. Season", "3. Egg", "Done!"][seat.cookStep];
             let stove = document.createElement('div');
             stove.className = "stove-station";
             stove.onclick = () => clickStove(i);
@@ -290,7 +460,7 @@ function updateKitchenUI() {
 }
 
 // ==========================================
-// GOD PANEL ADMIN CHEATS
+// GOD PANEL CHEATS
 // ==========================================
 let typed = "";
 document.addEventListener('keydown', (e) => {
@@ -300,17 +470,13 @@ document.addEventListener('keydown', (e) => {
 });
 
 function cheatMoney(amt) { game.wallet += amt; saveGame(); updateUI(); }
-function adminMaxIngredients() { 
-    game.inv.noodle += 1000000000; game.inv.broth += 1000000000; game.inv.spice += 1000000000; game.inv.egg += 1000000000; 
-    document.getElementById('out-of-stock-msg').classList.add('hidden');
-    saveGame(); updateUI(); 
-}
+function adminMaxIngredients() { game.inv.noodle += 1000000000; game.inv.broth += 1000000000; game.inv.spice += 1000000000; game.inv.egg += 1000000000; document.getElementById('out-of-stock-msg').classList.add('hidden'); saveGame(); updateUI(); }
 function adminMaxTables() { game.tablesOwned = 1000; game.idxTable = 999; saveGame(); updateUI(); updateKitchenUI(); }
 function adminForceVIPs() {
     let spawned = 0;
     for(let i=0; i<game.tablesOwned; i++) {
         if(!seats[i].occupied && spawned < 10) {
-            seats[i].occupied = true; seats[i].isCooking = false; seats[i].cookStep = 0; seats[i].isVIP = true; spawned++;
+            seats[i].occupied = true; seats[i].isCooking = false; seats[i].cookStep = 0; seats[i].isVIP = true; seats[i].needsMenu = true; seats[i].patience = 100; spawned++;
         }
     }
     updateUI(); closeAdmin();
@@ -320,12 +486,13 @@ function closeAdmin() { document.getElementById('admin-panel').classList.add('hi
 // ==========================================
 // SAVE/LOAD
 // ==========================================
-function saveGame() { localStorage.setItem('RamenGodChef_V1', JSON.stringify(game)); }
+function saveGame() { localStorage.setItem('RamenGodChef_V2', JSON.stringify({ game, currentTaxBracket })); }
 function loadGame() { 
-    let s = localStorage.getItem('RamenGodChef_V1'); 
+    let s = localStorage.getItem('RamenGodChef_V2'); 
     if(s) { 
         let parsed = JSON.parse(s);
-        game = { ...game, ...parsed }; 
+        game = { ...game, ...parsed.game }; 
+        if(parsed.currentTaxBracket) currentTaxBracket = parsed.currentTaxBracket;
         if(!game.upgrades) game.upgrades = { fastSpawn: false, comfyChairs: false, cheapNoodle: false, cheapBroth: false, tipJar: false, arcade: false, fastMonkey: false, goldenPots: false, secretSpice: false, goldLeaf: false };
         if(game.idxRecipe > 0) document.getElementById('stat-menu').innerText = TRACK_RECIPES[game.idxRecipe-1].name + ` ($${formatMoney(game.currentMenuPrice)})`;
     } 

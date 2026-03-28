@@ -17,40 +17,62 @@ h1 { font-weight: 900; letter-spacing: -1px; margin-top: 0; }
 .wallet-display { font-size: 1.8rem; font-weight: 900; }
 .stats-box { background: #fff; border: 3px solid #333; padding: 10px; border-radius: 8px; font-weight: bold;}
 
-/* DINING AREA */
+/* --- RESTAURANT ZONES --- */
 .restaurant-floor { 
     background: #fafafa; border: 4px solid #333; border-radius: 8px; 
-    padding: 20px; margin-bottom: 20px; height: 400px; overflow-y: auto; 
+    padding: 20px; margin-bottom: 20px; height: 500px; display: flex; flex-direction: column; gap: 20px;
 }
-#dining-area { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; }
+
+/* KITCHEN */
+#kitchen-area {
+    background: #b2bec3; border: 4px solid #2d3436; border-radius: 8px; padding: 10px;
+    min-height: 100px; display: flex; flex-direction: column; box-shadow: inset 0 5px 15px rgba(0,0,0,0.2);
+}
+.kitchen-title { font-weight: 900; color: #2d3436; margin-bottom: 10px; font-size: 1.2rem; }
+#stoves-container { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+
+/* The Pot & Egg in the Kitchen */
+.kitchen-pot {
+    width: 60px; height: 55px; background: #2d3436; border-radius: 5px 5px 25px 25px; 
+    border: 3px solid #000; position: relative; display: flex; justify-content: center; align-items: flex-end;
+}
+.egg-drop {
+    position: absolute; top: -30px; font-size: 1.8rem; z-index: 6;
+    animation: dropEggIntoPot 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+@keyframes dropEggIntoPot { 0% { transform: translateY(-50px) scale(0); opacity: 0; } 100% { transform: translateY(10px) scale(1); opacity: 1; } }
+
+.pot-bar-container { width: 80%; height: 8px; background: #dfe6e9; border: 2px solid #000; border-radius: 4px; overflow: hidden; margin-bottom: 5px; z-index: 10;}
+.pot-bar { height: 100%; background: #fdcb6e; width: 0%; transition: width 0.1s linear;}
+
+/* DINING AREA */
+#dining-area { flex: 1; display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; overflow-y: auto; padding-bottom: 10px;}
 
 .seat { 
-    width: 80px; height: 120px; border: 3px solid #ccc; border-radius: 8px; background: #fff; 
+    width: 80px; height: 110px; border: 3px solid #ccc; border-radius: 8px; background: #fff; 
     position: relative; display: flex; flex-direction: column; justify-content: flex-end; cursor: pointer; 
 }
 .seat.locked { display: none !important; }
-.belt-strip { height: 20px; width: 100%; background: #444; border-top: 2px solid #222; position: absolute; bottom: 0; left: 0; border-radius: 0 0 5px 5px; }
-.empty-text { color: #aaa; font-size: 0.8rem; font-weight: bold; margin: auto; z-index: 1; text-align: center;}
+.belt-strip { height: 20px; width: 100%; background: #444; border-top: 2px solid #222; position: absolute; bottom: 0; left: 0; border-radius: 0 0 5px 5px; z-index: 2; }
+.status-text { position: absolute; top: 5px; width: 100%; text-align: center; font-size: 0.75rem; font-weight: bold; z-index: 10; }
+.status-text.empty { color: #aaa; }
+.status-text.order { color: #00b894; animation: pulse 1s infinite; }
+.status-text.cooking { color: #e17055; }
+@keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
 
-/* CUSTOMERS */
-.customer-wrapper { position: absolute; bottom: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; pointer-events: none;}
+/* CUSTOMERS & VIP */
+.customer-wrapper { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: center; pointer-events: none;}
 .person { width: 40px; height: 50px; display: flex; flex-direction: column; align-items: center; animation: bounce 1s infinite alternate step-end; }
 .person .head { width: 28px; height: 28px; background: #fff; border: 3px solid #333; border-radius: 50%; display: flex; justify-content: center; z-index: 2; }
 .person .head::after { content: '•_•'; position: absolute; top: 6px; font-size: 11px; font-weight: 900; color: #333; }
 .person .body { width: 36px; height: 26px; border: 3px solid #333; border-radius: 12px 12px 0 0; border-bottom: none; margin-top: -3px; }
 
-/* THE REQUESTED ANIMATIONS */
-.egg {
-    position: absolute; bottom: 40px; left: 20px; font-size: 1.8rem; z-index: 6;
-    animation: dropEgg 0.5s cubic-bezier(0.25, 1, 0.5, 1) forwards; pointer-events: none;
-}
-@keyframes dropEgg { 
-    0% { transform: translateY(-80px) scale(0); opacity: 0; } 
-    100% { transform: translateY(0px) scale(1); opacity: 1; } 
+.vip-panda {
+    position: absolute; bottom: 20px; width: 100%; text-align: center; font-size: 3.5rem; 
+    animation: bounce 0.5s infinite alternate ease-in-out; pointer-events: none; text-shadow: 0 0 15px gold; z-index: 5;
 }
 
-.cook-bar-container { width: 80%; height: 10px; background: #dfe6e9; border: 2px solid #333; position: absolute; bottom: 10px; left: 10%; border-radius: 4px; overflow: hidden; z-index: 10;}
-.cook-bar { height: 100%; background: #fdcb6e; width: 0%; transition: width 0.1s linear;}
+@keyframes bounce { 0% { transform: translateY(0); } 100% { transform: translateY(-5px); } }
 
 .monkey-chef {
     position: absolute; font-size: 2.5rem; z-index: 100; left: 20px; bottom: 30px;

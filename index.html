@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ramen Tycoon - Infinite Edition</title>
+    <title>Ramen Tycoon - V6</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -41,9 +41,20 @@
         </div>
     </div>
 
+    <div id="event-modal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; display: flex; justify-content: center; align-items: center;">
+        <div style="background: #fff; padding: 40px; border-radius: 12px; border: 5px solid #d63031; text-align: center; max-width: 400px;">
+            <h2 style="color: #d63031;">🚨 THE BOSS IS HERE 🚨</h2>
+            <p id="event-text">You just hit a massive milestone! Pay the boss his cut, or he takes everything.</p>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="tycoon-pad affordable" onclick="payTax()" style="flex: 1;">Pay Up</button>
+                <button class="tycoon-pad" onclick="refuseTax()" style="flex: 1; background: #2d3436; border-color: #000;">Refuse</button>
+            </div>
+        </div>
+    </div>
+
     <div id="admin-panel" class="hidden">
         <h2 style="color: #00ff00;">👨‍💻 Boss Rafay's Terminal</h2>
-        <button class="tycoon-pad affordable" onclick="cheatMoney()">Hack: +$1,000,000,000,000,000</button>
+        <button class="tycoon-pad affordable" onclick="cheatMoney()">Hack: +$1,000,000</button>
         <button class="reset-btn" style="color: #ff4d4d; margin-top: 15px;" onclick="closeAdmin()">Close Terminal</button>
     </div>
 

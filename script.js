@@ -103,7 +103,25 @@ function clickStove(index) {
 
     if (seat.cookStep === 0) { if (game.inv.noodle < 1 || game.inv.broth < 1) { msg.classList.remove('hidden'); return; } game.inv.noodle--; game.inv.broth--; seat.cookStep = 1; } 
     else if (seat.cookStep === 1) { if (game.inv.spice < 1) { msg.classList.remove('hidden'); return; } game.inv.spice--; seat.cookStep = 2; } 
-    else if (seat.cookStep === 2) { if (game.inv.egg < 1) { msg.classList.remove('hidden'); return; } game.inv.egg--; seat.cookStep = 3; finishCooking(index); return; }
+    else if (seat.cookStep === 2) { 
+        if (game.inv.egg < 1) { msg.classList.remove('hidden'); return; } 
+        game.inv.egg--; 
+        
+        // EGG ANIMATION TRIGGER
+        const stoveElements = document.querySelectorAll('.stove-station');
+        const currentStove = stoveElements[index];
+        if (currentStove) {
+            const eggEmoji = document.createElement('div');
+            eggEmoji.className = 'egg-drop';
+            eggEmoji.innerText = '🥚';
+            currentStove.appendChild(eggEmoji);
+            setTimeout(() => eggEmoji.remove(), 500);
+        }
+        
+        seat.cookStep = 3; 
+        finishCooking(index); 
+        return; 
+    }
     updateUI(); updateKitchenUI();
 }
 
@@ -240,7 +258,9 @@ function applyTheme() { document.getElementById('main-container').className = "g
 function prestigeGame() { if(game.wallet >= 1e12 && confirm("Sell franchise for Monkey Money? Reset money/upgrades for a permanent x2 profit multiplier!")) { let st = game.monkeyMoney + 1; let tm = game.turfMult; let d = game.decorOwned; let ad = game.activeDecor; let rv = game.rivals; localStorage.clear(); game = { wallet: 150, monkeyMoney: st, turfMult: tm, lastSaveTime: Date.now(), tablesOwned: 1, idxTable: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxSpecial: 0, currentMenuPrice: 50, activeDecor: ad, decorOwned: d, staff: {waiter:0,ninja:0,mascot:0}, rivals: rv, inv: {...defaultInv}, upgrades: {} }; saveGame(); location.reload(); } }
 function resetGame() { if(confirm("Erase all history?")) { localStorage.clear(); location.reload(); } }
 
-let typed = ""; document.addEventListener('keydown', (e) => { typed += e.key.toLowerCase(); if (typed.endsWith("godmode")) { document.getElementById('admin-panel').classList.remove('hidden'); typed = ""; } if (typed.length > 20) typed = typed.slice(-20); });
+// CHEAT CODE UPDATED HERE:
+let typed = ""; document.addEventListener('keydown', (e) => { typed += e.key.toLowerCase(); if (typed.endsWith("rafay is cool")) { document.getElementById('admin-panel').classList.remove('hidden'); typed = ""; } if (typed.length > 20) typed = typed.slice(-20); });
+
 function cheatMoney(amt) { game.wallet += amt; saveGame(); updateUI(); }
 function setCustomMoney() { let val = parseFloat(document.getElementById('custom-money').value); if(!isNaN(val)) { game.wallet = val; saveGame(); updateUI(); } }
 function adminMaxIngredients() { game.inv.noodle=1e15; game.inv.broth=1e15; game.inv.spice=1e15; game.inv.egg=1e15; document.getElementById('out-of-stock-msg').classList.add('hidden'); saveGame(); updateUI(); }

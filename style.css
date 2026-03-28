@@ -12,46 +12,59 @@ h1 { font-weight: 900; letter-spacing: -1px; margin-top: 0; }
 
 .top-bar {
     display: flex; justify-content: space-between; align-items: center; background: #dfe6e9;
-    border: 4px solid #333; padding: 15px; border-radius: 8px; margin-bottom: 20px;
+    border: 4px solid #333; padding: 15px; border-radius: 8px; margin-bottom: 10px;
 }
 .wallet-display { font-size: 1.8rem; font-weight: 900; }
 .stats-box { background: #fff; border: 3px solid #333; padding: 10px; border-radius: 8px; font-weight: bold;}
 
-/* --- RESTAURANT ZONES --- */
+/* PANTRY */
+.pantry-panel { background: #ffeaa7; border: 4px solid #fdcb6e; border-radius: 8px; padding: 10px; margin-bottom: 20px; }
+.pantry-panel h3 { margin: 0 0 10px 0; color: #d63031; }
+.pantry-grid { display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; }
+.ing-item { background: #fff; border: 2px solid #333; padding: 8px; border-radius: 6px; display: flex; flex-direction: column; gap: 5px; font-weight: bold; width: 150px;}
+.ing-item button { background: #00b894; color: white; border: 2px solid #000; border-radius: 4px; cursor: pointer; font-weight: bold; padding: 4px; }
+.ing-item button:active { transform: scale(0.95); }
+
+/* RESTAURANT ZONES */
 .restaurant-floor { 
     background: #fafafa; border: 4px solid #333; border-radius: 8px; 
     padding: 20px; margin-bottom: 20px; height: 500px; display: flex; flex-direction: column; gap: 20px;
 }
 
-/* KITCHEN */
+/* KITCHEN & THE BOWL */
 #kitchen-area {
     background: #b2bec3; border: 4px solid #2d3436; border-radius: 8px; padding: 10px;
-    min-height: 100px; display: flex; flex-direction: column; box-shadow: inset 0 5px 15px rgba(0,0,0,0.2);
+    min-height: 120px; display: flex; flex-direction: column; box-shadow: inset 0 5px 15px rgba(0,0,0,0.2);
 }
 .kitchen-title { font-weight: 900; color: #2d3436; margin-bottom: 10px; font-size: 1.2rem; }
-#stoves-container { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+#stoves-container { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; align-items: flex-end;}
 
-/* The Pot & Egg in the Kitchen */
-.kitchen-pot {
-    width: 60px; height: 55px; background: #2d3436; border-radius: 5px 5px 25px 25px; 
-    border: 3px solid #000; position: relative; display: flex; justify-content: center; align-items: flex-end;
+/* The New Authentic Ramen Bowl */
+.cooking-bowl {
+    width: 70px; height: 40px; border-radius: 5px 5px 35px 35px; border: 4px solid #333; 
+    position: relative; display: flex; justify-content: center; align-items: flex-end; padding-bottom: 5px; transition: background 0.3s;
 }
+/* Phases of cooking */
+.step-1 { background: #dfe6e9; } /* Boiling water */
+.step-2 { background: #e17055; } /* Seasoning added */
+.step-3 { background: #fdcb6e; } /* Completed Ramen Broth */
+
+.bowl-label { position: absolute; top: -25px; font-size: 0.7rem; font-weight: bold; background: #fff; padding: 2px 5px; border: 2px solid #000; border-radius: 5px; white-space: nowrap; z-index: 10;}
+
+/* The Egg Animation */
 .egg-drop {
-    position: absolute; top: -30px; font-size: 1.8rem; z-index: 6;
-    animation: dropEggIntoPot 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+    position: absolute; top: -40px; font-size: 1.8rem; z-index: 6;
+    animation: dropEggIntoBowl 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
-@keyframes dropEggIntoPot { 0% { transform: translateY(-50px) scale(0); opacity: 0; } 100% { transform: translateY(10px) scale(1); opacity: 1; } }
+@keyframes dropEggIntoBowl { 0% { transform: translateY(-50px) scale(0); opacity: 0; } 100% { transform: translateY(20px) scale(1); opacity: 1; } }
 
-.pot-bar-container { width: 80%; height: 8px; background: #dfe6e9; border: 2px solid #000; border-radius: 4px; overflow: hidden; margin-bottom: 5px; z-index: 10;}
-.pot-bar { height: 100%; background: #fdcb6e; width: 0%; transition: width 0.1s linear;}
+.pot-bar-container { width: 80%; height: 6px; background: #fff; border: 2px solid #000; border-radius: 3px; overflow: hidden; margin-bottom: -15px; z-index: 10; position: absolute; bottom: -10px;}
+.pot-bar { height: 100%; background: #00b894; width: 0%; transition: width 0.1s linear;}
 
 /* DINING AREA */
 #dining-area { flex: 1; display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; overflow-y: auto; padding-bottom: 10px;}
 
-.seat { 
-    width: 80px; height: 110px; border: 3px solid #ccc; border-radius: 8px; background: #fff; 
-    position: relative; display: flex; flex-direction: column; justify-content: flex-end; cursor: pointer; 
-}
+.seat { width: 80px; height: 110px; border: 3px solid #ccc; border-radius: 8px; background: #fff; position: relative; display: flex; flex-direction: column; justify-content: flex-end; cursor: pointer; }
 .seat.locked { display: none !important; }
 .belt-strip { height: 20px; width: 100%; background: #444; border-top: 2px solid #222; position: absolute; bottom: 0; left: 0; border-radius: 0 0 5px 5px; z-index: 2; }
 .status-text { position: absolute; top: 5px; width: 100%; text-align: center; font-size: 0.75rem; font-weight: bold; z-index: 10; }
@@ -67,26 +80,16 @@ h1 { font-weight: 900; letter-spacing: -1px; margin-top: 0; }
 .person .head::after { content: '•_•'; position: absolute; top: 6px; font-size: 11px; font-weight: 900; color: #333; }
 .person .body { width: 36px; height: 26px; border: 3px solid #333; border-radius: 12px 12px 0 0; border-bottom: none; margin-top: -3px; }
 
-.vip-panda {
-    position: absolute; bottom: 20px; width: 100%; text-align: center; font-size: 3.5rem; 
-    animation: bounce 0.5s infinite alternate ease-in-out; pointer-events: none; text-shadow: 0 0 15px gold; z-index: 5;
-}
-
+.vip-panda { position: absolute; bottom: 20px; width: 100%; text-align: center; font-size: 3.5rem; animation: bounce 0.5s infinite alternate ease-in-out; pointer-events: none; text-shadow: 0 0 15px gold; z-index: 5; }
 @keyframes bounce { 0% { transform: translateY(0); } 100% { transform: translateY(-5px); } }
 
-.monkey-chef {
-    position: absolute; font-size: 2.5rem; z-index: 100; left: 20px; bottom: 30px;
-    animation: monkeyJump 0.4s infinite alternate ease-in-out; pointer-events: none;
-}
+.monkey-chef { position: absolute; font-size: 2.5rem; z-index: 100; left: 20px; bottom: 30px; animation: monkeyJump 0.4s infinite alternate ease-in-out; pointer-events: none; }
 @keyframes monkeyJump { 0% { transform: translateY(0) scale(1); } 100% { transform: translateY(-20px) scale(1.1); } }
 
 /* UPGRADES & BUTTONS */
 .pad-container { display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; }
 .pad-slot { flex: 1; min-width: 180px; }
-.tycoon-pad {
-    background: #ff7675; border: 4px solid #d63031; color: white; padding: 15px 10px; font-family: inherit; font-size: 0.9rem;
-    text-transform: uppercase; font-weight: 900; cursor: pointer; box-shadow: 0 8px 0 #d63031; transition: 0.1s; width: 100%; height: 100%;
-}
+.tycoon-pad { background: #ff7675; border: 4px solid #d63031; color: white; padding: 15px 10px; font-family: inherit; font-size: 0.9rem; text-transform: uppercase; font-weight: 900; cursor: pointer; box-shadow: 0 8px 0 #d63031; transition: 0.1s; width: 100%; height: 100%; }
 .tycoon-pad.affordable { background: #55efc4; border-color: #00b894; box-shadow: 0 8px 0 #00b894; color: #000; }
 .tycoon-pad:active { transform: translateY(8px); box-shadow: 0 0px 0 transparent; }
 .reset-btn { margin-top: 20px; background: none; border: none; color: #d63031; font-weight: bold; cursor: pointer; text-decoration: underline; font-family: inherit; }

@@ -12,63 +12,59 @@
         
         <div class="top-bar">
             <div class="wallet-display">Wallet: <span id="money" style="color:#00b894;">$0</span></div>
-            <div class="stats-box">Menu: <b id="stat-menu">Basic ($50)</b></div>
+            <div class="stats-box">Menu: <b id="stat-menu">Basic Shoyu ($50)</b></div>
+        </div>
+
+        <div class="tab-nav">
+            <button class="tab-btn active" id="btn-dining" onclick="switchTab('dining')">🍽️ Dining Room</button>
+            <button class="tab-btn" id="btn-kitchen" onclick="switchTab('kitchen')">🔥 Kitchen</button>
         </div>
 
         <div class="pantry-panel">
-            <h3>🛒 Ingredients Market</h3>
             <div class="pantry-grid">
-                <div class="ing-item">
-                    <span>🍜 Noodles: <b id="inv-noodle">0</b></span>
-                    <button onclick="buyIngredient('noodle', 10, 5)">Buy 10 ($5)</button>
-                </div>
-                <div class="ing-item">
-                    <span>🥣 Broth: <b id="inv-broth">0</b></span>
-                    <button onclick="buyIngredient('broth', 10, 5)">Buy 10 ($5)</button>
-                </div>
-                <div class="ing-item">
-                    <span>🧂 Seasoning: <b id="inv-spice">0</b></span>
-                    <button onclick="buyIngredient('spice', 10, 2)">Buy 10 ($2)</button>
-                </div>
-                <div class="ing-item">
-                    <span>🥚 Eggs: <b id="inv-egg">0</b></span>
-                    <button onclick="buyIngredient('egg', 10, 8)">Buy 10 ($8)</button>
-                </div>
+                <div class="ing-item"><span>🍜 Noodles: <b id="inv-noodle">0</b></span><button onclick="buyIngredient('noodle', 10, 5)">Buy 10 ($5)</button></div>
+                <div class="ing-item"><span>🥣 Broth: <b id="inv-broth">0</b></span><button onclick="buyIngredient('broth', 10, 5)">Buy 10 ($5)</button></div>
+                <div class="ing-item"><span>🧂 Seasoning: <b id="inv-spice">0</b></span><button onclick="buyIngredient('spice', 10, 2)">Buy 10 ($2)</button></div>
+                <div class="ing-item"><span>🥚 Eggs: <b id="inv-egg">0</b></span><button onclick="buyIngredient('egg', 10, 8)">Buy 10 ($8)</button></div>
             </div>
-            <div id="out-of-stock-msg" class="hidden" style="color: #d63031; font-weight: bold; margin-top: 5px;">⚠️ OUT OF INGREDIENTS! ⚠️</div>
+            <div id="out-of-stock-msg" class="hidden" style="color: #d63031; font-weight: bold; margin-top: 5px;">⚠️ BUY INGREDIENTS TO COOK! ⚠️</div>
         </div>
 
         <div class="restaurant-floor">
-            <div id="kitchen-area">
-                <div class="kitchen-title">🔥 THE KITCHEN 🔥</div>
+            
+            <div id="view-dining" class="view-panel active-view">
+                <div id="dining-area"></div>
+            </div>
+
+            <div id="view-kitchen" class="view-panel hidden-view kitchen-bg">
+                <div class="kitchen-title">👨‍🍳 KITCHEN STATIONS (Click to Cook)</div>
                 <div id="stoves-container">
                     </div>
             </div>
 
-            <div id="dining-area">
-                </div>
         </div>
 
         <div class="tycoon-section">
-            <h3>🔴 Upgrades</h3>
+            <h3>🔴 Upgrades & Business</h3>
             <div class="pad-container">
                 <div id="pad-table" class="pad-slot"></div>
                 <div id="pad-recipe" class="pad-slot"></div>
                 <div id="pad-auto" class="pad-slot"></div>
+                <div id="pad-special" class="pad-slot"></div>
             </div>
-            <button class="reset-btn" onclick="resetGame()">Hard Reset</button>
+            <button class="reset-btn" onclick="resetGame()">Hard Reset Data</button>
         </div>
         
-        <div style="margin-top: 15px; color: #aaa; font-size: 0.8rem;">Type 'rafay' for Admin Panel</div>
+        <div style="margin-top: 15px; color: #aaa; font-size: 0.8rem;">Type 'rafay is cool' for God Panel</div>
     </div>
 
     <div id="admin-panel" class="hidden">
-        <h2 style="color: #00ff00;">👨‍💻 Boss Rafay's Terminal</h2>
+        <h2 style="color: #00ff00; text-shadow: 0 0 10px #00ff00;">👑 GOD MODE TERMINAL</h2>
         <div class="admin-grid">
-            <button class="tycoon-pad affordable" onclick="cheatMoney(1000000)">+$1 Million</button>
-            <button class="tycoon-pad affordable track-mult" onclick="cheatMoney(1000000000000)">+$1 Trillion</button>
-            <button class="tycoon-pad affordable" onclick="adminMaxIngredients()">Max Ingredients</button>
-            <button class="tycoon-pad affordable track-table" onclick="adminMaxTables()">Max Tables</button>
+            <button class="god-btn" onclick="cheatMoney(1000000000000000)">+Infinite Money</button>
+            <button class="god-btn" onclick="adminMaxIngredients()">+1 Billion Ingredients</button>
+            <button class="god-btn" onclick="adminMaxTables()">Unlock 1000 Tables</button>
+            <button class="god-btn" onclick="adminForceVIPs()">Force 10 VIPs</button>
         </div>
         <button class="reset-btn" style="color: #ff4d4d; margin-top: 15px;" onclick="closeAdmin()">Close Terminal</button>
     </div>

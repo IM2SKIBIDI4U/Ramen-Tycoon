@@ -3,22 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ramen Tycoon: Master Chef Edition</title>
+    <title>Ramen Tycoon: Animated Empire</title>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="event-toast" class="event-toast hidden">🚨 RUSH HOUR! 🚨</div>
-
     <div class="game-container" id="main-container">
         <h1>🍜 Ramen Monkey Tycoon</h1>
         
         <div class="top-bar glass-panel">
             <div class="wallet-display">Wallet: <span id="money" style="color:#05c46b;">$0</span></div>
             <div class="stats-box">
-                Menu: <b id="stat-menu">Basic Shoyu ($50)</b><br>
-                <span style="color:#f1c40f; font-size:0.9rem;">🐒 Monkey Money: <b id="stat-stars">0</b> (<span id="star-mult">1</span>x Profits)</span><br>
-                <span style="color:#0984e3; font-size:0.9rem;">🗺️ Turf Bonus: <b id="stat-turf">1</b>x</span>
+                Menu: <b id="stat-menu">Basic Shoyu ($50)</b>
             </div>
         </div>
 
@@ -26,8 +22,6 @@
             <button class="tab-btn active" id="btn-dining" onclick="switchTab('dining')">🍽️ Dining</button>
             <button class="tab-btn" id="btn-kitchen" onclick="switchTab('kitchen')">🔥 Kitchen</button>
             <button class="tab-btn" id="btn-staff" onclick="switchTab('staff')">🐒 Staff</button>
-            <button class="tab-btn" id="btn-map" onclick="switchTab('map')">🗺️ Turf Wars</button>
-            <button class="tab-btn" id="btn-decor" onclick="switchTab('decor')">🎨 Decor</button>
         </div>
 
         <div class="pantry-panel glass-panel">
@@ -37,44 +31,29 @@
                 <div class="ing-item"><span>🧂 Spice: <b id="inv-spice">0</b></span><button onclick="buyIngredient('spice', 10, 2)">Buy 10 ($2)</button></div>
                 <div class="ing-item"><span>🥚 Eggs: <b id="inv-egg">0</b></span><button onclick="buyIngredient('egg', 10, 8)">Buy 10 ($8)</button></div>
             </div>
-            <div id="out-of-stock-msg" class="hidden" style="color: #ff4d4d; font-weight: bold; margin-top: 5px;">⚠️ OUT OF STOCK! ⚠️</div>
         </div>
 
-        <div class="restaurant-floor glass-panel" id="rest-floor">
+        <div class="restaurant-floor glass-panel">
             <div id="view-dining" class="view-panel active-view">
-                <div class="outside-queue"><div id="wait-list" class="queue-line"></div><div class="door-frame">🚪 ENTRANCE</div></div>
                 <div id="dining-area"></div>
             </div>
-            <div id="view-kitchen" class="view-panel hidden-view kitchen-bg">
-                <div class="kitchen-title">👨‍Chef's Station (Click to Cook!)</div>
+            <div id="view-kitchen" class="view-panel hidden-view">
                 <div id="stoves-container"></div>
             </div>
-            <div id="view-staff" class="view-panel hidden-view"><div class="pad-container" id="staff-container"></div></div>
-            <div id="view-map" class="view-panel hidden-view"><div id="turf-container"></div></div>
-            <div id="view-decor" class="view-panel hidden-view"><div class="pad-container" id="decor-container"></div></div>
+            <div id="view-staff" class="view-panel hidden-view">
+                <div class="pad-container" id="staff-container"></div>
+            </div>
         </div>
 
         <div class="tycoon-section glass-panel">
             <div class="pad-container">
                 <div id="pad-table" class="pad-slot"></div>
                 <div id="pad-recipe" class="pad-slot"></div>
-                <div id="pad-wok" class="pad-slot"></div>
                 <div id="pad-auto" class="pad-slot"></div>
-                <div id="pad-special" class="pad-slot"></div>
             </div>
-            <button class="modern-btn prestige-btn" id="btn-prestige" onclick="prestigeGame()">🌟 Claim Monkey Money (Req: $1 Trillion)</button>
-            <button class="reset-btn" onclick="resetGame()">Hard Reset Data</button>
+            <button class="reset-btn" style="margin-top:20px; opacity:0.5;" onclick="resetGame()">Hard Reset</button>
         </div>
     </div>
-
-    <div id="admin-panel" class="hidden">
-        <h2 style="color:#00ff00">👑 GOD MODE</h2>
-        <input type="number" id="custom-money" placeholder="Set Money">
-        <button onclick="setCustomMoney()">Set</button>
-        <button onclick="adminMaxIngredients()">Infinite Ingredients</button>
-        <button onclick="closeAdmin()">Close</button>
-    </div>
-
     <script src="script.js"></script>
 </body>
 </html>

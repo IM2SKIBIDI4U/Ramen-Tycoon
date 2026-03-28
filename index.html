@@ -3,33 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ramen Tycoon: Animated Empire</title>
+    <title>Ramen Monkey Tycoon: Final Edition</title>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="game-container" id="main-container">
+    <div class="game-container">
         <h1>🍜 Ramen Monkey Tycoon</h1>
         
         <div class="top-bar glass-panel">
             <div class="wallet-display">Wallet: <span id="money" style="color:#05c46b;">$0</span></div>
             <div class="stats-box">
-                Menu: <b id="stat-menu">Basic Shoyu ($50)</b>
+                Menu: <b id="stat-menu">Basic Shoyu ($50)</b><br>
+                <span id="monkey-status" style="color:#f1c40f; font-size:0.8rem;">🐒 Monkey Staff: None</span>
             </div>
         </div>
 
         <div class="tab-nav">
-            <button class="tab-btn active" id="btn-dining" onclick="switchTab('dining')">🍽️ Dining</button>
-            <button class="tab-btn" id="btn-kitchen" onclick="switchTab('kitchen')">🔥 Kitchen</button>
-            <button class="tab-btn" id="btn-staff" onclick="switchTab('staff')">🐒 Staff</button>
+            <button class="tab-btn active" onclick="switchTab('dining')">🍽️ Dining</button>
+            <button class="tab-btn" onclick="switchTab('kitchen')">🔥 Kitchen</button>
+            <button class="tab-btn" onclick="switchTab('upgrades')">🚀 Upgrades</button>
         </div>
 
         <div class="pantry-panel glass-panel">
             <div class="pantry-grid">
-                <div class="ing-item"><span>🍜 Noodles: <b id="inv-noodle">0</b></span><button onclick="buyIngredient('noodle', 10, 5)">Buy 10 ($5)</button></div>
+                <div class="ing-item"><span>🍜 Noodle: <b id="inv-noodle">0</b></span><button onclick="buyIngredient('noodle', 10, 5)">Buy 10 ($5)</button></div>
                 <div class="ing-item"><span>🥣 Broth: <b id="inv-broth">0</b></span><button onclick="buyIngredient('broth', 10, 5)">Buy 10 ($5)</button></div>
                 <div class="ing-item"><span>🧂 Spice: <b id="inv-spice">0</b></span><button onclick="buyIngredient('spice', 10, 2)">Buy 10 ($2)</button></div>
-                <div class="ing-item"><span>🥚 Eggs: <b id="inv-egg">0</b></span><button onclick="buyIngredient('egg', 10, 8)">Buy 10 ($8)</button></div>
+                <div class="ing-item"><span>🥚 Egg: <b id="inv-egg">0</b></span><button onclick="buyIngredient('egg', 10, 8)">Buy 10 ($8)</button></div>
             </div>
         </div>
 
@@ -38,22 +39,28 @@
                 <div id="dining-area"></div>
             </div>
             <div id="view-kitchen" class="view-panel hidden-view">
+                <h3 style="color: #636e72;">Chef's Station</h3>
                 <div id="stoves-container"></div>
             </div>
-            <div id="view-staff" class="view-panel hidden-view">
-                <div class="pad-container" id="staff-container"></div>
+            <div id="view-upgrades" class="view-panel hidden-view">
+                <div class="pad-container">
+                    <div id="pad-table"></div>
+                    <div id="pad-recipe"></div>
+                    <div id="pad-auto"></div>
+                </div>
             </div>
         </div>
 
-        <div class="tycoon-section glass-panel">
-            <div class="pad-container">
-                <div id="pad-table" class="pad-slot"></div>
-                <div id="pad-recipe" class="pad-slot"></div>
-                <div id="pad-auto" class="pad-slot"></div>
-            </div>
-            <button class="reset-btn" style="margin-top:20px; opacity:0.5;" onclick="resetGame()">Hard Reset</button>
-        </div>
+        <button class="reset-btn" onclick="resetGame()">Hard Reset Data</button>
     </div>
+
+    <div id="admin-panel" class="hidden">
+        <h2 style="color:#00ff00">👑 GOD MODE</h2>
+        <button onclick="game.wallet += 100000; updateUI();">+$100k</button>
+        <button onclick="game.inv = {noodle:999, broth:999, spice:999, egg:999}; updateUI();">Max Stock</button>
+        <button onclick="document.getElementById('admin-panel').classList.add('hidden')">Close</button>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>

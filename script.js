@@ -7,7 +7,7 @@ const TRACK_TABLES = [];
 let tableCost = 50;
 for (let i = 2; i <= 101; i++) {
     TRACK_TABLES.push({ name: `Buy Table ${i}`, cost: tableCost });
-    tableCost = Math.floor(tableCost * 1.6); // Price goes up 60% each time
+    tableCost = Math.floor(tableCost * 1.6); 
 }
 
 // 2. Generate 1000 Ramen Recipes
@@ -20,24 +20,20 @@ const bases = ["Shio", "Shoyu", "Miso", "Tonkotsu", "Udon", "Wagyu", "Dragon", "
 for (let i = 1; i <= 1000; i++) {
     let p = prefixes[Math.floor((i - 1) / 100) % prefixes.length];
     let b = bases[(i - 1) % bases.length];
-    TRACK_RECIPES.push({
-        name: `Tier ${i}: ${p} ${b}`,
-        cost: recipeCost,
-        value: recipeVal
-    });
-    recipeCost = Math.floor(recipeCost * 1.35); // Cost scales up 35%
-    recipeVal = Math.floor(recipeVal * 1.25);   // Profit scales up 25%
+    TRACK_RECIPES.push({ name: `Tier ${i}: ${p} ${b}`, cost: recipeCost, value: recipeVal });
+    recipeCost = Math.floor(recipeCost * 1.35); 
+    recipeVal = Math.floor(recipeVal * 1.25);   
 }
 
 // 3. Generate 100 Chef Upgrades
 const TRACK_AUTO = [];
 let chefCost = 400;
-let chefSpeed = 2500; // Starts at 2.5 seconds
+let chefSpeed = 2500; 
 for (let i = 1; i <= 100; i++) {
     let title = i === 1 ? "Hire Chef" : `Chef Level ${i}`;
     TRACK_AUTO.push({ name: title, cost: chefCost, speed: Math.max(50, chefSpeed) });
     chefCost = Math.floor(chefCost * 1.7);
-    chefSpeed = Math.floor(chefSpeed * 0.92); // Gets 8% faster each level!
+    chefSpeed = Math.floor(chefSpeed * 0.92); 
 }
 
 // 4. Generate 100 Multipliers
@@ -46,12 +42,12 @@ let multCost = 1000;
 let multVal = 2;
 for (let i = 1; i <= 100; i++) {
     TRACK_MULT.push({ name: `Boost x${multVal}`, cost: multCost, mult: multVal });
-    multCost = Math.floor(multCost * 2.1); // Cost more than doubles
-    multVal += Math.floor(multVal * 0.5);  // Multiplier gets 50% bigger
+    multCost = Math.floor(multCost * 2.1); 
+    multVal += Math.floor(multVal * 0.5);  
 }
 
 // ==========================================
-// GAME STATE (V4)
+// GAME STATE
 // ==========================================
 let gameState = {
     wallet: 0, vault: 0, tablesOwned: 1,
@@ -60,12 +56,12 @@ let gameState = {
     chefOwned: false, chefSpeed: 0, moneyMultiplier: 1
 };
 
-// We now support 100 tables!
+// Array for 100 tables
 let seats = Array.from({length: 100}, () => ({ occupied: false, isServed: false, colorIndex: 0 }));
 const shirtColors = ["#a2d2ff", "#ffc8dd", "#bde0fe", "#ffafcc", "#cdb4db", "#fdcb6e", "#00cec9"];
 
 loadGame();
-initTables(); // Builds the HTML for the tables
+initTables(); 
 updateUI();
 runCustomerLoop();
 if (gameState.chefOwned) runChefLoop();
@@ -166,7 +162,7 @@ function buyMult() {
 // --- LOOPS ---
 function runCustomerLoop() { 
     customerArrives(); 
-    let speed = Math.max(100, 2000 - (gameState.tablesOwned * 50)); // Gets super fast with more tables!
+    let speed = Math.max(100, 2000 - (gameState.tablesOwned * 50)); 
     setTimeout(runCustomerLoop, speed); 
 }
 function runChefLoop() {
@@ -182,7 +178,7 @@ function runChefLoop() {
     if (gameState.chefOwned) setTimeout(runChefLoop, gameState.chefSpeed);
 }
 
-// --- NUMBER FORMATTING (Handles Trillions, Quadrillions, Quintillions!) ---
+// --- FORMATTING ---
 function formatMoney(num) {
     if (num >= 1e18) return (num / 1e18).toFixed(2) + "Qi";
     if (num >= 1e15) return (num / 1e15).toFixed(2) + "Qa";
@@ -236,10 +232,10 @@ function updateUI() {
     renderPad('pad-mult', TRACK_MULT, gameState.idxMult, 'track-mult', 'buyMult', '✨ BOOSTS');
 }
 
-// SAVE V4
-function saveGame() { localStorage.setItem('ramenRobloxV4', JSON.stringify(gameState)); }
+// SAVE V5 (Brand new save file to prevent old data from breaking it)
+function saveGame() { localStorage.setItem('ramenRobloxV5', JSON.stringify(gameState)); }
 function loadGame() {
-    let saved = localStorage.getItem('ramenRobloxV4');
+    let saved = localStorage.getItem('ramenRobloxV5');
     if(saved) {
         let parsed = JSON.parse(saved);
         gameState = { ...gameState, ...parsed };
@@ -255,5 +251,5 @@ document.addEventListener('keydown', (e) => {
     if (typedKeys.length > secretCode.length) typedKeys = typedKeys.slice(-secretCode.length);
     if (typedKeys === secretCode) { document.getElementById('admin-panel').classList.remove('hidden'); typedKeys = ""; }
 });
-function cheatMoney() { gameState.wallet += 1e15; saveGame(); updateUI(); } // Gives 1 Quadrillion!
+function cheatMoney() { gameState.wallet += 1e15; saveGame(); updateUI(); } // 1 Quadrillion!
 function closeAdmin() { document.getElementById('admin-panel').classList.add('hidden'); }

@@ -19,8 +19,7 @@ h1 { font-weight: 900; margin-top: 0; }
 
 #view-dining { background: #fafafa; }
 .outside-queue { display: flex; flex-direction: column; align-items: center; margin-bottom: 20px; }
-.queue-line { display: flex; gap: 5px; height: 40px; align-items: center; justify-content: center; margin-bottom: 5px; }
-.waiting-customer { font-size: 1.8rem; animation: waddle 0.3s infinite alternate; }
+.queue-line { display: flex; gap: 5px; height: 50px; align-items: flex-end; justify-content: center; margin-bottom: 5px; }
 .door-frame { width: 120px; background: #8e44ad; color: white; padding: 10px; border: 4px solid #2c3e50; border-radius: 8px 8px 0 0; font-weight: bold; margin: 0 auto; text-align: center;}
 
 #dining-area { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
@@ -38,26 +37,33 @@ h1 { font-weight: 900; margin-top: 0; }
 .patience-container { position: absolute; bottom: -15px; left: 4px; width: 56px; height: 6px; background: #eee; border: 2px solid #333; border-radius: 4px; overflow: hidden; z-index: 20; }
 .patience-fill { height: 100%; background: #00b894; width: 100%; transition: width 0.1s linear, background-color 0.3s; }
 
-/* SMOOTH WALKING ANIMATIONS */
-.walking-customer { position: absolute; font-size: 2rem; z-index: 100; transition: left 1.5s linear, top 1.5s cubic-bezier(0.25, 1, 0.5, 1); pointer-events: none; }
-.leaving-customer { position: absolute; font-size: 2rem; z-index: 100; opacity: 0.7; transition: all 1s ease-in; pointer-events: none; }
-.monkey-chef-walking { position: absolute; font-size: 2.5rem; z-index: 110; transition: all 0.4s ease-in-out; pointer-events: none; }
-.waddle-anim { animation: waddle 0.25s infinite alternate; }
+/* 🎮 MODDED 2D RPG CHARACTERS (Replaces Emojis) 🎮 */
+.customer-wrapper { position: absolute; bottom: 12px; width: 100%; display: flex; justify-content: center; pointer-events: none; z-index: 5;}
+.rpg-char { display: flex; flex-direction: column; align-items: center; width: 30px; position: relative; z-index: 10; transform-origin: bottom center;}
+.rpg-head { width: 18px; height: 18px; background: var(--skin); border: 2px solid #000; border-radius: 4px; position: relative; z-index: 3; }
+.rpg-hair { width: 22px; height: 8px; background: var(--hair); border: 2px solid #000; position: absolute; top: -8px; left: -4px; border-radius: 4px 4px 0 0; z-index: 4; }
+.rpg-eyes { display: flex; justify-content: space-between; width: 10px; margin: 4px auto 0; }
+.rpg-eye { width: 3px; height: 3px; background: #000; }
+.rpg-body { width: 16px; height: 14px; background: var(--shirt); border: 2px solid #000; border-top: none; position: relative; z-index: 2; margin-top: -2px;}
+.rpg-legs { display: flex; gap: 2px; margin-top: -2px; z-index: 1; }
+.rpg-leg { width: 6px; height: 10px; background: var(--pants); border: 2px solid #000; border-top: none; transform-origin: top center; }
 
-@keyframes waddle { 0% { transform: rotate(-15deg) translateY(0); } 100% { transform: rotate(15deg) translateY(-5px); } }
+/* Walking Animations */
+.walking-anim .rpg-char { animation: charBob 0.3s infinite alternate; }
+.walking-anim .rpg-leg:nth-child(1) { animation: walkLeft 0.3s infinite alternate; }
+.walking-anim .rpg-leg:nth-child(2) { animation: walkRight 0.3s infinite alternate; }
 
-/* Sitting Customers */
-.customer-wrapper { position: absolute; bottom: 15px; width: 100%; display: flex; justify-content: center; pointer-events: none;}
-.person { width: 35px; height: 45px; display: flex; flex-direction: column; align-items: center; animation: breathe 1.5s infinite ease-in-out; }
-@keyframes breathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.05) translateY(-2px); } }
-.person .head { width: 24px; height: 24px; background: #fff; border: 3px solid #333; border-radius: 50%; display: flex; justify-content: center; z-index: 2; }
-.person .head::after { content: '•_•'; position: absolute; top: 4px; font-size: 10px; font-weight: 900; color: #333; }
-.person .body { width: 30px; height: 24px; border: 3px solid #333; border-radius: 10px 10px 0 0; border-bottom: none; margin-top: -3px; }
+.walking-customer { position: absolute; z-index: 100; transition: left 1.5s linear, top 1.5s cubic-bezier(0.25, 1, 0.5, 1); pointer-events: none; }
+.leaving-customer { position: absolute; z-index: 100; opacity: 0.7; transition: all 1s ease-in; pointer-events: none; }
 
-.vip-panda { position: absolute; bottom: 15px; width: 100%; text-align: center; font-size: 2.5rem; animation: vipBounce 0.8s infinite alternate; pointer-events: none; filter: drop-shadow(0 0 10px gold); z-index: 5; }
-@keyframes vipBounce { from { transform: translateY(0); } to { transform: translateY(-10px); } }
+@keyframes charBob { 0% { transform: translateY(0); } 100% { transform: translateY(-4px); } }
+@keyframes walkLeft { 0% { transform: rotate(30deg); } 100% { transform: rotate(-30deg); } }
+@keyframes walkRight { 0% { transform: rotate(-30deg); } 100% { transform: rotate(30deg); } }
+@keyframes vipBounce { from { transform: translateY(0); } to { transform: translateY(-5px); } }
 @keyframes bounce { from { transform: translateX(-50%) translateY(0); } to { transform: translateX(-50%) translateY(-5px); } }
 @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+.monkey-chef-walking { position: absolute; font-size: 2.5rem; z-index: 110; transition: all 0.4s ease-in-out; pointer-events: none; }
 
 /* KITCHEN */
 .kitchen-bg { background: linear-gradient(45deg, #ecf0f1 25%, #bdc3c7 25%, #bdc3c7 50%, #ecf0f1 50%, #ecf0f1 75%, #bdc3c7 75%, #bdc3c7 100%); background-size: 40px 40px; box-shadow: inset 0 0 30px rgba(0,0,0,0.3); }

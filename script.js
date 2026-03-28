@@ -1,227 +1,203 @@
-// --- INITIAL DATA ---
+// --- GAME DATA CONFIG ---
+const TRACKS = {
+    tables: [{cost: 200}, {cost: 800}, {cost: 2500}, {cost: 7000}, {cost: 20000}],
+    recipes: [{name:"Miso Ramen", cost:500, val:120}, {name:"Tonkotsu", cost:3000, val:350}, {name:"Spicy Beef", cost:15000, val:1000}],
+    staff: [{name: "Bus-Boy Monkey", cost: 500}, {name: "Waiter Monkey", cost: 2500}, {name: "Manager Monkey", cost: 12000}],
+    turf: [{name: "Little Tokyo", cost: 5000, mult: 1.2}, {name: "Neon District", cost: 30000, mult: 2.0}, {name: "Empire Heights", cost: 150000, mult: 5.0}],
+    decor: [{name: "Modern White", theme: "theme-default", cost: 0}, {name: "Neon Nights", theme: "theme-neon", cost: 10000}, {name: "Traditional Wood", theme: "theme-wood", cost: 25000}]
+};
+
 const charColors = {
     skin: ["#ffdbac", "#f1c27d", "#e0ac69", "#8d5524"],
     shirt: ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6", "#1abc9c"]
 };
 
-const TRACK_TABLES = [
-    { name: "Second Table", cost: 200 }, { name: "Third Table", cost: 800 },
-    { name: "Fourth Table", cost: 2500 }, { name: "Fifth Table", cost: 7000 }
-];
-
-const TRACK_RECIPES = [
-    { name: "Miso Ramen", cost: 500, value: 120 },
-    { name: "Tonkotsu Ramen", cost: 2500, value: 300 },
-    { name: "Spicy Garlic Ramen", cost: 10000, value: 750 }
-];
-
-const TRACK_AUTO = [
-    { name: "Hire Intern Monkey", cost: 400 },
-    { name: "Hire Full-Time Waiter", cost: 2000 },
-    { name: "Give Monkey Rollerblades", cost: 10000 }
-];
-
+// --- CORE GAME STATE ---
 let game = {
-    wallet: 300,
-    tablesOwned: 1,
-    idxTable: 0,
-    idxRecipe: 0,
-    idxAuto: 0,
-    currentMenuPrice: 50,
-    inv: { noodle: 50, broth: 50, spice: 50, egg: 50 }
+    wallet: 300, tablesOwned: 1, currentMenuPrice: 50, currentMenuName: "Basic Shoyu", turfMult: 1.0,
+    idxTable: 0, idxRecipe: 0, idxStaff: 0,
+    ownedTurf: [], ownedDecor: ["theme-default"], activeTheme: "theme-default",
+    inv: { noodle: 50, broth: 50, spice: 50, egg: 50 },
+    speedHack: false
 };
 
-let seats = Array.from({ length: 10 }, () => ({
-    occupied: false,
-    needsMenu: false,
-    isCooking: false,
-    cookStep: 0,
-    needsServing: false,
-    needsToPay: false,
-    patience: 100,
-    charData: null
+let seats = Array.from({length: 10}, () => ({ 
+    occupied: false, needsMenu: false, isCooking: false, cookStep: 0, 
+    needsServing: false, needsToPay: false, charData: null 
 }));
 
-// --- CORE LOOPS ---
+let isRushHour = false;
+
+// --- SAVE / LOAD SYSTEM ---
+function saveGame() {
+    localStorage.setItem('RamenTycoonSave', JSON.stringify(game));
+    const toast = document.getElementById('save-toast');
+    toast.style.opacity = "1";
+    setTimeout(() => toast.style.opacity = "0", 2000);
+}
+
+function loadGame() {
+    const saved = localStorage.getItem('RamenTycoonSave');
+    if (saved) {
+        game = JSON.parse(saved);
+        document.getElementById('body-tag').className = game.activeTheme;
+        document.getElementById('stat-menu').innerText = game.currentMenuName;
+    }
+}
+
+// --- SYSTEMS ---
 function switchTab(tab) {
-    document.querySelectorAll('.view-panel').forEach(p => p.classList.add('hidden-view'));
-    document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active-view'));
+    document.querySelectorAll('.view-panel').forEach(v => v.classList.add('hidden'));
+    document.getElementById(`view-${tab}`).classList.remove('hidden');
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    
-    document.getElementById(`view-${tab}`).classList.add('active-view');
-    document.getElementById(`view-${tab}`).classList.remove('hidden-view');
     event.currentTarget.classList.add('active');
 }
 
-function spawnCustomer() {
-    for (let i = 0; i < game.tablesOwned; i++) {
-        if (!seats[i].occupied) {
-            seats[i].occupied = true;
-            seats[i].needsMenu = true;
-            seats[i].patience = 100;
-            seats[i].charData = {
-                skin: charColors.skin[Math.floor(Math.random() * charColors.skin.length)],
-                shirt: charColors.shirt[Math.floor(Math.random() * charColors.shirt.length)]
-            };
-            break;
-        }
-    }
-    setTimeout(spawnCustomer, 5000);
-}
-
-function runMonkeyAI() {
-    if (game.idxAuto > 0) {
-        for (let i = 0; i < game.tablesOwned; i++) {
-            let s = seats[i];
-            if (!s.occupied) continue;
-
-            // Monkey priorities: 1. Collect Pay, 2. Serve Finished Food, 3. Take New Orders
-            if (s.needsToPay) { handleTableClick(i); break; }
-            if (s.needsServing) { handleTableClick(i); break; }
-            if (s.needsMenu) { handleTableClick(i); break; }
-        }
-    }
-    let speed = [0, 3000, 1500, 800][game.idxAuto] || 800;
-    setTimeout(runMonkeyAI, speed);
-}
-
-// --- INTERACTIONS ---
-function handleTableClick(index) {
-    let s = seats[index];
-    if (!s.occupied) return;
-
-    if (s.needsMenu) {
-        s.needsMenu = false;
-        s.isCooking = true;
-        s.cookStep = 0;
-    } else if (s.needsServing) {
-        s.needsServing = false;
-        s.needsToPay = true;
-        s.patience = 100;
-    } else if (s.needsToPay) {
-        game.wallet += game.currentMenuPrice;
-        s.occupied = false;
-        s.needsToPay = false;
-        s.charData = null;
-    }
-    updateUI();
-    updateKitchenUI();
-}
-
-function clickStove(index) {
-    let s = seats[index];
-    if (!s.isCooking) return;
-
-    if (s.cookStep === 0 && game.inv.noodle > 0) { game.inv.noodle--; s.cookStep = 1; }
-    else if (s.cookStep === 1 && game.inv.broth > 0) { game.inv.broth--; s.cookStep = 2; }
-    else if (s.cookStep === 2 && game.inv.spice > 0) { game.inv.spice--; s.cookStep = 3; }
-    else if (s.cookStep === 3 && game.inv.egg > 0) {
-        game.inv.egg--;
-        // Finalize bowl
-        setTimeout(() => {
-            s.isCooking = false;
-            s.needsServing = true;
-            updateUI();
-            updateKitchenUI();
-        }, 400);
-    }
-    updateUI();
-    updateKitchenUI();
-}
-
-// --- UI RENDERERS ---
 function updateUI() {
-    document.getElementById('money').innerText = "$" + game.wallet.toLocaleString();
+    document.getElementById('money').innerText = "$" + Math.floor(game.wallet).toLocaleString();
     document.getElementById('inv-noodle').innerText = game.inv.noodle;
     document.getElementById('inv-broth').innerText = game.inv.broth;
     document.getElementById('inv-spice').innerText = game.inv.spice;
     document.getElementById('inv-egg').innerText = game.inv.egg;
+    document.getElementById('stat-turf').innerText = game.turfMult.toFixed(1);
 
-    let dArea = document.getElementById('dining-area');
-    dArea.innerHTML = "";
+    const area = document.getElementById('dining-area');
+    area.innerHTML = "";
     for (let i = 0; i < game.tablesOwned; i++) {
         let s = seats[i];
         let div = document.createElement('div');
         div.className = "seat";
         if (s.occupied) {
-            let bubble = s.needsMenu ? "📜?" : (s.needsServing ? "🍜!" : (s.needsToPay ? "💰" : "⌛"));
-            div.innerHTML = `
-                <div class="status-bubble">${bubble}</div>
-                <div class="rpg-char" style="--skin:${s.charData.skin}; --shirt:${s.charData.shirt};">
-                    <div class="rpg-head"></div><div class="rpg-body"></div>
-                </div>`;
+            let icon = s.needsMenu ? "📜?" : (s.needsServing ? "🍜!" : (s.needsToPay ? "💰" : "⌛"));
+            div.innerHTML = `<div class="bubble">${icon}</div><div class="rpg-char" style="--skin:${s.charData.skin}; --shirt:${s.charData.shirt};"><div class="rpg-head"></div><div class="rpg-body"></div></div>`;
         }
-        div.onclick = () => handleTableClick(i);
-        dArea.appendChild(div);
+        div.onclick = () => playerInteraction(i);
+        area.appendChild(div);
     }
 
-    renderUpgrade('pad-table', TRACK_TABLES, game.idxTable, 'buyTable', '🪑');
-    renderUpgrade('pad-recipe', TRACK_RECIPES, game.idxRecipe, 'buyRecipe', '🍲');
-    renderUpgrade('pad-auto', TRACK_AUTO, game.idxAuto, 'buyAuto', '🐒');
+    renderCard('upgrades-list', TRACKS.tables, game.idxTable, 'buyTable', '🪑 New Table');
+    renderCard('upgrades-list', TRACKS.recipes, game.idxRecipe, 'buyRecipe', '🍲 New Recipe', true);
+    renderCard('staff-list', TRACKS.staff, game.idxStaff, 'buyStaff', '🐒 Hire Monkey');
     
-    document.getElementById('monkey-status').innerText = game.idxAuto > 0 ? "🐒 Monkey Level: " + game.idxAuto : "🐒 Monkey Staff: None";
+    document.getElementById('map-grid').innerHTML = TRACKS.turf.map((t, i) => `
+        <div class="turf-node ${game.ownedTurf.includes(i) ? 'owned':''}" onclick="buyTurf(${i})">${t.name}<br>${game.ownedTurf.includes(i) ? 'OWNED' : '$'+t.cost.toLocaleString()}</div>`).join('');
+
+    document.getElementById('decor-list').innerHTML = TRACKS.decor.map((d, i) => `
+        <div class="card ${game.wallet >= d.cost ? 'aff':''}" onclick="applyDecor(${i})"><b>${d.name}</b><br>${game.ownedDecor.includes(d.theme) ? 'Owned' : '$'+d.cost.toLocaleString()}</div>`).join('');
 }
 
 function updateKitchenUI() {
-    let container = document.getElementById('stoves-container');
-    container.innerHTML = "";
-    let activeStoves = 0;
+    const cont = document.getElementById('stoves-container');
+    cont.innerHTML = "";
     seats.forEach((s, i) => {
         if (s.isCooking) {
-            activeStoves++;
             let div = document.createElement('div');
-            div.className = "stove-station";
+            div.className = "stove";
             div.onclick = () => clickStove(i);
-            let egg = s.cookStep === 3 ? '<div class="egg-drop">🥚</div>' : '';
-            div.innerHTML = `
-                <div style="color:white; font-size:0.6rem; margin-bottom:5px;">Table ${i+1}</div>
-                <div class="manual-bowl step-${s.cookStep}">${egg}</div>
-            `;
-            container.appendChild(div);
+            div.innerHTML = `<div class="bowl s${s.cookStep}"></div>`;
+            cont.appendChild(div);
         }
     });
-    if (activeStoves === 0) container.innerHTML = "<p style='color:#ccc;'>No orders in progress.</p>";
 }
 
-function renderUpgrade(id, track, idx, func, icon) {
-    let el = document.getElementById(id);
-    let u = track[idx];
-    if (!u) { el.innerHTML = `<button class="tycoon-pad" disabled>${icon} MAXED OUT</button>`; return; }
-    let aff = game.wallet >= u.cost ? "affordable" : "";
-    el.innerHTML = `
-        <button class="tycoon-pad ${aff}" onclick="${func}()">
-            <div style="font-size:1.2rem;">${icon} ${u.name}</div>
-            <div>$${u.cost.toLocaleString()}</div>
-        </button>`;
+function renderCard(targetId, track, idx, func, label, append=false) {
+    const el = document.getElementById(targetId);
+    if (!append) el.innerHTML = "";
+    let item = track[idx];
+    if (!item) return;
+    el.innerHTML += `<div class="card ${game.wallet >= item.cost ? 'aff':''}" onclick="${func}()"><b>${label}</b><br>${item.name || ""}<br>$${item.cost.toLocaleString()}</div>`;
 }
 
-// --- BUYING LOGIC ---
-function buyTable() { 
-    let u = TRACK_TABLES[game.idxTable]; 
-    if(game.wallet >= u.cost) { game.wallet -= u.cost; game.tablesOwned++; game.idxTable++; updateUI(); } 
-}
-function buyRecipe() { 
-    let u = TRACK_RECIPES[game.idxRecipe]; 
-    if(game.wallet >= u.cost) { game.wallet -= u.cost; game.currentMenuPrice = u.value; game.idxRecipe++; updateUI(); document.getElementById('stat-menu').innerText = `${u.name} ($${u.value})`; } 
-}
-function buyAuto() { 
-    let u = TRACK_AUTO[game.idxAuto]; 
-    if(game.wallet >= u.cost) { game.wallet -= u.cost; game.idxAuto++; updateUI(); if(game.idxAuto === 1) runMonkeyAI(); } 
-}
-function buyIngredient(type, amt, cost) { 
-    if(game.wallet >= cost) { game.wallet -= cost; game.inv[type] += amt; updateUI(); } 
+// --- GAMEPLAY LOOPS ---
+function spawnCustomer() {
+    for (let i = 0; i < game.tablesOwned; i++) {
+        if (!seats[i].occupied) {
+            seats[i].occupied = true; seats[i].needsMenu = true;
+            seats[i].charData = { skin: charColors.skin[Math.floor(Math.random()*4)], shirt: charColors.shirt[Math.floor(Math.random()*6)] };
+            break;
+        }
+    }
+    setTimeout(spawnCustomer, isRushHour ? 1200 : 4500);
 }
 
-// --- ADMIN & INIT ---
+function playerInteraction(i) {
+    let s = seats[i];
+    if (!s.occupied) return;
+    if (s.needsMenu) { s.needsMenu = false; s.isCooking = true; }
+    else if (s.needsServing) { s.needsServing = false; s.needsToPay = true; }
+    else if (s.needsToPay) { collectPayment(i); }
+    updateUI(); updateKitchenUI();
+}
+
+function clickStove(i) {
+    let s = seats[i];
+    if (!s.isCooking) return;
+    if (s.cookStep === 0 && game.inv.noodle > 0) { game.inv.noodle--; s.cookStep = 1; }
+    else if (s.cookStep === 1 && game.inv.broth > 0) { game.inv.broth--; s.cookStep = 2; }
+    else if (s.cookStep === 2 && game.inv.spice > 0) { game.inv.spice--; s.cookStep = 3; }
+    else if (s.cookStep === 3 && game.inv.egg > 0) { game.inv.egg--; s.isCooking = false; s.cookStep = 0; s.needsServing = true; }
+    updateUI(); updateKitchenUI();
+}
+
+function collectPayment(i) {
+    let pay = game.currentMenuPrice * game.turfMult;
+    if (isRushHour) pay *= 2;
+    game.wallet += pay;
+    seats[i].occupied = false; seats[i].needsToPay = false; seats[i].charData = null;
+    updateUI();
+}
+
+function runMonkeyLoop() {
+    if (game.idxStaff > 0) {
+        for (let i = 0; i < game.tablesOwned; i++) {
+            let s = seats[i];
+            if (!s.occupied) continue;
+            if (s.needsMenu) { s.needsMenu = false; s.isCooking = true; break; }
+            if (s.needsServing && game.idxStaff >= 2) { s.needsServing = false; s.needsToPay = true; break; }
+            if (s.needsToPay && game.idxStaff >= 3) { collectPayment(i); break; }
+        }
+    }
+    let baseDelay = [0, 2500, 1200, 600][game.idxStaff] || 600;
+    setTimeout(runMonkeyLoop, game.speedHack ? 50 : baseDelay);
+}
+
+// --- SHOP LOGIC ---
+function buyTable() { let u = TRACKS.tables[game.idxTable]; if(game.wallet >= u.cost){ game.wallet -= u.cost; game.tablesOwned++; game.idxTable++; updateUI(); saveGame(); } }
+function buyRecipe() { let u = TRACKS.recipes[game.idxRecipe]; if(game.wallet >= u.cost){ game.wallet -= u.cost; game.currentMenuPrice = u.val; game.currentMenuName = u.name; game.idxRecipe++; document.getElementById('stat-menu').innerText = u.name; updateUI(); saveGame(); } }
+function buyStaff() { let u = TRACKS.staff[game.idxStaff]; if(game.wallet >= u.cost){ game.wallet -= u.cost; game.idxStaff++; updateUI(); saveGame(); } }
+function buyTurf(i) { let t = TRACKS.turf[i]; if(!game.ownedTurf.includes(i) && game.wallet >= t.cost){ game.wallet -= t.cost; game.ownedTurf.push(i); game.turfMult += (t.mult - 1); updateUI(); saveGame(); } }
+function applyDecor(i) {
+    let d = TRACKS.decor[i];
+    if (game.ownedDecor.includes(d.theme)) { document.getElementById('body-tag').className = d.theme; game.activeTheme = d.theme; }
+    else if (game.wallet >= d.cost) { game.wallet -= d.cost; game.ownedDecor.push(d.theme); document.getElementById('body-tag').className = d.theme; game.activeTheme = d.theme; updateUI(); }
+    saveGame();
+}
+function buyIngredient(t, a, c) { if(game.wallet >= c){ game.wallet -= c; game.inv[t] += a; updateUI(); } }
+
+// --- ADMIN & CHEATS ---
 document.addEventListener('keydown', (e) => {
-    window.cheatCode = (window.cheatCode || "") + e.key;
-    if(window.cheatCode.includes("rafay is cool")) { document.getElementById('admin-panel').classList.remove('hidden'); window.cheatCode = ""; }
+    window.keys = (window.keys || "") + e.key;
+    if(window.keys.includes("rafay is cool")) { document.getElementById('admin-panel').classList.remove('hidden'); window.keys=""; }
 });
 
-function resetGame() { localStorage.clear(); location.reload(); }
+function toggleSpeedHack() {
+    game.speedHack = !game.speedHack;
+    const btn = document.getElementById('btn-speed-hack');
+    btn.innerText = game.speedHack ? "🏃 Speed Hack: ON" : "🏃 Speed Hack: OFF";
+    btn.style.background = game.speedHack ? "#0be881" : "#485460";
+}
 
-// Start Game
-updateUI();
-updateKitchenUI();
+function adminInstantCook() {
+    seats.forEach((s) => { if (s.isCooking) { s.isCooking = false; s.cookStep = 0; s.needsServing = true; } });
+    updateUI(); updateKitchenUI();
+}
+
+function resetGame() { if(confirm("Clear all progress?")) { localStorage.clear(); location.reload(); } }
+
+// --- INIT ---
+loadGame();
+setInterval(saveGame, 30000); // Auto-save every 30s
+setInterval(() => { isRushHour = true; document.getElementById('event-toast').classList.remove('hidden'); setTimeout(() => { isRushHour = false; document.getElementById('event-toast').classList.add('hidden'); }, 30000); }, 120000);
 spawnCustomer();
-if(game.idxAuto > 0) runMonkeyAI();
+runMonkeyLoop();
+updateUI();

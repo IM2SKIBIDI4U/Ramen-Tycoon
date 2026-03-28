@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ramen Tycoon: Master Chef Edition</title>
+    <title>Ramen Tycoon: Ultimate Empire</title>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -45,16 +45,31 @@
                 <div class="outside-queue"><div id="wait-list" class="queue-line"></div><div class="door-frame">🚪 ENTRANCE</div></div>
                 <div id="dining-area"></div>
             </div>
+
             <div id="view-kitchen" class="view-panel hidden-view kitchen-bg">
-                <div class="kitchen-title">👨‍Chef's Station (Click to Cook!)</div>
+                <div class="kitchen-title">👨‍🍳 COOKING STATIONS</div>
                 <div id="stoves-container"></div>
             </div>
-            <div id="view-staff" class="view-panel hidden-view"><div class="pad-container" id="staff-container"></div></div>
-            <div id="view-map" class="view-panel hidden-view"><div id="turf-container"></div></div>
-            <div id="view-decor" class="view-panel hidden-view"><div class="pad-container" id="decor-container"></div></div>
+
+            <div id="view-staff" class="view-panel hidden-view">
+                <h2>🐒 Hire Specialist Monkeys</h2>
+                <div class="pad-container" id="staff-container"></div>
+            </div>
+
+            <div id="view-map" class="view-panel hidden-view">
+                <h2>🗺️ Rival Empires</h2>
+                <p>Spend capital on marketing to steal their territory and gain permanent multipliers!</p>
+                <div id="turf-container" style="display: flex; flex-direction: column; gap: 10px;"></div>
+            </div>
+
+            <div id="view-decor" class="view-panel hidden-view">
+                <h2>🎨 Restaurant Themes</h2>
+                <div class="pad-container" id="decor-container"></div>
+            </div>
         </div>
 
         <div class="tycoon-section glass-panel">
+            <h3 style="margin-top: 10px;">🔴 Upgrades (Max Level 1000)</h3>
             <div class="pad-container">
                 <div id="pad-table" class="pad-slot"></div>
                 <div id="pad-recipe" class="pad-slot"></div>
@@ -67,12 +82,31 @@
         </div>
     </div>
 
+    <div id="offline-modal" class="hidden">
+        <div class="modal-box">
+            <h1>💤 Welcome Back Boss!</h1>
+            <p>Your monkeys kept the stoves burning while you were away.</p>
+            <h2 style="color: #05c46b; font-size: 2.5rem; margin: 10px 0;">+ $<span id="offline-earned">0</span></h2>
+            <p>Time away: <span id="offline-time">0</span></p>
+            <button class="modern-btn" onclick="closeOfflineModal()">Collect & Resume</button>
+        </div>
+    </div>
+
     <div id="admin-panel" class="hidden">
-        <h2 style="color:#00ff00">👑 GOD MODE</h2>
-        <input type="number" id="custom-money" placeholder="Set Money">
-        <button onclick="setCustomMoney()">Set</button>
-        <button onclick="adminMaxIngredients()">Infinite Ingredients</button>
-        <button onclick="closeAdmin()">Close</button>
+        <h2 class="matrix-text">👑 GOD MODE TERMINAL</h2>
+        <div style="margin-bottom: 15px;">
+            <input type="number" id="custom-money" placeholder="Enter custom amount..." style="padding: 10px; border-radius: 5px; border:none; width: 60%;">
+            <button class="god-btn" onclick="setCustomMoney()">Set Money</button>
+        </div>
+        <div class="admin-grid">
+            <button class="god-btn" onclick="cheatMoney(1e15)">+1 Quadrillion</button>
+            <button class="god-btn" onclick="adminMaxIngredients()">Infinite Ingredients</button>
+            <button class="god-btn" onclick="cheatStars()">+1 Monkey Money</button>
+            <button class="god-btn" onclick="triggerEvent('rush')">Force Rush Hour</button>
+            <button class="god-btn" onclick="triggerEvent('health')">Force Health Inspector</button>
+            <button class="god-btn" style="color: #e74c3c; border-color: #e74c3c;" onclick="nukeRivals()">Nuke All Rivals</button>
+        </div>
+        <button class="reset-btn matrix-text" style="color: #ff4d4d; margin-top: 15px;" onclick="closeAdmin()">[ CLOSE TERMINAL ]</button>
     </div>
 
     <script src="script.js"></script>

@@ -41,6 +41,7 @@ let gameState = {
 let seats = Array.from({length: 100}, () => ({ occupied: false, isCooking: false, isServed: false, colorIndex: 0, isVIP: false }));
 const shirtColors = ["#a2d2ff", "#ffc8dd", "#bde0fe", "#ffafcc", "#cdb4db", "#fdcb6e", "#00cec9"];
 let currentTaxAmount = 0;
+let forceVipNext = false; // Dev tool flag
 
 loadGame(); initTables(); updateUI(); runCustomerLoop();
 if (gameState.chefOwned) runMonkeyLoop();
@@ -101,7 +102,11 @@ function customerArrives() {
         let rIndex = emptySeats[Math.floor(Math.random() * emptySeats.length)];
         seats[rIndex].occupied = true; seats[rIndex].isCooking = false; seats[rIndex].isServed = false;
         seats[rIndex].colorIndex = Math.floor(Math.random() * shirtColors.length);
-        seats[rIndex].isVIP = (Math.random() < 0.01); // 1% VIP Chance
+        
+        // Check if admin forced a VIP, otherwise 1% chance
+        seats[rIndex].isVIP = forceVipNext ? true : (Math.random() < 0.01); 
+        if (forceVipNext) forceVipNext = false; // Reset the hack after it uses it
+        
         updateUI();
     }
 }
@@ -233,8 +238,22 @@ function saveGame() { localStorage.setItem('ramenRobloxV6_Final', JSON.stringify
 function loadGame() { let saved = localStorage.getItem('ramenRobloxV6_Final'); if(saved) { let parsed = JSON.parse(saved); gameState = { ...gameState, ...parsed }; } }
 function resetGame() { localStorage.clear(); location.reload(); }
 
-// 🛠️ ADMIN PANEL
+// 🛠️ ADMIN PANEL & CHEAT FUNCTIONS
 let secretCode = "rafay"; let typedKeys = "";
 document.addEventListener('keydown', (e) => { typedKeys += e.key.toLowerCase(); if (typedKeys.length > secretCode.length) typedKeys = typedKeys.slice(-secretCode.length); if (typedKeys === secretCode) { document.getElementById('admin-panel').classList.remove('hidden'); typedKeys = ""; } });
-function cheatMoney() { gameState.wallet += 1e6; saveGame(); updateUI(); checkTaxMilestones(); } // 1 Million for Tax Test!
+
+function cheatMoney() { gameState.wallet += 1e6; saveGame(); updateUI(); checkTaxMilestones(); }
+function cheatTrillion() { gameState.wallet += 1e12; saveGame(); updateUI(); checkTaxMilestones(); }
+
+function adminMaxTables() { 
+    gameState.tablesOwned = 100; 
+    gameState.idxTable = 100; // Removes table pad
+    saveGame(); updateUI(); 
+}
+
+function adminForceVIP() {
+    forceVipNext = true;
+    alert("HACK ACTIVE: The next customer to spawn will be a Red Panda Cat VIP!");
+}
+
 function closeAdmin() { document.getElementById('admin-panel').classList.add('hidden'); }

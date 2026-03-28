@@ -24,7 +24,7 @@
             <div class="pantry-grid">
                 <div class="ing-item"><span>🍜 Noodles: <b id="inv-noodle">0</b></span><button onclick="buyIngredient('noodle', 10, 5)">Buy 10 ($5)</button></div>
                 <div class="ing-item"><span>🥣 Broth: <b id="inv-broth">0</b></span><button onclick="buyIngredient('broth', 10, 5)">Buy 10 ($5)</button></div>
-                <div class="ing-item"><span>🧂 Seasoning: <b id="inv-spice">0</b></span><button onclick="buyIngredient('spice', 10, 2)">Buy 10 ($2)</button></div>
+                <div class="ing-item"><span>🧂 Spice: <b id="inv-spice">0</b></span><button onclick="buyIngredient('spice', 10, 2)">Buy 10 ($2)</button></div>
                 <div class="ing-item"><span>🥚 Eggs: <b id="inv-egg">0</b></span><button onclick="buyIngredient('egg', 10, 8)">Buy 10 ($8)</button></div>
             </div>
             <div id="out-of-stock-msg" class="hidden" style="color: #d63031; font-weight: bold; margin-top: 5px;">⚠️ OUT OF STOCK! ⚠️</div>
@@ -46,7 +46,7 @@
         </div>
 
         <div class="tycoon-section">
-            <h3>🔴 Upgrades & Business</h3>
+            <h3 style="margin-top: 20px;">🔴 Upgrades & Business</h3>
             <div class="pad-container">
                 <div id="pad-table" class="pad-slot"></div>
                 <div id="pad-recipe" class="pad-slot"></div>
@@ -62,7 +62,7 @@
     <div id="admin-panel" class="hidden">
         <h2 style="color: #00ff00; text-shadow: 0 0 10px #00ff00;">👑 GOD MODE TERMINAL</h2>
         <div class="admin-grid">
-            <button class="god-btn" onclick="cheatMoney(1000000000000000)">+Infinite Money</button>
+            <button class="god-btn" onclick="cheatMoney(1000000000)">+1 Billion Money</button>
             <button class="god-btn" onclick="adminMaxIngredients()">+1 Billion Ingredients</button>
             <button class="god-btn" onclick="adminMaxTables()">Unlock 1000 Tables</button>
             <button class="god-btn" onclick="adminForceVIPs()">Force 10 VIPs</button>

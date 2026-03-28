@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ramen Tycoon: VIP Kitchen Edition</title>
+    <title>Ramen Tycoon: Master Chef Edition</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,9 +12,30 @@
         
         <div class="top-bar">
             <div class="wallet-display">Wallet: <span id="money" style="color:#00b894;">$0</span></div>
-            <div class="stats-box">
-                <p>Menu: <b id="stat-menu">Basic ($50)</b></p>
+            <div class="stats-box">Menu: <b id="stat-menu">Basic ($50)</b></div>
+        </div>
+
+        <div class="pantry-panel">
+            <h3>🛒 Ingredients Market</h3>
+            <div class="pantry-grid">
+                <div class="ing-item">
+                    <span>🍜 Noodles: <b id="inv-noodle">0</b></span>
+                    <button onclick="buyIngredient('noodle', 10, 5)">Buy 10 ($5)</button>
+                </div>
+                <div class="ing-item">
+                    <span>🥣 Broth: <b id="inv-broth">0</b></span>
+                    <button onclick="buyIngredient('broth', 10, 5)">Buy 10 ($5)</button>
+                </div>
+                <div class="ing-item">
+                    <span>🧂 Seasoning: <b id="inv-spice">0</b></span>
+                    <button onclick="buyIngredient('spice', 10, 2)">Buy 10 ($2)</button>
+                </div>
+                <div class="ing-item">
+                    <span>🥚 Eggs: <b id="inv-egg">0</b></span>
+                    <button onclick="buyIngredient('egg', 10, 8)">Buy 10 ($8)</button>
+                </div>
             </div>
+            <div id="out-of-stock-msg" class="hidden" style="color: #d63031; font-weight: bold; margin-top: 5px;">⚠️ OUT OF INGREDIENTS! ⚠️</div>
         </div>
 
         <div class="restaurant-floor">
@@ -46,6 +67,7 @@
         <div class="admin-grid">
             <button class="tycoon-pad affordable" onclick="cheatMoney(1000000)">+$1 Million</button>
             <button class="tycoon-pad affordable track-mult" onclick="cheatMoney(1000000000000)">+$1 Trillion</button>
+            <button class="tycoon-pad affordable" onclick="adminMaxIngredients()">Max Ingredients</button>
             <button class="tycoon-pad affordable track-table" onclick="adminMaxTables()">Max Tables</button>
         </div>
         <button class="reset-btn" style="color: #ff4d4d; margin-top: 15px;" onclick="closeAdmin()">Close Terminal</button>

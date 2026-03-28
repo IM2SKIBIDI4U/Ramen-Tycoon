@@ -1,3 +1,16 @@
+// --- NEW SOUND SYSTEM (No external files needed!) ---
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playSound(type) {
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    
+    if(type === 'cash') { osc.type = 'sine'; osc.frequency.setValueAtTime(800, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1); gain.gain.setValueAtTime(0.1, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1); osc.start(); osc.stop(audioCtx.currentTime + 0.1); }
+    else if(type === 'cook') { osc.type = 'square'; osc.frequency.setValueAtTime(200, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1); gain.gain.setValueAtTime(0.05, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1); osc.start(); osc.stop(audioCtx.currentTime + 0.1); }
+    else if(type === 'serve') { osc.type = 'triangle'; osc.frequency.setValueAtTime(400, audioCtx.currentTime); gain.gain.setValueAtTime(0.05, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1); osc.start(); osc.stop(audioCtx.currentTime + 0.1); }
+    else if(type === 'error') { osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, audioCtx.currentTime); gain.gain.setValueAtTime(0.1, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2); osc.start(); osc.stop(audioCtx.currentTime + 0.2); }
+}
+
 // --- FORMATTERS ---
 const suffixes = ["", "k", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc", "Ud", "Dd", "Td", "Qd", "Qnd", "Sxd", "Spd", "Ocd"];
 function formatMoney(n) {
@@ -36,18 +49,27 @@ const INITIAL_RIVALS = [
     { id: 'boss', name: '🦍 The Silverback Syndicate', hp: 1e15, maxHp: 1e15, cost: 1e12, multReward: 20.0 }
 ];
 
-const defaultInv = { noodle: 10, broth: 10, spice: 10, egg: 10 };
+const defaultInv = { noodle: 10, broth: 10, spice: 10, egg: 10, boba: 10 };
 let game = {
     wallet: 150, monkeyMoney: 0, turfMult: 1, lastSaveTime: Date.now(),
     tablesOwned: 1, idxTable: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxSpecial: 0, currentMenuPrice: 50,
-    activeDecor: 'theme-default', decorOwned: ['theme-default'],
+    activeDecor: 'theme-default', decorOwned: ['theme-default'], autoRefill: false,
     staff: { waiter: 0, ninja: 0, mascot: 0 }, rivals: JSON.parse(JSON.stringify(INITIAL_RIVALS)),
     inv: { ...defaultInv }, upgrades: {}
 };
 
 const charColors = { skin: ["#ffdbac", "#f1c27d", "#e0ac69", "#8d5524", "#4a3219"], hair: ["#090806", "#4a2511", "#b7a69e", "#d6c4c2", "#e25822"], shirt: ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6"], pants: ["#2980b9", "#2c3e50", "#7f8c8d"] };
-function generateRandomChar() { return { skin: charColors.skin[Math.floor(Math.random()*5)], hair: charColors.hair[Math.floor(Math.random()*5)], shirt: charColors.shirt[Math.floor(Math.random()*5)], pants: charColors.pants[Math.floor(Math.random()*3)], isVIP: Math.random() < 0.05 }; }
-function renderCharHTML(c) { let crown = c.isVIP ? `<div style="position:absolute; top:-20px; font-size:1.2rem; animation:vipBounce 0.8s infinite; z-index:10;">👑</div>` : ''; return `<div class="rpg-char" style="--skin:${c.skin}; --hair:${c.hair}; --shirt:${c.isVIP?'#f1c40f':c.shirt}; --pants:${c.pants};">${crown}<div class="rpg-head"><div class="rpg-hair"></div><div class="rpg-eyes"><div class="rpg-eye"></div><div class="rpg-eye"></div></div></div><div class="rpg-body"></div><div class="rpg-legs"><div class="rpg-leg"></div><div class="rpg-leg"></div></div></div>`; }
+
+// Added Critic & Boba logic to generation
+function generateRandomChar() { return { skin: charColors.skin[Math.floor(Math.random()*5)], hair: charColors.hair[Math.floor(Math.random()*5)], shirt: charColors.shirt[Math.floor(Math.random()*5)], pants: charColors.pants[Math.floor(Math.random()*3)], isVIP: Math.random() < 0.05, isCritic: Math.random() < 0.02, wantsBoba: Math.random() < 0.2 }; }
+
+// Added Visuals for VIP Crowns, Critic Monocle, and Boba Requests
+function renderCharHTML(c) { 
+    let crown = c.isVIP ? `<div style="position:absolute; top:-20px; left:-10px; font-size:1.2rem; animation:vipBounce 0.8s infinite; z-index:10;">👑</div>` : ''; 
+    let critic = c.isCritic ? `<div style="position:absolute; top:-20px; right:-10px; font-size:1.2rem; z-index:10;">🧐</div>` : ''; 
+    let boba = c.wantsBoba ? `<div style="position:absolute; top:-5px; right:-20px; font-size:1.2rem; z-index:15;">🧋</div>` : '';
+    return `<div class="rpg-char" style="--skin:${c.skin}; --hair:${c.hair}; --shirt:${c.isVIP?'#f1c40f':c.shirt}; --pants:${c.pants};">${crown}${critic}${boba}<div class="rpg-head"><div class="rpg-hair"></div><div class="rpg-eyes"><div class="rpg-eye"></div><div class="rpg-eye"></div></div></div><div class="rpg-body"></div><div class="rpg-legs"><div class="rpg-leg"></div><div class="rpg-leg"></div></div></div>`; 
+}
 
 let seats = Array.from({length: 1000}, () => ({ occupied: false, needsMenu: false, isCooking: false, cookStep: 0, needsServing: false, needsToPay: false, patience: 100, charData: null }));
 let waitList = []; let isRushHour = false; let rushMultiplier = 1;
@@ -74,7 +96,13 @@ function spawnWalkingCustomer(seatIdx, char) {
 function handleTableClick(index) {
     let seat = seats[index]; if (!seat.occupied) return;
     if (seat.needsMenu) { seat.needsMenu = false; seat.patience = 100; updateUI(); } 
-    else if (seat.needsServing) { seat.needsServing = false; seat.needsToPay = true; seat.patience = 100; updateUI(); } 
+    else if (seat.needsServing) { 
+        if(seat.charData && seat.charData.wantsBoba) {
+            if(game.inv.boba < 1) { document.getElementById('out-of-stock-msg').classList.remove('hidden'); playSound('error'); return; }
+            game.inv.boba--;
+        }
+        seat.needsServing = false; seat.needsToPay = true; seat.patience = 100; playSound('serve'); updateUI(); 
+    } 
     else if (seat.needsToPay) collectPayment(index); 
     else if (!seat.isCooking) { seat.isCooking = true; seat.cookStep = 0; seat.patience = 100; updateUI(); updateKitchenUI(); }
 }
@@ -82,32 +110,45 @@ function handleTableClick(index) {
 function collectPayment(index) {
     let seat = seats[index];
     let mult = seat.charData.isVIP ? 10 : 1;
+    if(seat.charData.isCritic) mult *= 25; // Critic 25x payout!
     if(game.staff.mascot > 0) mult += (game.staff.mascot * 0.5); 
     
     let finalValue = (game.currentMenuPrice * mult) * getPrestigeMultiplier() * rushMultiplier;
     game.wallet += finalValue;
+    playSound('cash');
     seat.occupied = false; seat.needsToPay = false; seat.charData = null; saveGame(); updateUI();
 }
 
-function buyIngredient(type, amount, cost) { if (game.wallet >= cost) { game.wallet -= cost; game.inv[type] += amount; document.getElementById('out-of-stock-msg').classList.add('hidden'); updateUI(); saveGame(); } }
+function buyIngredient(type, amount, cost) { 
+    if (game.wallet >= cost) { 
+        game.wallet -= cost; game.inv[type] += amount; 
+        document.getElementById('out-of-stock-msg').classList.add('hidden'); 
+        playSound('cook'); updateUI(); saveGame(); 
+    } else { playSound('error'); }
+}
+
+function buyAutoRefill() {
+    if (game.wallet >= 50000 && !game.autoRefill) {
+        game.wallet -= 50000; game.autoRefill = true; playSound('cash'); saveGame(); updateUI();
+    } else { playSound('error'); }
+}
 
 function clickStove(index) {
     let seat = seats[index]; if (!seat.isCooking) return;
     let msg = document.getElementById('out-of-stock-msg');
     
     if(seat.cookStep === 0 && game.staff.ninja > 0 && Math.random() < (game.staff.ninja * 0.05)) {
-        if(game.inv.noodle<1||game.inv.broth<1||game.inv.spice<1||game.inv.egg<1) { msg.classList.remove('hidden'); return; }
+        if(game.inv.noodle<1||game.inv.broth<1||game.inv.spice<1||game.inv.egg<1) { msg.classList.remove('hidden'); playSound('error'); return; }
         game.inv.noodle--; game.inv.broth--; game.inv.spice--; game.inv.egg--;
-        seat.cookStep = 3; finishCooking(index); return;
+        seat.cookStep = 3; playSound('cook'); finishCooking(index); return;
     }
 
-    if (seat.cookStep === 0) { if (game.inv.noodle < 1 || game.inv.broth < 1) { msg.classList.remove('hidden'); return; } game.inv.noodle--; game.inv.broth--; seat.cookStep = 1; } 
-    else if (seat.cookStep === 1) { if (game.inv.spice < 1) { msg.classList.remove('hidden'); return; } game.inv.spice--; seat.cookStep = 2; } 
+    if (seat.cookStep === 0) { if (game.inv.noodle < 1 || game.inv.broth < 1) { msg.classList.remove('hidden'); playSound('error'); return; } game.inv.noodle--; game.inv.broth--; playSound('cook'); seat.cookStep = 1; } 
+    else if (seat.cookStep === 1) { if (game.inv.spice < 1) { msg.classList.remove('hidden'); playSound('error'); return; } game.inv.spice--; playSound('cook'); seat.cookStep = 2; } 
     else if (seat.cookStep === 2) { 
-        if (game.inv.egg < 1) { msg.classList.remove('hidden'); return; } 
-        game.inv.egg--; 
+        if (game.inv.egg < 1) { msg.classList.remove('hidden'); playSound('error'); return; } 
+        game.inv.egg--; playSound('cook'); seat.cookStep = 3; 
         
-        // EGG ANIMATION TRIGGER
         const stoveElements = document.querySelectorAll('.stove-station');
         const currentStove = stoveElements[index];
         if (currentStove) {
@@ -118,9 +159,7 @@ function clickStove(index) {
             setTimeout(() => eggEmoji.remove(), 500);
         }
         
-        seat.cookStep = 3; 
-        finishCooking(index); 
-        return; 
+        finishCooking(index); return; 
     }
     updateUI(); updateKitchenUI();
 }
@@ -156,16 +195,27 @@ setInterval(() => {
         if (seat.occupied && !seat.isCooking) {
             let decay = isRushHour ? 2.5 : 1.5;
             if(game.staff.mascot > 0) decay *= Math.max(0.2, (1 - (game.staff.mascot * 0.1))); 
+            if(seat.charData && seat.charData.isCritic) decay *= 2; // Critics drain patience faster
             seat.patience -= decay;
             if (seat.patience <= 0) { seat.occupied = false; seat.needsMenu = false; seat.needsServing = false; seat.needsToPay = false; seat.charData = null; updateUI(); updateKitchenUI(); }
         }
     });
 }, 200);
 
-function buyTable() { let u = TRACK_TABLES[game.idxTable]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.tablesOwned++; game.idxTable++; saveGame(); updateUI(); updateKitchenUI(); } }
-function buyRecipe() { let u = TRACK_RECIPES[game.idxRecipe]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.currentMenuPrice = u.value; game.idxRecipe++; saveGame(); updateUI(); } }
-function buyAuto() { let u = TRACK_AUTO[game.idxAuto]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.idxAuto++; if (game.idxAuto === 1) runMonkeyLoop(); saveGame(); updateUI(); } }
-function buyWok() { let u = TRACK_WOK[game.idxWok]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.idxWok++; saveGame(); updateUI(); } }
+// NEW Auto-Refill Logic
+setInterval(() => {
+    if (game.autoRefill) {
+        ['noodle','broth','spice','egg','boba'].forEach(item => {
+            if (game.inv[item] < 20 && game.wallet >= 50) { game.wallet -= 50; game.inv[item] += 20; }
+        });
+        updateUI();
+    }
+}, 3000);
+
+function buyTable() { let u = TRACK_TABLES[game.idxTable]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.tablesOwned++; game.idxTable++; playSound('cash'); saveGame(); updateUI(); updateKitchenUI(); } }
+function buyRecipe() { let u = TRACK_RECIPES[game.idxRecipe]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.currentMenuPrice = u.value; game.idxRecipe++; playSound('cash'); saveGame(); updateUI(); } }
+function buyAuto() { let u = TRACK_AUTO[game.idxAuto]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.idxAuto++; if (game.idxAuto === 1) runMonkeyLoop(); playSound('cash'); saveGame(); updateUI(); updateKitchenUI(); } }
+function buyWok() { let u = TRACK_WOK[game.idxWok]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.idxWok++; playSound('cash'); saveGame(); updateUI(); } }
 
 function renderPad(id, track, idx, func, title) {
     let container = document.getElementById(id); let u = track[idx];
@@ -177,8 +227,15 @@ function updateUI() {
     document.getElementById('money').innerText = "$" + formatMoney(game.wallet);
     document.getElementById('inv-noodle').innerText = formatMoney(game.inv.noodle); document.getElementById('inv-broth').innerText = formatMoney(game.inv.broth);
     document.getElementById('inv-spice').innerText = formatMoney(game.inv.spice); document.getElementById('inv-egg').innerText = formatMoney(game.inv.egg);
+    document.getElementById('inv-boba').innerText = formatMoney(game.inv.boba);
     
-    // Updated variable references
+    // Auto Refill Button State
+    let autoBtn = document.getElementById('btn-auto-refill');
+    if(autoBtn) {
+        if(game.autoRefill) { autoBtn.innerText = "ACTIVE"; autoBtn.disabled = true; }
+        else { autoBtn.innerText = "Buy ($50k)"; autoBtn.disabled = false; }
+    }
+
     document.getElementById('stat-stars').innerText = game.monkeyMoney; 
     document.getElementById('stat-turf').innerText = game.turfMult.toFixed(1);
     document.getElementById('star-mult').innerText = getPrestigeMultiplier().toFixed(1);
@@ -212,13 +269,14 @@ function updateKitchenUI() {
     seats.forEach((seat, i) => {
         if (seat.occupied && seat.isCooking) {
             let stove = document.createElement('div'); stove.className = "stove-station"; stove.onclick = () => clickStove(i);
-            stove.innerHTML = `<div class="stove-label">Step ${seat.cookStep+1}</div><div class="manual-bowl step-${seat.cookStep}"></div><div class="stove-burner"></div>`;
+            let chefHTML = game.idxAuto > 0 ? `<div class="visual-chef">🐒</div>` : '';
+            stove.innerHTML = `<div class="stove-label">Step ${seat.cookStep+1}</div><div class="manual-bowl step-${seat.cookStep}"></div><div class="stove-burner"></div>${chefHTML}`;
             container.appendChild(stove);
         }
     });
 }
 
-function buyStaff(id, cost) { if(game.wallet >= cost) { game.wallet -= cost; game.staff[id]++; saveGame(); updateUI(); renderStaffPanel(); } }
+function buyStaff(id, cost) { if(game.wallet >= cost) { game.wallet -= cost; game.staff[id]++; playSound('cash'); saveGame(); updateUI(); renderStaffPanel(); } }
 function renderStaffPanel() {
     let html = "";
     TRACK_STAFF.forEach(s => {
@@ -234,9 +292,10 @@ function attackRival(idx) {
     if(rival.hp > 0 && game.wallet >= rival.cost) {
         game.wallet -= rival.cost;
         rival.hp -= Math.max(1, rival.maxHp * 0.1); 
-        if(rival.hp <= 0) { rival.hp = 0; game.turfMult += rival.multReward; alert(`DEFEATED ${rival.name}! Global Profit Multiplier increased by +${rival.multReward}x!`); }
+        playSound('cook');
+        if(rival.hp <= 0) { rival.hp = 0; game.turfMult += rival.multReward; playSound('cash'); alert(`DEFEATED ${rival.name}! Global Profit Multiplier increased by +${rival.multReward}x!`); }
         saveGame(); updateUI(); renderTurfPanel();
-    }
+    } else { playSound('error'); }
 }
 function renderTurfPanel() {
     let html = "";
@@ -251,24 +310,22 @@ function renderTurfPanel() {
     document.getElementById('turf-container').innerHTML = html;
 }
 
-function buyDecor(id, cost) { if(game.decorOwned.includes(id)) { game.activeDecor = id; applyTheme(); saveGame(); renderDecorPanel(); } else if(game.wallet >= cost) { game.wallet -= cost; game.decorOwned.push(id); game.activeDecor = id; applyTheme(); saveGame(); updateUI(); renderDecorPanel(); } }
+function buyDecor(id, cost) { if(game.decorOwned.includes(id)) { game.activeDecor = id; applyTheme(); saveGame(); renderDecorPanel(); } else if(game.wallet >= cost) { game.wallet -= cost; game.decorOwned.push(id); game.activeDecor = id; playSound('cash'); applyTheme(); saveGame(); updateUI(); renderDecorPanel(); } else { playSound('error'); } }
 function renderDecorPanel() { let html = ""; TRACK_DECOR.forEach(d => { let isOwned = game.decorOwned.includes(d.id); let isActive = game.activeDecor === d.id; let btnText = isActive ? "EQUIPPED" : (isOwned ? "EQUIP" : `BUY: $${formatMoney(d.cost)}`); let canAfford = game.wallet >= d.cost || isOwned ? "affordable" : ""; html += `<button class="tycoon-pad ${canAfford} ${isActive?'active':''}" style="margin:5px;" onclick="buyDecor('${d.id}', ${d.cost})"><b>${d.name}</b><br>${btnText}</button>`; }); document.getElementById('decor-container').innerHTML = html; }
 function applyTheme() { document.getElementById('main-container').className = "game-container " + game.activeDecor; }
 
-function prestigeGame() { if(game.wallet >= 1e12 && confirm("Sell franchise for Monkey Money? Reset money/upgrades for a permanent x2 profit multiplier!")) { let st = game.monkeyMoney + 1; let tm = game.turfMult; let d = game.decorOwned; let ad = game.activeDecor; let rv = game.rivals; localStorage.clear(); game = { wallet: 150, monkeyMoney: st, turfMult: tm, lastSaveTime: Date.now(), tablesOwned: 1, idxTable: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxSpecial: 0, currentMenuPrice: 50, activeDecor: ad, decorOwned: d, staff: {waiter:0,ninja:0,mascot:0}, rivals: rv, inv: {...defaultInv}, upgrades: {} }; saveGame(); location.reload(); } }
+function prestigeGame() { if(game.wallet >= 1e12 && confirm("Sell franchise for Monkey Money? Reset money/upgrades for a permanent x2 profit multiplier!")) { let st = game.monkeyMoney + 1; let tm = game.turfMult; let d = game.decorOwned; let ad = game.activeDecor; let rv = game.rivals; localStorage.clear(); game = { wallet: 150, monkeyMoney: st, turfMult: tm, lastSaveTime: Date.now(), tablesOwned: 1, idxTable: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxSpecial: 0, currentMenuPrice: 50, activeDecor: ad, decorOwned: d, autoRefill: false, staff: {waiter:0,ninja:0,mascot:0}, rivals: rv, inv: {...defaultInv}, upgrades: {} }; saveGame(); location.reload(); } }
 function resetGame() { if(confirm("Erase all history?")) { localStorage.clear(); location.reload(); } }
 
-// CHEAT CODE UPDATED HERE:
-let typed = ""; document.addEventListener('keydown', (e) => { typed += e.key.toLowerCase(); if (typed.endsWith("rafay is cool")) { document.getElementById('admin-panel').classList.remove('hidden'); typed = ""; } if (typed.length > 20) typed = typed.slice(-20); });
-
+let typed = ""; document.addEventListener('keydown', (e) => { typed += e.key.toLowerCase(); if (typed.endsWith("godmode")) { document.getElementById('admin-panel').classList.remove('hidden'); typed = ""; } if (typed.length > 20) typed = typed.slice(-20); });
 function cheatMoney(amt) { game.wallet += amt; saveGame(); updateUI(); }
 function setCustomMoney() { let val = parseFloat(document.getElementById('custom-money').value); if(!isNaN(val)) { game.wallet = val; saveGame(); updateUI(); } }
-function adminMaxIngredients() { game.inv.noodle=1e15; game.inv.broth=1e15; game.inv.spice=1e15; game.inv.egg=1e15; document.getElementById('out-of-stock-msg').classList.add('hidden'); saveGame(); updateUI(); }
+function adminMaxIngredients() { game.inv.noodle=1e15; game.inv.broth=1e15; game.inv.spice=1e15; game.inv.egg=1e15; game.inv.boba=1e15; document.getElementById('out-of-stock-msg').classList.add('hidden'); saveGame(); updateUI(); }
 function cheatStars() { game.monkeyMoney++; saveGame(); updateUI(); }
 function triggerEvent(type) {
     let t = document.getElementById('event-toast');
     if(type==='rush') { t.innerText = "🚨 RUSH HOUR! (3x Speed & Pay)"; t.className = "event-toast active"; isRushHour = true; rushMultiplier = 3; setTimeout(() => { isRushHour=false; rushMultiplier=1; }, 30000); }
-    if(type==='health') { t.innerText = "👨‍⚕️ HEALTH INSPECTOR Fines You!"; t.className = "event-toast active"; game.wallet *= 0.8; }
+    if(type==='health') { t.innerText = "👨‍⚕️ HEALTH INSPECTOR Fines You!"; t.className = "event-toast active"; game.wallet *= 0.8; playSound('error'); }
     setTimeout(() => t.classList.remove('active'), 5000); updateUI();
 }
 function nukeRivals() { game.rivals.forEach(r => { if(r.hp > 0) { r.hp = 0; game.turfMult += r.multReward; }}); saveGame(); renderTurfPanel(); updateUI(); alert("All rivals eradicated. Maximum Turf Multiplier applied.");}
@@ -279,8 +336,10 @@ function loadGame() {
     let s = localStorage.getItem('RamenUltimateData'); 
     if(s) { 
         let parsed = JSON.parse(s); game = { ...game, ...parsed }; 
-        if(game.michelinStars !== undefined) { game.monkeyMoney = game.michelinStars; delete game.michelinStars; } // Catch old save data
+        if(game.michelinStars !== undefined) { game.monkeyMoney = game.michelinStars; delete game.michelinStars; } 
         if(!game.staff) game.staff = {waiter:0,ninja:0,mascot:0};
+        if(game.autoRefill === undefined) game.autoRefill = false;
+        if(game.inv.boba === undefined) game.inv.boba = 10;
         if(!game.rivals) game.rivals = JSON.parse(JSON.stringify(INITIAL_RIVALS));
         
         let now = Date.now(); let timeDiff = now - game.lastSaveTime; let secondsAway = Math.floor(timeDiff / 1000);
@@ -298,6 +357,6 @@ function loadGame() {
     } 
     applyTheme();
 }
-function closeOfflineModal() { document.getElementById('offline-modal').classList.add('hidden'); saveGame(); }
+function closeOfflineModal() { document.getElementById('offline-modal').classList.add('hidden'); playSound('cash'); saveGame(); }
 
 initTables(); loadGame(); updateUI(); updateKitchenUI(); renderDecorPanel(); renderStaffPanel(); renderTurfPanel(); customerArrives(); if (game.idxAuto > 0) runMonkeyLoop(); setInterval(saveGame, 10000);

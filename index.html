@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ramen Tycoon: Master Chef Edition</title>
+    <title>Ramen Tycoon: Monkey Business</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="game-container">
-        <h1>🍜 Ultimate Ramen Tycoon</h1>
+        <h1>🐒 Ramen Monkey Tycoon</h1>
         
         <div class="top-bar">
             <div class="wallet-display">Wallet: <span id="money" style="color:#00b894;">$0</span></div>
@@ -16,8 +16,8 @@
         </div>
 
         <div class="tab-nav">
-            <button class="tab-btn active" id="btn-dining" onclick="switchTab('dining')">🍽️ Dining Room</button>
-            <button class="tab-btn" id="btn-kitchen" onclick="switchTab('kitchen')">🔥 Kitchen</button>
+            <button class="tab-btn active" id="btn-dining" onclick="switchTab('dining')">🍽️ Dining Hall</button>
+            <button class="tab-btn" id="btn-kitchen" onclick="switchTab('kitchen')">🔥 The Kitchen</button>
         </div>
 
         <div class="pantry-panel">
@@ -27,21 +27,22 @@
                 <div class="ing-item"><span>🧂 Seasoning: <b id="inv-spice">0</b></span><button onclick="buyIngredient('spice', 10, 2)">Buy 10 ($2)</button></div>
                 <div class="ing-item"><span>🥚 Eggs: <b id="inv-egg">0</b></span><button onclick="buyIngredient('egg', 10, 8)">Buy 10 ($8)</button></div>
             </div>
-            <div id="out-of-stock-msg" class="hidden" style="color: #d63031; font-weight: bold; margin-top: 5px;">⚠️ BUY INGREDIENTS TO COOK! ⚠️</div>
+            <div id="out-of-stock-msg" class="hidden" style="color: #d63031; font-weight: bold; margin-top: 5px;">⚠️ OUT OF STOCK! ⚠️</div>
         </div>
 
         <div class="restaurant-floor">
-            
             <div id="view-dining" class="view-panel active-view">
+                <div class="outside-queue">
+                    <div id="wait-list" class="queue-line"></div>
+                    <div class="door-frame">🚪 ENTRANCE</div>
+                </div>
                 <div id="dining-area"></div>
             </div>
 
             <div id="view-kitchen" class="view-panel hidden-view kitchen-bg">
-                <div class="kitchen-title">👨‍🍳 KITCHEN STATIONS (Click to Cook)</div>
-                <div id="stoves-container">
-                    </div>
+                <div class="kitchen-title">👨‍🍳 COOKING STATIONS (Click to Cook)</div>
+                <div id="stoves-container"></div>
             </div>
-
         </div>
 
         <div class="tycoon-section">
@@ -67,6 +68,16 @@
             <button class="god-btn" onclick="adminForceVIPs()">Force 10 VIPs</button>
         </div>
         <button class="reset-btn" style="color: #ff4d4d; margin-top: 15px;" onclick="closeAdmin()">Close Terminal</button>
+    </div>
+
+    <div id="enforcer-overlay" class="hidden">
+        <div class="enforcer-box">
+            <div class="enforcer-icon">🦍</div>
+            <h1 style="color: #ff7675; margin: 0;">PROTECTION MONEY DUE!</h1>
+            <p style="font-size: 1.2rem; margin: 10px 0;">The Grand Silverback demands his cut:<br><span id="tax-amount" style="color:#ff7675; font-size: 2.5rem; font-weight: 900;">$1,000,000</span></p>
+            <div class="tax-timer-bg"><div id="tax-timer-fill"></div></div>
+            <button class="pay-tax-btn" onclick="payEnforcer()">PAY UP OR LOSE IT ALL</button>
+        </div>
     </div>
 
     <script src="script.js"></script>

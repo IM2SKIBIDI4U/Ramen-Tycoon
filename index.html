@@ -7,17 +7,23 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="game-container">
+    <div id="event-toast" class="event-toast hidden">🚨 RUSH HOUR! 🚨</div>
+
+    <div class="game-container" id="main-container">
         <h1>🍜 Ramen Monkey Tycoon</h1>
         
         <div class="top-bar">
             <div class="wallet-display">Wallet: <span id="money" style="color:#00b894;">$0</span></div>
-            <div class="stats-box">Menu: <b id="stat-menu">Basic Shoyu ($50)</b></div>
+            <div class="stats-box">
+                Menu: <b id="stat-menu">Basic Shoyu ($50)</b><br>
+                <span style="color:#f1c40f; font-size:0.9rem;">🌟 Michelin Stars: <b id="stat-stars">0</b> (<span id="star-mult">1</span>x Profits)</span>
+            </div>
         </div>
 
         <div class="tab-nav">
             <button class="tab-btn active" id="btn-dining" onclick="switchTab('dining')">🍽️ Dining Hall</button>
             <button class="tab-btn" id="btn-kitchen" onclick="switchTab('kitchen')">🔥 The Kitchen</button>
+            <button class="tab-btn" id="btn-decor" onclick="switchTab('decor')">🎨 Decor</button>
         </div>
 
         <div class="pantry-panel">
@@ -30,7 +36,7 @@
             <div id="out-of-stock-msg" class="hidden" style="color: #d63031; font-weight: bold; margin-top: 5px;">⚠️ OUT OF STOCK! ⚠️</div>
         </div>
 
-        <div class="restaurant-floor">
+        <div class="restaurant-floor" id="rest-floor">
             <div id="view-dining" class="view-panel active-view">
                 <div class="outside-queue">
                     <div id="wait-list" class="queue-line"></div>
@@ -43,10 +49,15 @@
                 <div class="kitchen-title">👨‍🍳 COOKING STATIONS (Click to Cook)</div>
                 <div id="stoves-container"></div>
             </div>
+
+            <div id="view-decor" class="view-panel hidden-view">
+                <h2>Restaurant Themes</h2>
+                <div class="pad-container" id="decor-container"></div>
+            </div>
         </div>
 
         <div class="tycoon-section">
-            <h3 style="margin-top: 20px;">🔴 Upgrades & Business</h3>
+            <h3 style="margin-top: 20px;">🔴 Upgrades (Max Level 1000)</h3>
             <div class="pad-container">
                 <div id="pad-table" class="pad-slot"></div>
                 <div id="pad-recipe" class="pad-slot"></div>
@@ -54,19 +65,18 @@
                 <div id="pad-auto" class="pad-slot"></div>
                 <div id="pad-special" class="pad-slot"></div>
             </div>
+            
+            <button class="prestige-btn" id="btn-prestige" onclick="prestigeGame()">🌟 Claim Michelin Star (Req: $1 Trillion)</button>
             <button class="reset-btn" onclick="resetGame()">Hard Reset Data</button>
         </div>
-        
-        <div style="margin-top: 15px; color: #aaa; font-size: 0.8rem;">Type 'rafay is cool' for God Panel</div>
     </div>
 
     <div id="admin-panel" class="hidden">
         <h2 style="color: #00ff00; text-shadow: 0 0 10px #00ff00;">👑 GOD MODE TERMINAL</h2>
         <div class="admin-grid">
-            <button class="god-btn" onclick="cheatMoney(10000000000000000000000000000000000000000000000000000000000000000000000000000000000)">+1 Billion Money</button>
+            <button class="god-btn" onclick="cheatMoney(1e15)">+1 Quadrillion Money</button>
             <button class="god-btn" onclick="adminMaxIngredients()">+1 Billion Ingredients</button>
-            <button class="god-btn" onclick="adminMaxTables()">Unlock 1000 Tables</button>
-            <button class="god-btn" onclick="adminForceVIPs()">Force 10 VIPs</button>
+            <button class="god-btn" onclick="cheatStars()">+1 Michelin Star</button>
         </div>
         <button class="reset-btn" style="color: #ff4d4d; margin-top: 15px;" onclick="closeAdmin()">Close Terminal</button>
     </div>

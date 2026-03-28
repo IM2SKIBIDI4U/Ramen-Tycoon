@@ -22,7 +22,7 @@ body {
 
 h1 { font-weight: 900; letter-spacing: -1px; margin-top: 0; }
 
-/* --- ATM & VAULT --- */
+/* ATM & VAULT */
 .atm-section {
     display: flex;
     justify-content: space-between;
@@ -34,103 +34,40 @@ h1 { font-weight: 900; letter-spacing: -1px; margin-top: 0; }
     margin-bottom: 20px;
     box-shadow: inset 0 0 15px rgba(0,0,0,0.1);
 }
-
 .wallet-display { font-size: 1.5rem; font-weight: 900; }
-
-.vault-box {
-    background: #2d3436;
-    color: white;
-    padding: 10px 20px;
-    border-radius: 8px;
-    border: 3px solid #000;
-    text-align: center;
-}
+.vault-box { background: #2d3436; color: white; padding: 10px 20px; border-radius: 8px; border: 3px solid #000; text-align: center; }
 .vault-box h3 { margin: 0 0 5px 0; font-size: 1rem; color: #b2bec3; }
 .vault-amount { font-size: 1.8rem; font-weight: bold; color: #55efc4; margin-bottom: 10px; }
 
-/* --- ROBLOX TYCOON PADS --- */
-.pad-container {
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-    flex-wrap: wrap;
-}
-
+/* TYCOON PADS */
+.pad-container { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
 .tycoon-pad {
-    background: #ff7675; /* Default Red (Can't Afford) */
-    border: 4px solid #d63031;
-    color: white;
-    padding: 15px 20px;
-    font-family: inherit;
-    font-size: 1rem;
-    text-transform: uppercase;
-    font-weight: 900;
-    cursor: pointer;
-    border-radius: 0; /* Blocky */
-    box-shadow: 0 8px 0 #d63031;
-    transition: 0.1s;
-    width: 200px;
+    background: #ff7675; border: 4px solid #d63031; color: white; padding: 15px 20px; font-family: inherit; font-size: 1rem;
+    text-transform: uppercase; font-weight: 900; cursor: pointer; border-radius: 0; box-shadow: 0 8px 0 #d63031; transition: 0.1s; width: 200px;
 }
-
-.tycoon-pad.affordable {
-    background: #55efc4; /* Green (Can Afford) */
-    border-color: #00b894;
-    box-shadow: 0 8px 0 #00b894;
-}
-
-.tycoon-pad:active {
-    transform: translateY(8px);
-    box-shadow: 0 0px 0 transparent;
-}
-
+.tycoon-pad.affordable { background: #55efc4; border-color: #00b894; box-shadow: 0 8px 0 #00b894; }
+.tycoon-pad:active { transform: translateY(8px); box-shadow: 0 0px 0 transparent; }
 .tycoon-pad:disabled { opacity: 0.7; cursor: not-allowed; }
 
-/* --- DINING AREA --- */
-.restaurant-floor {
-    background: #fafafa;
-    border: 4px solid #333;
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 30px;
-    min-height: 150px;
-}
+/* DINING AREA */
+.restaurant-floor { background: #fafafa; border: 4px solid #333; border-radius: 8px; padding: 20px; margin-bottom: 30px; min-height: 150px; }
+#dining-area { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; }
+.seat { width: 80px; height: 120px; border: 3px solid #ccc; border-radius: 8px; background: #fff; position: relative; display: flex; flex-direction: column; justify-content: flex-end; cursor: pointer; }
 
-#dining-area {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 15px;
-}
+/* This hides tables you haven't bought! */
+.seat.locked { display: none !important; }
 
-.seat {
-    width: 80px;
-    height: 120px;
-    border: 3px solid #ccc;
-    border-radius: 8px;
-    background: #fff;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    cursor: pointer;
-}
-
-.seat.locked { display: none; /* Hides tables you haven't bought yet! */ }
-
-.belt-strip {
-    height: 20px; width: 100%; background: #444; border-top: 2px solid #222;
-    position: absolute; bottom: 0; left: 0; border-radius: 0 0 5px 5px;
-}
+.belt-strip { height: 20px; width: 100%; background: #444; border-top: 2px solid #222; position: absolute; bottom: 0; left: 0; border-radius: 0 0 5px 5px; }
 .empty-text { color: #aaa; font-size: 0.8rem; font-weight: bold; margin: auto; z-index: 1;}
 
-/* --- CHARACTERS --- */
+/* CHARACTERS */
 .customer-wrapper { position: absolute; bottom: 20px; width: 100%; display: flex; flex-direction: column; align-items: center; animation: walkIn 0.3s ease-out forwards; pointer-events: none;}
 .person { width: 40px; height: 50px; display: flex; flex-direction: column; align-items: center; animation: bounce 1s infinite alternate step-end; }
 .person .head { width: 28px; height: 28px; background: #fff; border: 3px solid #333; border-radius: 50%; position: relative; display: flex; justify-content: center; z-index: 2; }
 .person .head::after { content: '•_•'; position: absolute; top: 6px; font-size: 11px; font-weight: 900; color: #333; letter-spacing: -1px; }
 .person .body { width: 36px; height: 26px; border: 3px solid #333; border-radius: 12px 12px 0 0; border-bottom: none; margin-top: -3px; }
 
-/* --- ANIMATIONS --- */
+/* ANIMATIONS */
 .order-tag { font-size: 0.6rem; font-weight: bold; background: #fff; border: 2px solid #333; padding: 2px 4px; border-radius: 4px; margin-top: 5px; z-index: 3; }
 .sliding-bowl { position: absolute; bottom: 0px; left: -40px; font-size: 1.2rem; z-index: 5; animation: slideOnBelt 0.6s linear forwards; }
 @keyframes slideOnBelt { 0% { transform: translateX(0); opacity: 0; } 10% { opacity: 1; } 100% { transform: translateX(60px); opacity: 1; } }

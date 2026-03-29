@@ -1,17 +1,18 @@
-// --- MOBILE GOD MODE ACCESS (Option 2) ---
+// --- MOBILE GOD MODE ACCESS (Option 2 - Fixed for Highlighting) ---
 const titleHeader = document.querySelector('h1');
 let pressTimer;
 
-titleHeader.addEventListener('touchstart', () => {
-    // Starts a 3-second timer when you touch the "Ramen Monkey Tycoon" title
+// We added 'e' to the function to grab the touch event
+titleHeader.addEventListener('touchstart', (e) => {
+    e.preventDefault(); // 🛑 THIS is the magic line that stops the highlighting!
+    
     pressTimer = window.setTimeout(() => {
         document.getElementById('admin-panel').classList.remove('hidden');
-        playSound('cash'); // Optional: plays a sound to let you know it worked
+        playSound('cash'); 
     }, 3000); 
-});
+}, { passive: false }); // This allows preventDefault to work properly on phones
 
 titleHeader.addEventListener('touchend', () => {
-    // If you let go before 3 seconds, the timer cancels
     clearTimeout(pressTimer);
 });
 // --- NEW SOUND SYSTEM ---

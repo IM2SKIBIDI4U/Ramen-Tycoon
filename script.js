@@ -79,7 +79,13 @@ function initTables() { let d = document.getElementById('dining-area'); if(d.chi
 
 function getPrestigeMultiplier() { return (1 + (game.monkeyMoney * 2)) * game.turfMult; }
 
-function customerArrives() { if (waitList.length < 10) { waitList.push(generateRandomChar()); renderWaitList(); } checkEmptySeats(); let speed = 2500 / rushMultiplier; setTimeout(customerArrives, speed); }
+function customerArrives() { 
+    if (waitList.length < 10) { waitList.push(generateRandomChar()); renderWaitList(); } 
+    checkEmptySeats(); 
+    // Speeds up by 10% per level. Math.max keeps it from going faster than 200ms so the game doesn't crash!
+    let speed = Math.max(200, 2500 * Math.pow(0.90, game.idxAds || 0)) / rushMultiplier; 
+    setTimeout(customerArrives, speed); 
+}
 function renderWaitList() { document.getElementById('wait-list').innerHTML = waitList.map(char => `<div style="margin-bottom: 5px;">${renderCharHTML(char)}</div>`).join(''); }
 
 function checkEmptySeats() {

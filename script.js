@@ -1,3 +1,19 @@
+// --- MOBILE GOD MODE ACCESS (Option 2) ---
+const titleHeader = document.querySelector('h1');
+let pressTimer;
+
+titleHeader.addEventListener('touchstart', () => {
+    // Starts a 3-second timer when you touch the "Ramen Monkey Tycoon" title
+    pressTimer = window.setTimeout(() => {
+        document.getElementById('admin-panel').classList.remove('hidden');
+        playSound('cash'); // Optional: plays a sound to let you know it worked
+    }, 3000); 
+});
+
+titleHeader.addEventListener('touchend', () => {
+    // If you let go before 3 seconds, the timer cancels
+    clearTimeout(pressTimer);
+});
 // --- NEW SOUND SYSTEM ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 function playSound(type) {

@@ -359,6 +359,7 @@ function loadGame() {
         if(game.michelinStars !== undefined) { game.monkeyMoney = game.michelinStars; delete game.michelinStars; } 
         if(!game.staff) game.staff = {waiter:0,ninja:0,mascot:0};
         if(game.autoRefill === undefined) game.autoRefill = false;
+        if(game.idxAds === undefined) game.idxAds = 0;
         if(game.inv.boba === undefined) game.inv.boba = 10;
         if(!game.rivals) game.rivals = JSON.parse(JSON.stringify(INITIAL_RIVALS));
         

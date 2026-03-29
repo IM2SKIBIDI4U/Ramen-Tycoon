@@ -32,6 +32,7 @@ const TRACK_RECIPES = Array.from({length: 1000}, (_, i) => {
 });
 const TRACK_WOK = Array.from({length: 1000}, (_, i) => ({ name: `Wok Lvl ${i+2}`, cost: Math.floor(100000 * Math.pow(1.6, i)) }));
 const TRACK_AUTO = Array.from({length: 1000}, (_, i) => ({ name: `Chef Speed Lvl ${i+1}`, cost: Math.floor(1500 * Math.pow(1.4, i)) }));
+const TRACK_ADS = Array.from({length: 1000}, (_, i) => ({ name: `Marketing Lvl ${i+1}`, cost: Math.floor(500 * Math.pow(1.45, i)) }));
 
 const TRACK_DECOR = [ { id: 'theme-default', name: 'Standard Store', cost: 0 }, { id: 'theme-neon', name: 'Cyberpunk Neon', cost: 500000 }, { id: 'theme-zen', name: 'Zen Garden', cost: 10000000 }, { id: 'theme-gold', name: 'Solid Gold Palace', cost: 1000000000 } ];
 

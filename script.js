@@ -1,20 +1,3 @@
-// --- MOBILE GOD MODE ACCESS (Option 2 - Fixed for Highlighting) ---
-const titleHeader = document.querySelector('h1');
-let pressTimer;
-
-// We added 'e' to the function to grab the touch event
-titleHeader.addEventListener('touchstart', (e) => {
-    e.preventDefault(); // 🛑 THIS is the magic line that stops the highlighting!
-    
-    pressTimer = window.setTimeout(() => {
-        document.getElementById('admin-panel').classList.remove('hidden');
-        playSound('cash'); 
-    }, 3000); 
-}, { passive: false }); // This allows preventDefault to work properly on phones
-
-titleHeader.addEventListener('touchend', () => {
-    clearTimeout(pressTimer);
-});
 // --- NEW SOUND SYSTEM ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 function playSound(type) {

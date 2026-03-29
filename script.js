@@ -1,4 +1,4 @@
-// --- NEW SOUND SYSTEM (No external files needed!) ---
+// --- NEW SOUND SYSTEM ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 function playSound(type) {
     if(audioCtx.state === 'suspended') audioCtx.resume();
@@ -60,10 +60,8 @@ let game = {
 
 const charColors = { skin: ["#ffdbac", "#f1c27d", "#e0ac69", "#8d5524", "#4a3219"], hair: ["#090806", "#4a2511", "#b7a69e", "#d6c4c2", "#e25822"], shirt: ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6"], pants: ["#2980b9", "#2c3e50", "#7f8c8d"] };
 
-// Added Critic & Boba logic to generation
 function generateRandomChar() { return { skin: charColors.skin[Math.floor(Math.random()*5)], hair: charColors.hair[Math.floor(Math.random()*5)], shirt: charColors.shirt[Math.floor(Math.random()*5)], pants: charColors.pants[Math.floor(Math.random()*3)], isVIP: Math.random() < 0.05, isCritic: Math.random() < 0.02, wantsBoba: Math.random() < 0.2 }; }
 
-// Added Visuals for VIP Crowns, Critic Monocle, and Boba Requests
 function renderCharHTML(c) { 
     let crown = c.isVIP ? `<div style="position:absolute; top:-20px; left:-10px; font-size:1.2rem; animation:vipBounce 0.8s infinite; z-index:10;">👑</div>` : ''; 
     let critic = c.isCritic ? `<div style="position:absolute; top:-20px; right:-10px; font-size:1.2rem; z-index:10;">🧐</div>` : ''; 
@@ -110,7 +108,7 @@ function handleTableClick(index) {
 function collectPayment(index) {
     let seat = seats[index];
     let mult = seat.charData.isVIP ? 10 : 1;
-    if(seat.charData.isCritic) mult *= 25; // Critic 25x payout!
+    if(seat.charData.isCritic) mult *= 25; 
     if(game.staff.mascot > 0) mult += (game.staff.mascot * 0.5); 
     
     let finalValue = (game.currentMenuPrice * mult) * getPrestigeMultiplier() * rushMultiplier;
@@ -195,14 +193,13 @@ setInterval(() => {
         if (seat.occupied && !seat.isCooking) {
             let decay = isRushHour ? 2.5 : 1.5;
             if(game.staff.mascot > 0) decay *= Math.max(0.2, (1 - (game.staff.mascot * 0.1))); 
-            if(seat.charData && seat.charData.isCritic) decay *= 2; // Critics drain patience faster
+            if(seat.charData && seat.charData.isCritic) decay *= 2; 
             seat.patience -= decay;
             if (seat.patience <= 0) { seat.occupied = false; seat.needsMenu = false; seat.needsServing = false; seat.needsToPay = false; seat.charData = null; updateUI(); updateKitchenUI(); }
         }
     });
 }, 200);
 
-// NEW Auto-Refill Logic
 setInterval(() => {
     if (game.autoRefill) {
         ['noodle','broth','spice','egg','boba'].forEach(item => {
@@ -218,32 +215,37 @@ function buyAuto() { let u = TRACK_AUTO[game.idxAuto]; if (u && game.wallet >= u
 function buyWok() { let u = TRACK_WOK[game.idxWok]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.idxWok++; playSound('cash'); saveGame(); updateUI(); } }
 
 function renderPad(id, track, idx, func, title) {
-    let container = document.getElementById(id); let u = track[idx];
+    let container = document.getElementById(id); 
+    if(!container) return; // Failsafe check
+    let u = track[idx];
     if (!u) { container.innerHTML = `<button class="tycoon-pad" style="background:#333;">${title}<br>MAX LEVEL</button>`; } 
     else { let afford = game.wallet >= u.cost ? "affordable" : ""; container.innerHTML = `<button class="tycoon-pad ${afford}" onclick="${func}()"><b>${title}</b><br>Lvl ${idx+1}: ${u.name}<br>$${formatMoney(u.cost)}</button>`; }
 }
 
 function updateUI() {
-    document.getElementById('money').innerText = "$" + formatMoney(game.wallet);
-    document.getElementById('inv-noodle').innerText = formatMoney(game.inv.noodle); document.getElementById('inv-broth').innerText = formatMoney(game.inv.broth);
-    document.getElementById('inv-spice').innerText = formatMoney(game.inv.spice); document.getElementById('inv-egg').innerText = formatMoney(game.inv.egg);
-    document.getElementById('inv-boba').innerText = formatMoney(game.inv.boba);
+    // FAIL-SAFE DOM UPDATES!
+    if(document.getElementById('money')) document.getElementById('money').innerText = "$" + formatMoney(game.wallet);
+    if(document.getElementById('inv-noodle')) document.getElementById('inv-noodle').innerText = formatMoney(game.inv.noodle); 
+    if(document.getElementById('inv-broth')) document.getElementById('inv-broth').innerText = formatMoney(game.inv.broth);
+    if(document.getElementById('inv-spice')) document.getElementById('inv-spice').innerText = formatMoney(game.inv.spice); 
+    if(document.getElementById('inv-egg')) document.getElementById('inv-egg').innerText = formatMoney(game.inv.egg);
+    if(document.getElementById('inv-boba')) document.getElementById('inv-boba').innerText = formatMoney(game.inv.boba);
     
-    // Auto Refill Button State
     let autoBtn = document.getElementById('btn-auto-refill');
     if(autoBtn) {
         if(game.autoRefill) { autoBtn.innerText = "ACTIVE"; autoBtn.disabled = true; }
         else { autoBtn.innerText = "Buy ($50k)"; autoBtn.disabled = false; }
     }
 
-    document.getElementById('stat-stars').innerText = game.monkeyMoney; 
-    document.getElementById('stat-turf').innerText = game.turfMult.toFixed(1);
-    document.getElementById('star-mult').innerText = getPrestigeMultiplier().toFixed(1);
+    if(document.getElementById('stat-stars')) document.getElementById('stat-stars').innerText = game.monkeyMoney; 
+    if(document.getElementById('stat-turf')) document.getElementById('stat-turf').innerText = game.turfMult.toFixed(1);
+    if(document.getElementById('star-mult')) document.getElementById('star-mult').innerText = getPrestigeMultiplier().toFixed(1);
     
     let currentRecipeName = game.idxRecipe > 0 ? TRACK_RECIPES[game.idxRecipe-1].name : RAMEN_NAMES[0];
-    document.getElementById('stat-menu').innerText = `${currentRecipeName} ($${formatMoney(game.currentMenuPrice)})`;
+    if(document.getElementById('stat-menu')) document.getElementById('stat-menu').innerText = `${currentRecipeName} ($${formatMoney(game.currentMenuPrice)})`;
 
-    let pBtn = document.getElementById('btn-prestige'); if(game.wallet >= 1e12) pBtn.removeAttribute('disabled'); else pBtn.setAttribute('disabled', 'true');
+    let pBtn = document.getElementById('btn-prestige'); 
+    if(pBtn) { if(game.wallet >= 1e12) pBtn.removeAttribute('disabled'); else pBtn.setAttribute('disabled', 'true'); }
 
     seats.forEach((seat, i) => {
         let el = document.getElementById(`seat-${i}`); if (!el) return;
@@ -260,12 +262,16 @@ function updateUI() {
         html += `<div class="belt-strip"></div>`; el.innerHTML = html; el.onclick = () => handleTableClick(i);
     });
 
-    renderPad('pad-table', TRACK_TABLES, game.idxTable, 'buyTable', '🪑 TABLES'); renderPad('pad-recipe', TRACK_RECIPES, game.idxRecipe, 'buyRecipe', '🍲 RECIPES');
-    renderPad('pad-wok', TRACK_WOK, game.idxWok, 'buyWok', '🍳 WOK'); renderPad('pad-auto', TRACK_AUTO, game.idxAuto, 'buyAuto', '🐒 MAIN CHEF');
+    renderPad('pad-table', TRACK_TABLES, game.idxTable, 'buyTable', '🪑 TABLES'); 
+    renderPad('pad-recipe', TRACK_RECIPES, game.idxRecipe, 'buyRecipe', '🍲 RECIPES');
+    renderPad('pad-wok', TRACK_WOK, game.idxWok, 'buyWok', '🍳 WOK'); 
+    renderPad('pad-auto', TRACK_AUTO, game.idxAuto, 'buyAuto', '🐒 MAIN CHEF');
 }
 
 function updateKitchenUI() {
-    let container = document.getElementById('stoves-container'); container.innerHTML = ""; 
+    let container = document.getElementById('stoves-container'); 
+    if(!container) return;
+    container.innerHTML = ""; 
     seats.forEach((seat, i) => {
         if (seat.occupied && seat.isCooking) {
             let stove = document.createElement('div'); stove.className = "stove-station"; stove.onclick = () => clickStove(i);
@@ -278,13 +284,15 @@ function updateKitchenUI() {
 
 function buyStaff(id, cost) { if(game.wallet >= cost) { game.wallet -= cost; game.staff[id]++; playSound('cash'); saveGame(); updateUI(); renderStaffPanel(); } }
 function renderStaffPanel() {
+    let container = document.getElementById('staff-container');
+    if(!container) return;
     let html = "";
     TRACK_STAFF.forEach(s => {
         let cost = s.baseCost * Math.pow(s.mult, game.staff[s.id]);
         let afford = game.wallet >= cost ? "affordable" : "";
         html += `<button class="tycoon-pad ${afford}" onclick="buyStaff('${s.id}', ${cost})"><b>${s.name}</b><br>Hired: ${game.staff[s.id]}<br>Hire Cost: $${formatMoney(cost)}</button>`;
     });
-    document.getElementById('staff-container').innerHTML = html;
+    container.innerHTML = html;
 }
 
 function attackRival(idx) {
@@ -298,6 +306,8 @@ function attackRival(idx) {
     } else { playSound('error'); }
 }
 function renderTurfPanel() {
+    let container = document.getElementById('turf-container');
+    if(!container) return;
     let html = "";
     game.rivals.forEach((r, i) => {
         if(r.hp <= 0) { html += `<div class="rival-card" style="opacity:0.5;"><h3>${r.name} (DEFEATED)</h3><span>+${r.multReward}x Multiplier Active</span></div>`; }
@@ -307,11 +317,11 @@ function renderTurfPanel() {
             html += `<div class="rival-card"><div class="rival-info"><h3>${r.name}</h3><div class="hp-bar-bg"><div class="hp-bar-fill" style="width:${pct}%"></div></div></div><button class="tycoon-pad ${afford}" onclick="attackRival(${i})">Launch Campaign<br>Cost: $${formatMoney(r.cost)}</button></div>`;
         }
     });
-    document.getElementById('turf-container').innerHTML = html;
+    container.innerHTML = html;
 }
 
 function buyDecor(id, cost) { if(game.decorOwned.includes(id)) { game.activeDecor = id; applyTheme(); saveGame(); renderDecorPanel(); } else if(game.wallet >= cost) { game.wallet -= cost; game.decorOwned.push(id); game.activeDecor = id; playSound('cash'); applyTheme(); saveGame(); updateUI(); renderDecorPanel(); } else { playSound('error'); } }
-function renderDecorPanel() { let html = ""; TRACK_DECOR.forEach(d => { let isOwned = game.decorOwned.includes(d.id); let isActive = game.activeDecor === d.id; let btnText = isActive ? "EQUIPPED" : (isOwned ? "EQUIP" : `BUY: $${formatMoney(d.cost)}`); let canAfford = game.wallet >= d.cost || isOwned ? "affordable" : ""; html += `<button class="tycoon-pad ${canAfford} ${isActive?'active':''}" style="margin:5px;" onclick="buyDecor('${d.id}', ${d.cost})"><b>${d.name}</b><br>${btnText}</button>`; }); document.getElementById('decor-container').innerHTML = html; }
+function renderDecorPanel() { let container = document.getElementById('decor-container'); if(!container) return; let html = ""; TRACK_DECOR.forEach(d => { let isOwned = game.decorOwned.includes(d.id); let isActive = game.activeDecor === d.id; let btnText = isActive ? "EQUIPPED" : (isOwned ? "EQUIP" : `BUY: $${formatMoney(d.cost)}`); let canAfford = game.wallet >= d.cost || isOwned ? "affordable" : ""; html += `<button class="tycoon-pad ${canAfford} ${isActive?'active':''}" style="margin:5px;" onclick="buyDecor('${d.id}', ${d.cost})"><b>${d.name}</b><br>${btnText}</button>`; }); container.innerHTML = html; }
 function applyTheme() { document.getElementById('main-container').className = "game-container " + game.activeDecor; }
 
 function prestigeGame() { if(game.wallet >= 1e12 && confirm("Sell franchise for Monkey Money? Reset money/upgrades for a permanent x2 profit multiplier!")) { let st = game.monkeyMoney + 1; let tm = game.turfMult; let d = game.decorOwned; let ad = game.activeDecor; let rv = game.rivals; localStorage.clear(); game = { wallet: 150, monkeyMoney: st, turfMult: tm, lastSaveTime: Date.now(), tablesOwned: 1, idxTable: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxSpecial: 0, currentMenuPrice: 50, activeDecor: ad, decorOwned: d, autoRefill: false, staff: {waiter:0,ninja:0,mascot:0}, rivals: rv, inv: {...defaultInv}, upgrades: {} }; saveGame(); location.reload(); } }
@@ -320,10 +330,11 @@ function resetGame() { if(confirm("Erase all history?")) { localStorage.clear();
 let typed = ""; document.addEventListener('keydown', (e) => { typed += e.key.toLowerCase(); if (typed.endsWith("godmode")) { document.getElementById('admin-panel').classList.remove('hidden'); typed = ""; } if (typed.length > 20) typed = typed.slice(-20); });
 function cheatMoney(amt) { game.wallet += amt; saveGame(); updateUI(); }
 function setCustomMoney() { let val = parseFloat(document.getElementById('custom-money').value); if(!isNaN(val)) { game.wallet = val; saveGame(); updateUI(); } }
-function adminMaxIngredients() { game.inv.noodle=1e15; game.inv.broth=1e15; game.inv.spice=1e15; game.inv.egg=1e15; game.inv.boba=1e15; document.getElementById('out-of-stock-msg').classList.add('hidden'); saveGame(); updateUI(); }
+function adminMaxIngredients() { game.inv.noodle=1e15; game.inv.broth=1e15; game.inv.spice=1e15; game.inv.egg=1e15; game.inv.boba=1e15; if(document.getElementById('out-of-stock-msg')) document.getElementById('out-of-stock-msg').classList.add('hidden'); saveGame(); updateUI(); }
 function cheatStars() { game.monkeyMoney++; saveGame(); updateUI(); }
 function triggerEvent(type) {
     let t = document.getElementById('event-toast');
+    if(!t) return;
     if(type==='rush') { t.innerText = "🚨 RUSH HOUR! (3x Speed & Pay)"; t.className = "event-toast active"; isRushHour = true; rushMultiplier = 3; setTimeout(() => { isRushHour=false; rushMultiplier=1; }, 30000); }
     if(type==='health') { t.innerText = "👨‍⚕️ HEALTH INSPECTOR Fines You!"; t.className = "event-toast active"; game.wallet *= 0.8; playSound('error'); }
     setTimeout(() => t.classList.remove('active'), 5000); updateUI();
@@ -349,9 +360,9 @@ function loadGame() {
             
             if(estimatedEarnings > 100) {
                 game.wallet += estimatedEarnings;
-                document.getElementById('offline-earned').innerText = formatMoney(estimatedEarnings);
-                document.getElementById('offline-time').innerText = `${Math.floor(secondsAway/60)} Minutes`;
-                document.getElementById('offline-modal').classList.remove('hidden');
+                if(document.getElementById('offline-earned')) document.getElementById('offline-earned').innerText = formatMoney(estimatedEarnings);
+                if(document.getElementById('offline-time')) document.getElementById('offline-time').innerText = `${Math.floor(secondsAway/60)} Minutes`;
+                if(document.getElementById('offline-modal')) document.getElementById('offline-modal').classList.remove('hidden');
             }
         }
     } 

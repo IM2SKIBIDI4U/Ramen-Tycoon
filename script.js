@@ -82,7 +82,6 @@ function getPrestigeMultiplier() { return (1 + (game.monkeyMoney * 2)) * game.tu
 function customerArrives() { 
     if (waitList.length < 10) { waitList.push(generateRandomChar()); renderWaitList(); } 
     checkEmptySeats(); 
-    // Speeds up by 10% per level. Math.max keeps it from going faster than 200ms so the game doesn't crash!
     let speed = Math.max(200, 2500 * Math.pow(0.90, game.idxAds || 0)) / rushMultiplier; 
     setTimeout(customerArrives, speed); 
 }
@@ -122,7 +121,7 @@ function collectPayment(index) {
     game.wallet += finalValue;
     playSound('cash');
 
-    // --- THE FIX: FULLY RESET THE TABLE DATA ---
+    // Reset Table
     seat.occupied = false; 
     seat.charData = null;
     seat.needsMenu = false;
@@ -131,7 +130,6 @@ function collectPayment(index) {
     seat.needsServing = false;
     seat.needsToPay = false;
     seat.patience = 100;
-    // ------------------------------------------
 
     saveGame(); 
     updateUI();
@@ -151,7 +149,27 @@ function buyAutoRefill() {
     } else { playSound('error'); }
 }
 
+// Global variables for anti-cheat
+let lastClickTime = 0;
+let clickWarnings = 0;
+
 function clickStove(index) {
+    // --- ANTI-CHEAT: AUTO-CLICKER ---
+    let now = Date.now();
+    if (now - lastClickTime < 50) { 
+        clickWarnings++;
+        if (clickWarnings > 5) {
+            alert("🚨 ANTI-CHEAT: Auto-clicker detected! The Health Inspector fined you $10,000!");
+            game.wallet = Math.max(0, game.wallet - 10000); 
+            clickWarnings = 0;
+            updateUI();
+            playSound('error');
+        }
+        return; 
+    }
+    lastClickTime = now;
+    clickWarnings = Math.max(0, clickWarnings - 0.2); 
+
     let seat = seats[index]; if (!seat.isCooking) return;
     let msg = document.getElementById('out-of-stock-msg');
     
@@ -198,32 +216,27 @@ function finishCooking(index) {
                 let otherSeat = seats[j];
                 if (j !== index && otherSeat.occupied && otherSeat.isCooking) { 
                     
-                    // 1. Calculate what ingredients this specific table still needs
                     let reqNoodle = otherSeat.cookStep === 0 ? 1 : 0;
                     let reqBroth  = otherSeat.cookStep === 0 ? 1 : 0;
                     let reqSpice  = otherSeat.cookStep <= 1 ? 1 : 0;
                     let reqEgg    = otherSeat.cookStep <= 2 ? 1 : 0;
                     
-                    // 2. Check if we have enough inventory to let the Wok auto-cook it
                     if (game.inv.noodle >= reqNoodle && 
                         game.inv.broth >= reqBroth && 
                         game.inv.spice >= reqSpice && 
                         game.inv.egg >= reqEgg) {
                         
-                        // 3. Deduct the ingredients!
                         game.inv.noodle -= reqNoodle;
                         game.inv.broth -= reqBroth;
                         game.inv.spice -= reqSpice;
                         game.inv.egg -= reqEgg;
                         
-                        // 4. Instantly finish the food
                         otherSeat.isCooking = false; 
                         otherSeat.needsServing = true; 
                         otherSeat.patience = 100; 
                         otherSeat.cookStep = 3; 
                         extra++; 
                     } else {
-                        // If we are out of stock, flash the warning and skip this table
                         let msg = document.getElementById('out-of-stock-msg');
                         if(msg) msg.classList.remove('hidden');
                     }
@@ -243,34 +256,21 @@ function runMonkeyLoop() {
         for (let i = 0; i < game.tablesOwned; i++) {
             let s = seats[i];
             
-            // 🛑 SAFETY CHECK 1: Ignore empty tables
             if (!s.occupied) continue;
-
-            // 🛑 SAFETY CHECK 2: Ignore customers still walking in (prevents fatal crashes)
             if (s.charData === null) continue;
+            if (s.needsServing && s.charData.wantsBoba && game.inv.boba < 1) continue; 
 
-            // 🛑 SAFETY CHECK 3: The Boba Jam. If out of Boba, skip serving this table 
-            // so the monkey can go take orders somewhere else!
-            if (s.needsServing && s.charData.wantsBoba && game.inv.boba < 1) {
-                continue; 
-            }
-
-            // 🐒 PRIORITY 1: WAITER DUTIES (Serve food and collect cash)
             if (game.staff.waiter > 0 && (s.needsServing || s.needsToPay)) { 
                 handleTableClick(i); 
-                break; // Action taken! Stop looking and wait for the next loop.
+                break; 
             }
             
-            // 🐒 PRIORITY 2: CHEF DUTIES (Take menus and start the stove)
-            // The monkey will only do this if the table isn't already busy cooking or eating.
             if (s.needsMenu || (!s.isCooking && !s.needsServing && !s.needsToPay)) { 
                 handleTableClick(i); 
-                break; // Action taken! Stop looking and wait for the next loop.
+                break; 
             }
         }
     }
-    
-    // ⏱️ The heartbeat of the game: Keeps the loop running at the upgraded speed
     setTimeout(runMonkeyLoop, getMonkeySpeed());
 }
 
@@ -282,14 +282,13 @@ function buyAds() { let u = TRACK_ADS[game.idxAds]; if (u && game.wallet >= u.co
 
 function renderPad(id, track, idx, func, title) {
     let container = document.getElementById(id); 
-    if(!container) return; // Failsafe check
+    if(!container) return; 
     let u = track[idx];
     if (!u) { container.innerHTML = `<button class="tycoon-pad" style="background:#333;">${title}<br>MAX LEVEL</button>`; } 
     else { let afford = game.wallet >= u.cost ? "affordable" : ""; container.innerHTML = `<button class="tycoon-pad ${afford}" onclick="${func}()"><b>${title}</b><br>Lvl ${idx+1}: ${u.name}<br>$${formatMoney(u.cost)}</button>`; }
 }
 
 function updateUI() {
-    // FAIL-SAFE DOM UPDATES!
     if(document.getElementById('money')) document.getElementById('money').innerText = "$" + formatMoney(game.wallet);
     if(document.getElementById('inv-noodle')) document.getElementById('inv-noodle').innerText = formatMoney(game.inv.noodle); 
     if(document.getElementById('inv-broth')) document.getElementById('inv-broth').innerText = formatMoney(game.inv.broth);
@@ -394,7 +393,8 @@ function applyTheme() { document.getElementById('main-container').className = "g
 function prestigeGame() { if(game.wallet >= 1e12 && confirm("Sell franchise for Monkey Money? Reset money/upgrades for a permanent x2 profit multiplier!")) { let st = game.monkeyMoney + 1; let tm = game.turfMult; let d = game.decorOwned; let ad = game.activeDecor; let rv = game.rivals; localStorage.clear(); game = { wallet: 150, monkeyMoney: st, turfMult: tm, lastSaveTime: Date.now(), tablesOwned: 1, idxTable: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxAds: 0, idxSpecial: 0, currentMenuPrice: 50, activeDecor: ad, decorOwned: d, autoRefill: false, staff: {waiter:0,ninja:0,mascot:0}, rivals: rv, inv: {...defaultInv}, upgrades: {} }; saveGame(); location.reload(); } }
 function resetGame() { if(confirm("Erase all history?")) { localStorage.clear(); location.reload(); } }
 
-let typed = ""; document.addEventListener('keydown', (e) => { typed += e.key.toLowerCase(); if (typed.endsWith("rafay is cool")) { document.getElementById('admin-panel').classList.remove('hidden'); typed = ""; } if (typed.length > 20) typed = typed.slice(-20); });
+// --- CHANGED GODMODE PASSWORD TO admin2026 ---
+let typed = ""; document.addEventListener('keydown', (e) => { typed += e.key.toLowerCase(); if (typed.endsWith("admin2026")) { document.getElementById('admin-panel').classList.remove('hidden'); typed = ""; } if (typed.length > 20) typed = typed.slice(-20); });
 function cheatMoney(amt) { game.wallet += amt; saveGame(); updateUI(); }
 function setCustomMoney() { let val = parseFloat(document.getElementById('custom-money').value); if(!isNaN(val)) { game.wallet = val; saveGame(); updateUI(); } }
 function adminMaxIngredients() { game.inv.noodle=1e15; game.inv.broth=1e15; game.inv.spice=1e15; game.inv.egg=1e15; game.inv.boba=1e15; if(document.getElementById('out-of-stock-msg')) document.getElementById('out-of-stock-msg').classList.add('hidden'); saveGame(); updateUI(); }
@@ -421,7 +421,17 @@ function loadGame() {
         if(game.inv.boba === undefined) game.inv.boba = 10;
         if(!game.rivals) game.rivals = JSON.parse(JSON.stringify(INITIAL_RIVALS));
         
-        let now = Date.now(); let timeDiff = now - game.lastSaveTime; let secondsAway = Math.floor(timeDiff / 1000);
+        let now = Date.now(); 
+        
+        // --- ANTI-CHEAT: TIME TRAVEL DETECTION ---
+        if (now < game.lastSaveTime) {
+            alert("🚨 ANTI-CHEAT: Time Anomaly Detected! Your calendar went backwards. Offline progress voided.");
+            game.lastSaveTime = now;
+            saveGame();
+            return; 
+        }
+
+        let timeDiff = now - game.lastSaveTime; let secondsAway = Math.floor(timeDiff / 1000);
         if(secondsAway > 60 && game.idxAuto > 0 && game.tablesOwned > 0) {
             let cycles = secondsAway / (getMonkeySpeed() / 1000); 
             let estimatedEarnings = cycles * game.tablesOwned * game.currentMenuPrice * getPrestigeMultiplier() * 0.5; 
@@ -437,5 +447,29 @@ function loadGame() {
     applyTheme();
 }
 function closeOfflineModal() { document.getElementById('offline-modal').classList.add('hidden'); playSound('cash'); saveGame(); }
+
+// --- THE MISSING AUTO REFILL SYSTEM IS NOW HERE! ---
+setInterval(() => {
+    if (!game.autoRefill) return; 
+
+    let boughtSomething = false;
+
+    ['noodle', 'broth', 'spice', 'egg', 'boba'].forEach(item => {
+        if (game.inv[item] < 50) { 
+            if (game.wallet >= 250) {
+                game.wallet -= 250; 
+                game.inv[item] += 100;
+                boughtSomething = true;
+            } 
+            else if (game.wallet >= 50) { 
+                game.wallet -= 50; 
+                game.inv[item] += 20; 
+                boughtSomething = true;
+            }
+        }
+    });
+
+    if (boughtSomething) updateUI(); 
+}, 500);
 
 initTables(); loadGame(); updateUI(); updateKitchenUI(); renderDecorPanel(); renderStaffPanel(); renderTurfPanel(); customerArrives(); if (game.idxAuto > 0) runMonkeyLoop(); setInterval(saveGame, 10000);

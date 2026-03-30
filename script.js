@@ -185,13 +185,54 @@ function clickStove(index) {
 function finishCooking(index) {
     let seat = seats[index];
     setTimeout(() => {
-        seat.isCooking = false; seat.needsServing = true; seat.patience = 100;
+        seat.isCooking = false; 
+        seat.needsServing = true; 
+        seat.patience = 100;
+        
         let maxExtra = game.idxWok;
         if (maxExtra > 0) {
             let extra = 0;
-            for (let j = 0; j < game.tablesOwned; j++) { if (extra >= maxExtra) break; if (j !== index && seats[j].occupied && seats[j].isCooking) { seats[j].isCooking = false; seats[j].needsServing = true; seats[j].patience = 100; extra++; } }
+            for (let j = 0; j < game.tablesOwned; j++) { 
+                if (extra >= maxExtra) break; 
+                
+                let otherSeat = seats[j];
+                if (j !== index && otherSeat.occupied && otherSeat.isCooking) { 
+                    
+                    // 1. Calculate what ingredients this specific table still needs
+                    let reqNoodle = otherSeat.cookStep === 0 ? 1 : 0;
+                    let reqBroth  = otherSeat.cookStep === 0 ? 1 : 0;
+                    let reqSpice  = otherSeat.cookStep <= 1 ? 1 : 0;
+                    let reqEgg    = otherSeat.cookStep <= 2 ? 1 : 0;
+                    
+                    // 2. Check if we have enough inventory to let the Wok auto-cook it
+                    if (game.inv.noodle >= reqNoodle && 
+                        game.inv.broth >= reqBroth && 
+                        game.inv.spice >= reqSpice && 
+                        game.inv.egg >= reqEgg) {
+                        
+                        // 3. Deduct the ingredients!
+                        game.inv.noodle -= reqNoodle;
+                        game.inv.broth -= reqBroth;
+                        game.inv.spice -= reqSpice;
+                        game.inv.egg -= reqEgg;
+                        
+                        // 4. Instantly finish the food
+                        otherSeat.isCooking = false; 
+                        otherSeat.needsServing = true; 
+                        otherSeat.patience = 100; 
+                        otherSeat.cookStep = 3; 
+                        extra++; 
+                    } else {
+                        // If we are out of stock, flash the warning and skip this table
+                        let msg = document.getElementById('out-of-stock-msg');
+                        if(msg) msg.classList.remove('hidden');
+                    }
+                } 
+            }
         }
-        saveGame(); updateUI(); updateKitchenUI();
+        saveGame(); 
+        updateUI(); 
+        updateKitchenUI();
     }, 400);
 }
 

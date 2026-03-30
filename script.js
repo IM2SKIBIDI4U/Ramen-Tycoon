@@ -198,40 +198,40 @@ function finishCooking(index) {
 function getMonkeySpeed() { return Math.max(50, 3000 * Math.pow(0.85, game.idxAuto)) / rushMultiplier; }
 
 function runMonkeyLoop() {
-    if(game.idxAuto > 0) {
-        for(let i = 0; i < game.tablesOwned; i++) {
+    if (game.idxAuto > 0) {
+        for (let i = 0; i < game.tablesOwned; i++) {
             let s = seats[i];
             
-            // CHECK FOR BOBA JAM: If out of boba, skip the serving step for this table
-            // This allows the monkey to move on to take orders (needsMenu) at other tables!
-            if (s.needsServing && s.charData && s.charData.wantsBoba && game.inv.boba < 1) {
+            // 🛑 SAFETY CHECK 1: Ignore empty tables
+            if (!s.occupied) continue;
+
+            // 🛑 SAFETY CHECK 2: Ignore customers still walking in (prevents fatal crashes)
+            if (s.charData === null) continue;
+
+            // 🛑 SAFETY CHECK 3: The Boba Jam. If out of Boba, skip serving this table 
+            // so the monkey can go take orders somewhere else!
+            if (s.needsServing && s.charData.wantsBoba && game.inv.boba < 1) {
                 continue; 
             }
 
-            // 1. Handle Serving and Paying first
-            if(game.staff.waiter > 0 && (s.needsServing || s.needsToPay)) { 
+            // 🐒 PRIORITY 1: WAITER DUTIES (Serve food and collect cash)
+            if (game.staff.waiter > 0 && (s.needsServing || s.needsToPay)) { 
                 handleTableClick(i); 
-                break; 
+                break; // Action taken! Stop looking and wait for the next loop.
             }
             
-            // 2. Handle Taking Orders (Needs Menu) and Starting Cooking
-            if(s.occupied && (s.needsMenu || (!s.isCooking && !s.needsServing && !s.needsToPay))) { 
+            // 🐒 PRIORITY 2: CHEF DUTIES (Take menus and start the stove)
+            // The monkey will only do this if the table isn't already busy cooking or eating.
+            if (s.needsMenu || (!s.isCooking && !s.needsServing && !s.needsToPay)) { 
                 handleTableClick(i); 
-                break; 
+                break; // Action taken! Stop looking and wait for the next loop.
             }
         }
     }
+    
+    // ⏱️ The heartbeat of the game: Keeps the loop running at the upgraded speed
     setTimeout(runMonkeyLoop, getMonkeySpeed());
 }
-
-setInterval(() => {
-    if (game.autoRefill) {
-        ['noodle','broth','spice','egg','boba'].forEach(item => {
-            if (game.inv[item] < 20 && game.wallet >= 50) { game.wallet -= 50; game.inv[item] += 20; }
-        });
-        updateUI();
-    }
-}, 3000);
 
 function buyTable() { let u = TRACK_TABLES[game.idxTable]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.tablesOwned++; game.idxTable++; playSound('cash'); saveGame(); updateUI(); updateKitchenUI(); } }
 function buyRecipe() { let u = TRACK_RECIPES[game.idxRecipe]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.currentMenuPrice = u.value; game.idxRecipe++; playSound('cash'); saveGame(); updateUI(); } }

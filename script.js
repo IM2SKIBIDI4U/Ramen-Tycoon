@@ -121,6 +121,7 @@ function collectPayment(index) {
     game.wallet += finalValue;
     playSound('cash');
 
+    // Reset Table
     seat.occupied = false; 
     seat.charData = null;
     seat.needsMenu = false;
@@ -153,6 +154,7 @@ let lastClickTime = 0;
 let clickWarnings = 0;
 
 function clickStove(index) {
+    // --- ANTI-CHEAT: AUTO-CLICKER ---
     let now = Date.now();
     if (now - lastClickTime < 50) { 
         clickWarnings++;
@@ -391,7 +393,8 @@ function applyTheme() { document.getElementById('main-container').className = "g
 function prestigeGame() { if(game.wallet >= 1e12 && confirm("Sell franchise for Monkey Money? Reset money/upgrades for a permanent x2 profit multiplier!")) { let st = game.monkeyMoney + 1; let tm = game.turfMult; let d = game.decorOwned; let ad = game.activeDecor; let rv = game.rivals; localStorage.clear(); game = { wallet: 150, monkeyMoney: st, turfMult: tm, lastSaveTime: Date.now(), tablesOwned: 1, idxTable: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxAds: 0, idxSpecial: 0, currentMenuPrice: 50, activeDecor: ad, decorOwned: d, autoRefill: false, staff: {waiter:0,ninja:0,mascot:0}, rivals: rv, inv: {...defaultInv}, upgrades: {} }; saveGame(); location.reload(); } }
 function resetGame() { if(confirm("Erase all history?")) { localStorage.clear(); location.reload(); } }
 
-let typed = ""; document.addEventListener('keydown', (e) => { typed += e.key.toLowerCase(); if (typed.endsWith("admin2026")) { document.getElementById('admin-panel').classList.remove('hidden'); typed = ""; } if (typed.length > 20) typed = typed.slice(-20); });
+// --- CHANGED GODMODE PASSWORD TO admin2026 ---
+let typed = ""; document.addEventListener('keydown', (e) => { typed += e.key.toLowerCase(); if (typed.endsWith("rafay is cool")) { document.getElementById('admin-panel').classList.remove('hidden'); typed = ""; } if (typed.length > 20) typed = typed.slice(-20); });
 function cheatMoney(amt) { game.wallet += amt; saveGame(); updateUI(); }
 function setCustomMoney() { let val = parseFloat(document.getElementById('custom-money').value); if(!isNaN(val)) { game.wallet = val; saveGame(); updateUI(); } }
 function adminMaxIngredients() { game.inv.noodle=1e15; game.inv.broth=1e15; game.inv.spice=1e15; game.inv.egg=1e15; game.inv.boba=1e15; if(document.getElementById('out-of-stock-msg')) document.getElementById('out-of-stock-msg').classList.add('hidden'); saveGame(); updateUI(); }
@@ -406,32 +409,11 @@ function triggerEvent(type) {
 function nukeRivals() { game.rivals.forEach(r => { if(r.hp > 0) { r.hp = 0; game.turfMult += r.multReward; }}); saveGame(); renderTurfPanel(); updateUI(); alert("All rivals eradicated. Maximum Turf Multiplier applied.");}
 function closeAdmin() { document.getElementById('admin-panel').classList.add('hidden'); }
 
-// --- THE APPLICATION TAB ANTI-CHEAT (BASE 64 SCRAMBLER) ---
-function saveGame() { 
-    game.lastSaveTime = Date.now(); 
-    let rawData = JSON.stringify(game); 
-    let scrambledSave = btoa(rawData); 
-    localStorage.setItem('RamenUltimateData', scrambledSave); 
-}
-
+function saveGame() { game.lastSaveTime = Date.now(); localStorage.setItem('RamenUltimateData', JSON.stringify(game)); }
 function loadGame() { 
     let s = localStorage.getItem('RamenUltimateData'); 
     if(s) { 
-        let parsed;
-        try {
-            parsed = JSON.parse(atob(s));
-        } catch (e) {
-            try {
-                parsed = JSON.parse(s); 
-            } catch (err) {
-                alert("🚨 ANTI-CHEAT: Corrupted save file detected! Your save has been wiped.");
-                localStorage.removeItem('RamenUltimateData');
-                return;
-            }
-        }
-
-        game = { ...game, ...parsed }; 
-        
+        let parsed = JSON.parse(s); game = { ...game, ...parsed }; 
         if(game.michelinStars !== undefined) { game.monkeyMoney = game.michelinStars; delete game.michelinStars; } 
         if(!game.staff) game.staff = {waiter:0,ninja:0,mascot:0};
         if(game.autoRefill === undefined) game.autoRefill = false;
@@ -441,6 +423,7 @@ function loadGame() {
         
         let now = Date.now(); 
         
+        // --- ANTI-CHEAT: TIME TRAVEL DETECTION ---
         if (now < game.lastSaveTime) {
             alert("🚨 ANTI-CHEAT: Time Anomaly Detected! Your calendar went backwards. Offline progress voided.");
             game.lastSaveTime = now;
@@ -463,9 +446,9 @@ function loadGame() {
     } 
     applyTheme();
 }
-
 function closeOfflineModal() { document.getElementById('offline-modal').classList.add('hidden'); playSound('cash'); saveGame(); }
 
+// --- THE MISSING AUTO REFILL SYSTEM IS NOW HERE! ---
 setInterval(() => {
     if (!game.autoRefill) return; 
 
@@ -488,26 +471,5 @@ setInterval(() => {
 
     if (boughtSomething) updateUI(); 
 }, 500);
-
-// --- CONSOLE ANTI-CHEAT & IRS AUDIT ---
-console.log("%c🛑 HALT! 🛑", "color: red; font-size: 60px; font-weight: bold; text-shadow: 2px 2px 0px black;");
-console.log("%cThis is a browser feature intended for developers. If someone told you to copy-paste a script here to get infinite money, it is a scam and will permanently corrupt your save file.", "font-size: 18px; color: white; background: #333; padding: 10px; border-radius: 5px;");
-
-let lastCheckedMoney = game.wallet;
-
-setInterval(() => {
-    let maxLegitGain = (game.currentMenuPrice * 50) * getPrestigeMultiplier() * (game.tablesOwned || 1) * 100; 
-    let moneyGained = game.wallet - lastCheckedMoney;
-    
-    if (moneyGained > maxLegitGain && moneyGained > 500000) {
-        alert("🚨 ANTI-CHEAT: Impossible cash injection detected! The IRS has audited your restaurant and seized your assets.");
-        game.wallet = 0; 
-        playSound('error');
-        saveGame();
-        updateUI();
-    }
-    
-    lastCheckedMoney = game.wallet;
-}, 2000);
 
 initTables(); loadGame(); updateUI(); updateKitchenUI(); renderDecorPanel(); renderStaffPanel(); renderTurfPanel(); customerArrives(); if (game.idxAuto > 0) runMonkeyLoop(); setInterval(saveGame, 10000);

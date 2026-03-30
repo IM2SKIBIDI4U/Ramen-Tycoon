@@ -188,24 +188,28 @@ function runMonkeyLoop() {
     if(game.idxAuto > 0) {
         for(let i = 0; i < game.tablesOwned; i++) {
             let s = seats[i];
-            if(game.staff.waiter > 0 && (s.needsServing || s.needsToPay)) { handleTableClick(i); break; }
-            if(s.occupied && (s.needsMenu || (!s.isCooking && !s.needsServing && !s.needsToPay))) { handleTableClick(i); break; }
+            
+            // CHECK FOR BOBA JAM: If out of boba, skip the serving step for this table
+            // This allows the monkey to move on to take orders (needsMenu) at other tables!
+            if (s.needsServing && s.charData && s.charData.wantsBoba && game.inv.boba < 1) {
+                continue; 
+            }
+
+            // 1. Handle Serving and Paying first
+            if(game.staff.waiter > 0 && (s.needsServing || s.needsToPay)) { 
+                handleTableClick(i); 
+                break; 
+            }
+            
+            // 2. Handle Taking Orders (Needs Menu) and Starting Cooking
+            if(s.occupied && (s.needsMenu || (!s.isCooking && !s.needsServing && !s.needsToPay))) { 
+                handleTableClick(i); 
+                break; 
+            }
         }
     }
     setTimeout(runMonkeyLoop, getMonkeySpeed());
 }
-
-setInterval(() => {
-    seats.forEach((seat, i) => {
-        if (seat.occupied && !seat.isCooking) {
-            let decay = isRushHour ? 2.5 : 1.5;
-            if(game.staff.mascot > 0) decay *= Math.max(0.2, (1 - (game.staff.mascot * 0.1))); 
-            if(seat.charData && seat.charData.isCritic) decay *= 2; 
-            seat.patience -= decay;
-            if (seat.patience <= 0) { seat.occupied = false; seat.needsMenu = false; seat.needsServing = false; seat.needsToPay = false; seat.charData = null; updateUI(); updateKitchenUI(); }
-        }
-    });
-}, 200);
 
 setInterval(() => {
     if (game.autoRefill) {

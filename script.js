@@ -121,7 +121,20 @@ function collectPayment(index) {
     let finalValue = (game.currentMenuPrice * mult) * getPrestigeMultiplier() * rushMultiplier;
     game.wallet += finalValue;
     playSound('cash');
-    seat.occupied = false; seat.needsToPay = false; seat.charData = null; saveGame(); updateUI();
+
+    // --- THE FIX: FULLY RESET THE TABLE DATA ---
+    seat.occupied = false; 
+    seat.charData = null;
+    seat.needsMenu = false;
+    seat.isCooking = false;
+    seat.cookStep = 0;
+    seat.needsServing = false;
+    seat.needsToPay = false;
+    seat.patience = 100;
+    // ------------------------------------------
+
+    saveGame(); 
+    updateUI();
 }
 
 function buyIngredient(type, amount, cost) { 

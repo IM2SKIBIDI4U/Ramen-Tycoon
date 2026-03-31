@@ -408,51 +408,33 @@ function triggerEvent(type) {
 }
 function nukeRivals() { game.rivals.forEach(r => { if(r.hp > 0) { r.hp = 0; game.turfMult += r.multReward; }}); saveGame(); renderTurfPanel(); updateUI(); alert("All rivals eradicated. Maximum Turf Multiplier applied.");}
 function adminMaxEverything() {
-    // 1. Give infinite money and prestige currency
+    // 1. Check if the staff are currently asleep before we change anything
+    let needsJumpstart = (game.idxAuto === 0); 
+
     game.wallet = 1e30;
     game.monkeyMoney = 1e6;
-    
-    // 2. Max out all upgrades (capped at reasonable levels so it doesn't freeze the browser)
     game.tablesOwned = 100; 
     game.idxTable = 99;
-    game.idxRecipe = 399; // Gives you all 400 new ramen variants!
+    game.idxRecipe = 399; 
     game.idxWok = 100;
     game.idxAuto = 100;
     game.idxAds = 100;
-    
-    // 3. Max out inventory
     game.inv.noodle = 1e15; game.inv.broth = 1e15; game.inv.spice = 1e15; game.inv.egg = 1e15; game.inv.boba = 1e15;
-    
-    // 4. Max out staff
     game.staff.waiter = 50; game.staff.ninja = 50; game.staff.mascot = 50;
-    
-    // 5. Unlock and equip all decorations
     game.decorOwned = TRACK_DECOR.map(d => d.id);
-    game.activeDecor = 'theme-gold'; // Force equip the Solid Gold Palace
+    game.activeDecor = 'theme-gold';
     
-    // 6. Nuke all rivals instantly for maximum turf multiplier
-    game.rivals.forEach(r => { 
-        if(r.hp > 0) { 
-            r.hp = 0; 
-            game.turfMult += r.multReward; 
-        }
-    });
+    game.rivals.forEach(r => { if(r.hp > 0) { r.hp = 0; game.turfMult += r.multReward; }});
     
-    // Hide out of stock message if it's showing
-    if(document.getElementById('out-of-stock-msg')) document.getElementById('out-of-stock-msg').classList.add('hidden');
+    initTables(); applyTheme(); saveGame(); updateUI(); updateKitchenUI(); 
+    renderStaffPanel(); renderTurfPanel(); renderDecorPanel();
     
-    // Reload the UI so everything reflects the God Mode stats
-    initTables(); 
-    applyTheme();
-    saveGame(); 
-    updateUI(); 
-    updateKitchenUI(); 
-    renderStaffPanel(); 
-    renderTurfPanel();
-    renderDecorPanel();
+    // 2. WAKE THEM UP! If they were at level 0 before we clicked the button, start the loop.
+    if (needsJumpstart) {
+        runMonkeyLoop();
+    }
     
-    playSound('cash');
-    alert("👑 ADMIN MENU: God Mode Activated! Everything is maxed out.");
+    alert("👑 GOD MODE: All 400 Ramen Flavors Unlocked & Wallet Maxed!");
 }
 function closeAdmin() { document.getElementById('admin-panel').classList.add('hidden'); }
 

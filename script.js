@@ -408,33 +408,38 @@ function triggerEvent(type) {
 }
 function nukeRivals() { game.rivals.forEach(r => { if(r.hp > 0) { r.hp = 0; game.turfMult += r.multReward; }}); saveGame(); renderTurfPanel(); updateUI(); alert("All rivals eradicated. Maximum Turf Multiplier applied.");}
 function adminMaxEverything() {
-    // 1. Check if the staff are currently asleep before we change anything
     let needsJumpstart = (game.idxAuto === 0); 
 
-    game.wallet = 1e30;
-    game.monkeyMoney = 1e6;
-    game.tablesOwned = 100; 
-    game.idxTable = 99;
-    game.idxRecipe = 399; 
-    game.idxWok = 100;
-    game.idxAuto = 100;
-    game.idxAds = 100;
-    game.inv.noodle = 1e15; game.inv.broth = 1e15; game.inv.spice = 1e15; game.inv.egg = 1e15; game.inv.boba = 1e15;
-    game.staff.waiter = 50; game.staff.ninja = 50; game.staff.mascot = 50;
+    // 1. A ridiculous amount of money to afford level 1000 stuff
+    game.wallet = 1e50; 
+    game.monkeyMoney = 1e9;
+    
+    // 2. THE MEGA UPGRADES (Index 999 = Level 1000)
+    game.tablesOwned = 1000; // ⚠️ WARNING: This might cause lag!
+    game.idxTable = 999;
+    game.idxRecipe = 999; // Unlocks the final "Universal Ramen"
+    game.idxWok = 999;
+    game.idxAuto = 999;
+    game.idxAds = 999;
+    
+    // 3. Max out inventory and staff
+    game.inv.noodle = 1e20; game.inv.broth = 1e20; game.inv.spice = 1e20; game.inv.egg = 1e20; game.inv.boba = 1e20;
+    game.staff.waiter = 500; game.staff.ninja = 500; game.staff.mascot = 500;
+    
     game.decorOwned = TRACK_DECOR.map(d => d.id);
     game.activeDecor = 'theme-gold';
     
     game.rivals.forEach(r => { if(r.hp > 0) { r.hp = 0; game.turfMult += r.multReward; }});
     
+    if(document.getElementById('out-of-stock-msg')) document.getElementById('out-of-stock-msg').classList.add('hidden');
+    
     initTables(); applyTheme(); saveGame(); updateUI(); updateKitchenUI(); 
     renderStaffPanel(); renderTurfPanel(); renderDecorPanel();
     
-    // 2. WAKE THEM UP! If they were at level 0 before we clicked the button, start the loop.
-    if (needsJumpstart) {
-        runMonkeyLoop();
-    }
+    if (needsJumpstart) runMonkeyLoop();
     
-    alert("👑 GOD MODE: All 400 Ramen Flavors Unlocked & Wallet Maxed!");
+    playSound('cash');
+    alert("👑 GOD MODE: LEVEL 1000 REACHED! Warning: Your browser might lag due to the sheer amount of ramen being processed.");
 }
 function closeAdmin() { document.getElementById('admin-panel').classList.add('hidden'); }
 

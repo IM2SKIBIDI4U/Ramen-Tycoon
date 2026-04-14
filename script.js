@@ -585,3 +585,27 @@ setInterval(() => {
         triggerEvent('health'); 
     }
 }, 10000);
+
+function spawnFloatingMoney(amount, targetId) {
+    let targetEl = document.getElementById(targetId);
+    let floatText = document.createElement('div');
+    floatText.className = 'floating-money';
+    floatText.innerText = `+$${formatMoney(amount)}`;
+    
+    if (targetEl) {
+        // Get the exact screen coordinates of the table
+        let rect = targetEl.getBoundingClientRect();
+        floatText.style.position = 'fixed';
+        floatText.style.left = (rect.left + 20) + 'px';
+        floatText.style.top = rect.top + 'px';
+    } else {
+        // Fallback if the seat isn't found
+        floatText.style.position = 'fixed';
+        floatText.style.left = '50%';
+        floatText.style.top = '50%';
+    }
+    
+    // Attach to the body so screen refreshes don't delete it
+    document.body.appendChild(floatText);
+    setTimeout(() => floatText.remove(), 1000);
+}

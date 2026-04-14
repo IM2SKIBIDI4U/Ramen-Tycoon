@@ -64,10 +64,11 @@ const charColors = { skin: ["#ffdbac", "#f1c27d", "#e0ac69", "#8d5524", "#4a3219
 function generateRandomChar() { return { skin: charColors.skin[Math.floor(Math.random()*5)], hair: charColors.hair[Math.floor(Math.random()*5)], shirt: charColors.shirt[Math.floor(Math.random()*5)], pants: charColors.pants[Math.floor(Math.random()*3)], isVIP: Math.random() < 0.05, isCritic: Math.random() < 0.02, wantsBoba: Math.random() < 0.2 }; }
 
 function renderCharHTML(c) { 
-    let crown = c.isVIP ? `<div style="position:absolute; top:-20px; left:-10px; font-size:1.2rem; animation:vipBounce 0.8s infinite; z-index:10;">👑</div>` : ''; 
+    let crown = c.isVIP ? `<div class="vip-crown">👑</div>` : ''; 
     let critic = c.isCritic ? `<div style="position:absolute; top:-20px; right:-10px; font-size:1.2rem; z-index:10;">🧐</div>` : ''; 
     let boba = c.wantsBoba ? `<div style="position:absolute; top:-5px; right:-20px; font-size:1.2rem; z-index:15;">🧋</div>` : '';
-    return `<div class="rpg-char" style="--skin:${c.skin}; --hair:${c.hair}; --shirt:${c.isVIP?'#f1c40f':c.shirt}; --pants:${c.pants};">${crown}${critic}${boba}<div class="rpg-head"><div class="rpg-hair"></div><div class="rpg-eyes"><div class="rpg-eye"></div><div class="rpg-eye"></div></div></div><div class="rpg-body"></div><div class="rpg-legs"><div class="rpg-leg"></div><div class="rpg-leg"></div></div></div>`; 
+    let vipClass = c.isVIP ? ' vip-char' : '';
+    return `<div class="rpg-char${vipClass}" style="--skin:${c.skin}; --hair:${c.hair}; --shirt:${c.isVIP?'#f1c40f':c.shirt}; --pants:${c.pants};">${crown}${critic}${boba}<div class="rpg-head"><div class="rpg-hair"></div><div class="rpg-eyes"><div class="rpg-eye"></div><div class="rpg-eye"></div></div></div><div class="rpg-body"></div><div class="rpg-legs"><div class="rpg-leg"></div><div class="rpg-leg"></div></div></div>`; 
 }
 
 let seats = Array.from({length: 1000}, () => ({ occupied: false, needsMenu: false, isCooking: false, cookStep: 0, needsServing: false, needsToPay: false, patience: 100, charData: null }));

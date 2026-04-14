@@ -131,6 +131,16 @@ function collectPayment(index) {
     let finalValue = (game.currentMenuPrice * mult) * getPrestigeMultiplier() * rushMultiplier;
     game.wallet += finalValue;
     playSound('cash');
+    
+    // Floating Money Particle
+    let seatEl = document.getElementById(`seat-${index}`);
+    if (seatEl) {
+        let floatText = document.createElement('div');
+        floatText.className = 'floating-money';
+        floatText.innerText = `+$${formatMoney(finalValue)}`;
+        seatEl.appendChild(floatText);
+        setTimeout(() => floatText.remove(), 1000);
+    }
 
     // Reset Table
     seat.occupied = false; 

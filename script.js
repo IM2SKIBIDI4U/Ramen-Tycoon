@@ -61,7 +61,17 @@ let game = {
 
 const charColors = { skin: ["#ffdbac", "#f1c27d", "#e0ac69", "#8d5524", "#4a3219"], hair: ["#090806", "#4a2511", "#b7a69e", "#d6c4c2", "#e25822"], shirt: ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6"], pants: ["#2980b9", "#2c3e50", "#7f8c8d"] };
 
-function generateRandomChar() { return { skin: charColors.skin[Math.floor(Math.random()*5)], hair: charColors.hair[Math.floor(Math.random()*5)], shirt: charColors.shirt[Math.floor(Math.random()*5)], pants: charColors.pants[Math.floor(Math.random()*3)], isVIP: Math.random() < 0.05, isCritic: Math.random() < 0.02, wantsBoba: Math.random() < 0.2 }; }
+function generateRandomChar() { 
+    return { 
+        skin: charColors.skin[Math.floor(Math.random()*5)], 
+        hair: charColors.hair[Math.floor(Math.random()*5)], 
+        shirt: charColors.shirt[Math.floor(Math.random()*5)], 
+        pants: charColors.pants[Math.floor(Math.random()*3)], 
+        isVIP: Math.random() < 0.01, // 📉 LOWERED TO 1%
+        isCritic: Math.random() < 0.02, 
+        wantsBoba: Math.random() < 0.2 
+    }; 
+}
 
 function renderCharHTML(c) { 
     let crown = c.isVIP ? `<div class="vip-crown">👑</div>` : ''; 

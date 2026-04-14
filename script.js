@@ -132,15 +132,11 @@ function collectPayment(index) {
     game.wallet += finalValue;
     playSound('cash');
     
-    // Floating Money Particle
-    let seatEl = document.getElementById(`seat-${index}`);
-    if (seatEl) {
-        let floatText = document.createElement('div');
-        floatText.className = 'floating-money';
-        floatText.innerText = `+$${formatMoney(finalValue)}`;
-        seatEl.appendChild(floatText);
-        setTimeout(() => floatText.remove(), 1000);
-    }
+    // (Inside collectPayment, right after you add the money to your wallet)
+    playSound('cash');
+    
+    // NEW: Spawn the un-killable floating text
+    spawnFloatingMoney(finalValue, `seat-${index}`);
 
     // Reset Table
     seat.occupied = false; 
@@ -528,6 +524,7 @@ setInterval(() => {
 }, 500);
 
 initTables(); loadGame(); updateUI(); updateKitchenUI(); renderDecorPanel(); renderStaffPanel(); renderTurfPanel(); customerArrives(); if (game.idxAuto > 0) runMonkeyLoop(); setInterval(saveGame, 10000);
+
 // --- NEW GAME MECHANICS ---
 
 // 1. Ensure the save file tracks achievements

@@ -565,7 +565,8 @@ function spawnGoldenMacaque() {
         updateUI();
     };
     document.body.appendChild(m);
-    setTimeout(() => { if (m.parentElement) m.remove(); }, 6000);
+   // Change the very last line inside spawnGoldenMacaque() to this:
+setTimeout(() => { if (m.parentElement) m.remove(); }, 12000);
 }
 
 // 4. The Background Event Loop (Runs every 10 seconds)

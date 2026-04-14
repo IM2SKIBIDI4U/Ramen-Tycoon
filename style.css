@@ -115,3 +115,30 @@ h1 { font-weight: 900; margin: 0 0 20px 0; font-size: 2.5rem; text-shadow: 2px 2
 /* NEW VISUAL CHEF */
 .visual-chef { position: absolute; bottom: 10px; right: -15px; font-size: 1.8rem; animation: chop 0.2s infinite alternate; z-index: 10; pointer-events: none; }
 @keyframes chop { from { transform: rotate(-15deg) translateY(0); } to { transform: rotate(15deg) translateY(-3px); } }
+
+/* --- VIP CHARACTER UPGRADES --- */
+.vip-char {
+    filter: drop-shadow(0px 0px 8px gold); /* Golden aura */
+    transform: scale(1.15); /* Make them 15% larger than normal customers */
+    animation: vipFloat 2s ease-in-out infinite;
+}
+
+@keyframes vipFloat {
+    0%, 100% { transform: scale(1.15) translateY(0px); }
+    50% { transform: scale(1.15) translateY(-4px); }
+}
+
+.vip-crown {
+    position: absolute;
+    top: -24px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 1.5rem;
+    z-index: 20;
+    animation: crownShine 1.5s infinite alternate;
+}
+
+@keyframes crownShine {
+    from { filter: drop-shadow(0px 0px 2px #f1c40f); }
+    to { filter: drop-shadow(0px 0px 12px #ffffff); }
+}

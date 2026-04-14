@@ -142,3 +142,57 @@ h1 { font-weight: 900; margin: 0 0 20px 0; font-size: 2.5rem; text-shadow: 2px 2
     from { filter: drop-shadow(0px 0px 2px #f1c40f); }
     to { filter: drop-shadow(0px 0px 12px #ffffff); }
 }
+
+/* --- NEW GAME FEEL UPGRADES --- */
+.floating-money {
+    position: absolute;
+    color: #2ecc71;
+    font-weight: bold;
+    font-size: 1.5rem;
+    text-shadow: 2px 2px 0px #000;
+    pointer-events: none;
+    animation: floatUp 1s ease-out forwards;
+    z-index: 50;
+}
+
+@keyframes floatUp {
+    0% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-50px); }
+}
+
+.golden-macaque {
+    position: fixed;
+    top: 15%;
+    left: -100px;
+    font-size: 4rem;
+    cursor: pointer;
+    z-index: 9999;
+    filter: drop-shadow(0px 0px 15px gold);
+    animation: sprintAcross 6s linear forwards;
+}
+
+@keyframes sprintAcross {
+    0% { left: -100px; transform: scaleX(1) translateY(0); }
+    50% { transform: scaleX(1) translateY(-30px); }
+    100% { left: 110vw; transform: scaleX(1) translateY(0); }
+}
+
+#achieve-toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: linear-gradient(45deg, #f1c40f, #f39c12);
+    color: black;
+    padding: 15px 25px;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 1.2rem;
+    box-shadow: 0px 4px 10px rgba(0,0,0,0.5);
+    z-index: 10000;
+    transition: opacity 0.5s ease-in-out;
+    opacity: 1;
+}
+.hidden-toast {
+    opacity: 0 !important;
+    pointer-events: none;
+}

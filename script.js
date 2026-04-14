@@ -528,3 +528,62 @@ setInterval(() => {
 }, 500);
 
 initTables(); loadGame(); updateUI(); updateKitchenUI(); renderDecorPanel(); renderStaffPanel(); renderTurfPanel(); customerArrives(); if (game.idxAuto > 0) runMonkeyLoop(); setInterval(saveGame, 10000);
+// --- NEW GAME MECHANICS ---
+
+// 1. Ensure the save file tracks achievements
+if(!game.achievements) game.achievements = [];
+
+// 2. The Achievement Checker
+function checkAchievements() {
+    let check = (id, name, req) => {
+        if(!game.achievements.includes(id) && req()) {
+            game.achievements.push(id);
+            document.getElementById('achieve-name').innerText = name;
+            let toast = document.getElementById('achieve-toast');
+            toast.classList.remove('hidden-toast');
+            playSound('cash'); // Play a happy sound
+            setTimeout(() => toast.classList.add('hidden-toast'), 4000);
+            saveGame();
+        }
+    };
+    
+    // The Milestones
+    check('first_blood', 'First Blood (Defeated a Rival)', () => game.rivals[0].hp <= 0);
+    check('millionaire', 'The 1% ($1M in the Bank)', () => game.wallet >= 1000000);
+    check('ramen_god', 'Ramen God (Unlocked 400 Recipes)', () => game.idxRecipe >= 399);
+    check('empire', 'Franchise King (Bought 100 Tables)', () => game.tablesOwned >= 100);
+}
+
+// 3. The Golden Macaque
+function spawnGoldenMacaque() {
+    let m = document.createElement('div');
+    m.className = 'golden-macaque';
+    m.innerText = '🐒✨';
+    m.onclick = () => {
+        m.remove();
+        let bonus = (game.wallet * 0.15) + 5000; // Gives 15% of current bank + $5k base
+        game.wallet += bonus;
+        playSound('cash');
+        alert(`🌟 YOU CAUGHT THE GOLDEN MACAQUE! 🌟\nReward: $${formatMoney(bonus)}!`);
+        updateUI();
+    };
+    document.body.appendChild(m);
+    setTimeout(() => { if (m.parentElement) m.remove(); }, 6000);
+}
+
+// 4. The Background Event Loop (Runs every 10 seconds)
+setInterval(() => {
+    checkAchievements();
+    
+    let roll = Math.random();
+    if (roll < 0.05) { 
+        // 5% chance: Spawn the Golden Macaque
+        spawnGoldenMacaque(); 
+    } else if (roll < 0.08 && !isRushHour) { 
+        // 3% chance: Natural Rush Hour
+        triggerEvent('rush'); 
+    } else if (roll < 0.09) { 
+        // 1% chance: Natural Health Inspector Fine
+        triggerEvent('health'); 
+    }
+}, 10000);

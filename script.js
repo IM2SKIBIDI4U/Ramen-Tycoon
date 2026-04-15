@@ -420,7 +420,20 @@ function triggerEvent(type) {
     let t = document.getElementById('event-toast');
     if(!t) return;
     if(type==='rush') { t.innerText = "🚨 RUSH HOUR! (3x Speed & Pay)"; t.className = "event-toast active"; isRushHour = true; rushMultiplier = 3; setTimeout(() => { isRushHour=false; rushMultiplier=1; }, 30000); }
-    if(type==='health') { t.innerText = "👨‍⚕️ HEALTH INSPECTOR Fines You!"; t.className = "event-toast active"; game.wallet *= 0.8; playSound('error'); }
+   if (type === 'health') {
+        // The Math Magic: 75% of current wallet, but never less than $1,000
+        let fineAmount = Math.max(1000, game.wallet * 0.75); 
+        
+        game.wallet -= fineAmount;
+        
+        // Safety check so they don't go into negative debt
+        if (game.wallet < 0) game.wallet = 0; 
+        
+        saveGame();
+        updateUI();
+        
+        alert(`🚨 HEALTH INSPECTOR! 🚨\nThey found a monkey eating noodles out of the pot. You have been fined $${formatMoney(fineAmount)}!`);
+    }
     setTimeout(() => t.classList.remove('active'), 5000); updateUI();
 }
 function nukeRivals() { game.rivals.forEach(r => { if(r.hp > 0) { r.hp = 0; game.turfMult += r.multReward; }}); saveGame(); renderTurfPanel(); updateUI(); alert("All rivals eradicated. Maximum Turf Multiplier applied.");}
@@ -434,7 +447,7 @@ function adminMaxEverything() {
     // 2. THE MEGA UPGRADES (Index 999 = Level 1000)
     game.tablesOwned = 1000; // ⚠️ WARNING: This might cause lag!
     game.idxTable = 999;
-    game.idxRecipe = 999; // Unlocks the final "Universal Ramen"
+    game.idxRecipe = 1000000; // Unlocks the final "Universal Ramen"
     game.idxWok = 999;
     game.idxAuto = 999;
     game.idxAds = 999;

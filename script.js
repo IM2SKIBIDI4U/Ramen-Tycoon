@@ -447,7 +447,7 @@ function adminMaxEverything() {
     // 2. THE MEGA UPGRADES (Index 999 = Level 1000)
     game.tablesOwned = 1000; // ⚠️ WARNING: This might cause lag!
     game.idxTable = 999;
-    game.idxRecipe = 1000000; // Unlocks the final "Universal Ramen"
+    game.idxRecipe = 999; // Unlocks the final "Universal Ramen"
     game.idxWok = 999;
     game.idxAuto = 999;
     game.idxAds = 999;

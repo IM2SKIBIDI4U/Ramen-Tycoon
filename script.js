@@ -536,23 +536,6 @@ setInterval(() => {
     if (boughtSomething) updateUI(); 
 }, 500);
 
-    let roll = Math.random();
-    
-    // 5% chance: Spawn the Golden Macaque (rolls 0.00 to 0.05)
-    if (roll < 0.50) { 
-        spawnGoldenMacaque(); 
-    } 
-    // 5% chance: Natural Rush Hour (rolls 0.05 to 0.10)
-    else if (roll < 0.10 && !isRushHour) { 
-        triggerEvent('rush'); 
-    } 
-    // 5% chance: THE BRUTAL HEALTH INSPECTOR (rolls 0.10 to 0.15)
-    else if (roll < 0.15) { 
-        triggerEvent('health'); 
-    }
-    
-}, 60000); // 60000 milliseconds = exactly 1 minute
-
 initTables(); loadGame(); updateUI(); updateKitchenUI(); renderDecorPanel(); renderStaffPanel(); renderTurfPanel(); customerArrives(); if (game.idxAuto > 0) runMonkeyLoop(); setInterval(saveGame, 10000);
 
 // --- NEW GAME MECHANICS ---

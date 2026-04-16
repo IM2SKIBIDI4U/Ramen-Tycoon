@@ -512,29 +512,41 @@ function loadGame() {
 }
 function closeOfflineModal() { document.getElementById('offline-modal').classList.add('hidden'); playSound('cash'); saveGame(); }
 
-// --- THE MISSING AUTO REFILL SYSTEM IS NOW HERE! ---
+// 4. The Background Event Loop (Runs every 1 minute)
 setInterval(() => {
-    if (!game.autoRefill) return; 
-
-    let boughtSomething = false;
-
-    ['noodle', 'broth', 'spice', 'egg', 'boba'].forEach(item => {
-        if (game.inv[item] < 50) { 
-            if (game.wallet >= 250) {
-                game.wallet -= 250; 
-                game.inv[item] += 100;
-                boughtSomething = true;
-            } 
-            else if (game.wallet >= 50) { 
-                game.wallet -= 50; 
-                game.inv[item] += 20; 
-                boughtSomething = true;
-            }
-        }
-    });
-
-    if (boughtSomething) updateUI(); 
-}, 500);
+    checkAchievements();
+    
+    let roll = Math.random();
+    
+    // 5% chance: Spawn the Golden Macaque (rolls 0.00 to 0.05)
+    if (roll < 0.05) { 
+        spawnGoldenMacaque(); 
+    } 
+    // 5% chance: Natural Rush Hour (rolls 0.05 to 0.10)
+    else if (roll < 0.10 && !isRushHour) { 
+        triggerEvent('rush'); 
+    } 
+    // 5% chance: THE BRUTAL HEALTH INSPECTOR (rolls 0.10 to 0.15)
+    else if (roll < 0.15) { 
+        triggerEvent('health'); 
+    }
+    // 5% chance: FREE SUPPLY DROP (rolls 0.15 to 0.20)
+    else if (roll < 0.20) {
+        // Automatically refill 5,000 of everything!
+        game.inv.noodle += 5000;
+        game.inv.broth += 5000;
+        game.inv.spice += 5000;
+        game.inv.egg += 5000;
+        game.inv.boba += 5000;
+        
+        saveGame();
+        updateKitchenUI(); // Refreshes the ingredient numbers on the screen
+        playSound('cash'); 
+        
+        alert("🚚 SUPPLY DROP! 🚚\nA confused delivery driver just dropped off 5,000 of every ingredient for free!");
+    }
+    
+}, 60000);
 
 initTables(); loadGame(); updateUI(); updateKitchenUI(); renderDecorPanel(); renderStaffPanel(); renderTurfPanel(); customerArrives(); if (game.idxAuto > 0) runMonkeyLoop(); setInterval(saveGame, 10000);
 
@@ -622,3 +634,35 @@ function spawnFloatingMoney(amount, targetId) {
     document.body.appendChild(floatText);
     setTimeout(() => floatText.remove(), 1000);
 }
+
+// --- AUTO-REFILL SYSTEM ---
+
+function autoRefillIngredients() {
+    // You can adjust these to match your actual game's shop prices!
+    let restockAmount = 100; // How many ingredients it buys at a time
+    let cost = 50;           // How much money it costs to buy that batch
+    let threshold = 10;      // When stock drops below this number, it buys more
+
+    let didRefill = false;
+
+    // Check each ingredient. If it's low AND we have enough money, buy it!
+    if (game.inv.noodle <= threshold && game.wallet >= cost) { game.inv.noodle += restockAmount; game.wallet -= cost; didRefill = true; }
+    if (game.inv.broth <= threshold && game.wallet >= cost) { game.inv.broth += restockAmount; game.wallet -= cost; didRefill = true; }
+    if (game.inv.spice <= threshold && game.wallet >= cost) { game.inv.spice += restockAmount; game.wallet -= cost; didRefill = true; }
+    if (game.inv.egg <= threshold && game.wallet >= cost) { game.inv.egg += restockAmount; game.wallet -= cost; didRefill = true; }
+    if (game.inv.boba <= threshold && game.wallet >= cost) { game.inv.boba += restockAmount; game.wallet -= cost; didRefill = true; }
+
+    // If we bought anything, update the screen so the player sees it
+    if (didRefill) {
+        updateUI();
+        updateKitchenUI();
+    }
+}
+
+// Check the kitchen inventory every 1 second (1000 milliseconds)
+setInterval(() => {
+    // Optional: If you only want this to work AFTER they buy an auto-chef, you can change this line to: 
+    // if (game.idxAuto > 0) autoRefillIngredients();
+    
+    autoRefillIngredients();
+}, 1000);

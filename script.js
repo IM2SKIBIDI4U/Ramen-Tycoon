@@ -665,39 +665,3 @@ window.onload = () => {
     // Start the worker loop immediately! Waiters will now work even if Chef Speed is Level 0.
     runMonkeyLoop();
 };
-
-// --- MOVEMENT SYSTEM VARIABLES ---
-let playerX = 50;
-let playerY = 50;
-const speed = 10; // How fast you walk
-
-// --- CONTROLS ---
-document.addEventListener('keydown', (event) => {
-    // Only move if the map is actually visible
-    if (document.getElementById('world-map').style.display !== 'none') {
-        if (event.key === 'w' || event.key === 'ArrowUp') playerY -= speed;
-        if (event.key === 's' || event.key === 'ArrowDown') playerY += speed;
-        if (event.key === 'a' || event.key === 'ArrowLeft') playerX -= speed;
-        if (event.key === 'd' || event.key === 'ArrowRight') playerX += speed;
-
-        // Keep player inside the map bounds (600x400)
-        playerX = Math.max(0, Math.min(playerX, 570)); 
-        playerY = Math.max(0, Math.min(playerY, 370));
-
-        // Update the character's physical position on the screen
-        let player = document.getElementById('player-character');
-        player.style.left = playerX + 'px';
-        player.style.top = playerY + 'px';
-    }
-});
-
-// --- MENU SWITCHING ---
-function goOutside() {
-    document.getElementById('restaurant-container').style.display = 'none'; // Hide kitchen
-    document.getElementById('world-map').style.display = 'block'; // Show map
-}
-
-function returnToRestaurant() {
-    document.getElementById('world-map').style.display = 'none'; // Hide map
-    document.getElementById('restaurant-container').style.display = 'block'; // Show kitchen
-}

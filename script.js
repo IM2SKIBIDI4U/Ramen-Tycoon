@@ -337,22 +337,40 @@ function getMonkeySpeed() {
 }
 
 function runMonkeyLoop() {
-    if (game.idxAuto > 0) {
+    // Only do something if you have actually hired Waiters!
+    if (game.staff.waiter > 0) {
         for (let i = 0; i < game.tablesOwned; i++) {
             let s = seats[i];
+            
+            // Ignore empty seats
             if (!s.occupied || s.charData === null) continue;
-            if (s.needsServing && s.charData.wantsBoba && game.inv.boba < 1) continue; 
-
-            if (game.staff.waiter > 0 && (s.needsServing || s.needsToPay)) { handleTableClick(i); break; }
-            if (s.needsMenu || (!s.isCooking && !s.needsServing && !s.needsToPay)) { handleTableClick(i); break; }
+            
+            // WAITERS handle taking the menu, serving the food, and collecting cash. No cooking!
+            if (s.needsMenu || s.needsServing || s.needsToPay) { 
+                if (s.needsServing && s.charData.wantsBoba && game.inv.boba < 1) continue; 
+                handleTableClick(i); 
+                break; // One action per "tick"
+            }
         }
     }
+    
+    // The speed of this tick is controlled by the Main Chef level!
     setTimeout(runMonkeyLoop, getMonkeySpeed());
 }
 
 function buyTable() { let u = TRACK_TABLES[game.idxTable]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.tablesOwned++; game.idxTable++; playSound('cash'); saveGame(); updateUI(); updateKitchenUI(); } }
 function buyRecipe() { let u = TRACK_RECIPES[game.idxRecipe]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.currentMenuPrice = u.value; game.idxRecipe++; playSound('cash'); saveGame(); updateUI(); } }
-function buyAuto() { let u = TRACK_AUTO[game.idxAuto]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.idxAuto++; if (game.idxAuto === 1) runMonkeyLoop(); playSound('cash'); saveGame(); updateUI(); updateKitchenUI(); } }
+function buyAuto() { 
+    let u = TRACK_AUTO[game.idxAuto]; 
+    if (u && game.wallet >= u.cost) { 
+        game.wallet -= u.cost; 
+        game.idxAuto++; 
+        playSound('cash'); 
+        saveGame(); 
+        updateUI(); 
+        updateKitchenUI(); 
+    } 
+}
 function buyWok() { let u = TRACK_WOK[game.idxWok]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.idxWok++; playSound('cash'); saveGame(); updateUI(); } }
 function buyAds() { let u = TRACK_ADS[game.idxAds]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.idxAds++; playSound('cash'); saveGame(); updateUI(); } }
 

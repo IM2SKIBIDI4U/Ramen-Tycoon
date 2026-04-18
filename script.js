@@ -422,7 +422,7 @@ function triggerEvent(type) {
     if(type==='rush') { t.innerText = "🚨 RUSH HOUR! (3x Speed & Pay)"; t.className = "event-toast active"; isRushHour = true; rushMultiplier = 3; setTimeout(() => { isRushHour=false; rushMultiplier=1; }, 30000); }
    if (type === 'health') {
         // The Math Magic: 75% of current wallet, but never less than $1,000
-        let fineAmount = Math.max(1000, game.wallet * 0.75); 
+        let fineAmount = Math.max(1000, game.wallet * 0.30); 
         
         game.wallet -= fineAmount;
         

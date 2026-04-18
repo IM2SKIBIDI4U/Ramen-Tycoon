@@ -656,14 +656,12 @@ setInterval(() => {
 
 // --- BOOT UP THE GAME ---
 window.onload = () => {
-    loadGame();          // Loads your save file (or starts you with $150)
-    initTables();        // Builds the physical tables in the dining area
-    updateUI();          // Refreshes the money, ingredients, and upgrade buttons
-    updateKitchenUI();   // Sets up the stoves
-    customerArrives();   // Starts the customer spawning loop!
+    loadGame();          
+    initTables();        
+    updateUI();          
+    updateKitchenUI();   
+    customerArrives();   
     
-    // If you already hired an Auto-Chef in your save, this wakes them up
-    if (game.idxAuto > 0) {
-        runMonkeyLoop();
-    }
+    // Start the worker loop immediately! Waiters will now work even if Chef Speed is Level 0.
+    runMonkeyLoop();
 };

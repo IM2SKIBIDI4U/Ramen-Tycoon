@@ -20,19 +20,54 @@ function formatMoney(n) {
     return n.toExponential(2);
 }
 
+// --- VISUAL EFFECTS ---
+function spawnFloatingMoney(amount, targetId, color = '#2ecc71') {
+    let targetEl = document.getElementById(targetId);
+    let floatText = document.createElement('div');
+    floatText.className = 'floating-money';
+    floatText.innerText = typeof amount === 'number' ? `+$${formatMoney(amount)}` : amount;
+    floatText.style.position = 'absolute';
+    floatText.style.color = color;
+    floatText.style.fontWeight = 'bold';
+    floatText.style.fontSize = '1.2rem';
+    floatText.style.pointerEvents = 'none';
+    floatText.style.zIndex = '100';
+    floatText.style.animation = 'floatUp 1s ease-out forwards';
+    
+    if (targetEl) {
+        let rect = targetEl.getBoundingClientRect();
+        floatText.style.left = (rect.left + window.scrollX + 20) + 'px';
+        floatText.style.top = (rect.top + window.scrollY) + 'px';
+    } else {
+        floatText.style.left = '50%';
+        floatText.style.top = '50%';
+    }
+    
+    document.body.appendChild(floatText);
+    setTimeout(() => floatText.remove(), 1000);
+}
+
+if (!document.getElementById('floating-money-style')) {
+    let style = document.createElement('style');
+    style.id = 'floating-money-style';
+    style.innerHTML = `@keyframes floatUp { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-50px); } }`;
+    document.head.appendChild(style);
+}
+
 // --- ARRAYS & DATA ---
-const TRACK_TABLES = Array.from({length: 1000}, (_, i) => ({ name: `Table ${i+2}`, cost: Math.floor(150 * Math.pow(1.3, i)) }));
+const TRACK_TABLES = Array.from({length: 1000}, (_, i) => ({ name: `Table ${i+2}`, cost: Math.floor(150 * Math.pow(1.15, i)) }));
+const TRACK_WOK = Array.from({length: 1000}, (_, i) => ({ name: `Wok Lvl ${i+2}`, cost: Math.floor(100000 * Math.pow(1.15, i)) }));
+const TRACK_AUTO = Array.from({length: 1000}, (_, i) => ({ name: `Chef Speed Lvl ${i+1}`, cost: Math.floor(1500 * Math.pow(1.15, i)) }));
+const TRACK_ADS = Array.from({length: 1000}, (_, i) => ({ name: `Marketing Lvl ${i+1}`, cost: Math.floor(500 * Math.pow(1.15, i)) }));
+
 const R_PRE = ["Basic", "Spicy", "Crispy", "Golden", "Mega", "Ultra", "Hyper", "Quantum", "Galactic", "Cosmic", "Mystic", "Atomic", "Neon", "Shadow", "Celestial", "Divine", "Infernal", "Supreme", "Ethereal", "Infinity"];
 const R_BASE = ["Shoyu", "Miso", "Tonkotsu", "Udon", "Soba", "Truffle", "Wagyu", "Dragon", "Phoenix", "Nova", "Kelp", "Katsu", "Kimchi", "Kitsune", "Bison", "Kraken", "Leviathan", "Titan", "Emperor", "Godzilla"];
 const RAMEN_NAMES = ["Basic Shoyu", "Miso Pork", "Spicy Tonkotsu", "Chicken Paitan", "Seafood Ramen", "Veggie Udon", "Truffle Ramen"];
 const TRACK_RECIPES = Array.from({length: 1000}, (_, i) => {
     let name = i < RAMEN_NAMES.length ? RAMEN_NAMES[i] : `${R_PRE[i % R_PRE.length]} ${R_BASE[Math.floor(i / R_PRE.length) % R_BASE.length]} Ramen`;
     if (i === 999) name = "The Universal Ramen";
-    return { name, cost: Math.floor(400 * Math.pow(1.5, i)), value: Math.floor(100 * Math.pow(1.35, i)) };
+    return { name, cost: Math.floor(400 * Math.pow(1.04, i)), value: Math.floor(100 * Math.pow(1.035, i)) };
 });
-const TRACK_WOK = Array.from({length: 1000}, (_, i) => ({ name: `Wok Lvl ${i+2}`, cost: Math.floor(100000 * Math.pow(1.6, i)) }));
-const TRACK_AUTO = Array.from({length: 1000}, (_, i) => ({ name: `Chef Speed Lvl ${i+1}`, cost: Math.floor(1500 * Math.pow(1.4, i)) }));
-const TRACK_ADS = Array.from({length: 1000}, (_, i) => ({ name: `Marketing Lvl ${i+1}`, cost: Math.floor(500 * Math.pow(1.45, i)) }));
 
 const TRACK_DECOR = [ { id: 'theme-default', name: 'Standard Store', cost: 0 }, { id: 'theme-neon', name: 'Cyberpunk Neon', cost: 500000 }, { id: 'theme-zen', name: 'Zen Garden', cost: 10000000 }, { id: 'theme-gold', name: 'Solid Gold Palace', cost: 1000000000 } ];
 
@@ -56,18 +91,26 @@ let game = {
     tablesOwned: 1, idxTable: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxSpecial: 0, currentMenuPrice: 50,
     activeDecor: 'theme-default', decorOwned: ['theme-default'], autoRefill: false,
     staff: { waiter: 0, ninja: 0, mascot: 0 }, rivals: JSON.parse(JSON.stringify(INITIAL_RIVALS)),
-    inv: { ...defaultInv }, upgrades: {}
+    inv: { ...defaultInv }, upgrades: {}, achievements: [], autoChefSpeedMulti: 1
 };
+
+window.vipPartyActive = 0; 
 
 const charColors = { skin: ["#ffdbac", "#f1c27d", "#e0ac69", "#8d5524", "#4a3219"], hair: ["#090806", "#4a2511", "#b7a69e", "#d6c4c2", "#e25822"], shirt: ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6"], pants: ["#2980b9", "#2c3e50", "#7f8c8d"] };
 
 function generateRandomChar() { 
+    let isVipRoll = Math.random() < 0.01;
+    if (window.vipPartyActive > 0) {
+        isVipRoll = true;
+        window.vipPartyActive--;
+    }
+    
     return { 
         skin: charColors.skin[Math.floor(Math.random()*5)], 
         hair: charColors.hair[Math.floor(Math.random()*5)], 
         shirt: charColors.shirt[Math.floor(Math.random()*5)], 
         pants: charColors.pants[Math.floor(Math.random()*3)], 
-        isVIP: Math.random() < 0.01, // 📉 LOWERED TO 1%
+        isVIP: isVipRoll, 
         isCritic: Math.random() < 0.02, 
         wantsBoba: Math.random() < 0.2 
     }; 
@@ -129,16 +172,13 @@ function collectPayment(index) {
     if(game.staff.mascot > 0) mult += (game.staff.mascot * 0.5); 
     
     let finalValue = (game.currentMenuPrice * mult) * getPrestigeMultiplier() * rushMultiplier;
+    
+    if (game.idxRecipe >= 999) finalValue *= 1000000;
+    
     game.wallet += finalValue;
     playSound('cash');
-    
-    // (Inside collectPayment, right after you add the money to your wallet)
-    playSound('cash');
-    
-    // NEW: Spawn the un-killable floating text
     spawnFloatingMoney(finalValue, `seat-${index}`);
 
-    // Reset Table
     seat.occupied = false; 
     seat.charData = null;
     seat.needsMenu = false;
@@ -166,21 +206,68 @@ function buyAutoRefill() {
     } else { playSound('error'); }
 }
 
-// Global variables for anti-cheat
+// --- BACKGROUND LOOPS ---
+setInterval(() => {
+    if (game.autoRefill) {
+        let restockAmount = 100; let cost = 50; let threshold = 10; let didRefill = false;
+        if (game.inv.noodle <= threshold && game.wallet >= cost) { game.inv.noodle += restockAmount; game.wallet -= cost; didRefill = true; }
+        if (game.inv.broth <= threshold && game.wallet >= cost) { game.inv.broth += restockAmount; game.wallet -= cost; didRefill = true; }
+        if (game.inv.spice <= threshold && game.wallet >= cost) { game.inv.spice += restockAmount; game.wallet -= cost; didRefill = true; }
+        if (game.inv.egg <= threshold && game.wallet >= cost) { game.inv.egg += restockAmount; game.wallet -= cost; didRefill = true; }
+        if (game.inv.boba <= threshold && game.wallet >= cost) { game.inv.boba += restockAmount; game.wallet -= cost; didRefill = true; }
+        if (didRefill) { updateUI(); updateKitchenUI(); }
+    }
+}, 1000);
+
+// --- NEW PATIENCE DRAIN SYSTEM ---
+setInterval(() => {
+    let uiNeedsUpdate = false;
+    let drainRate = 5; 
+    
+    // Mascot Buff slows down the drain!
+    if (game.staff && game.staff.mascot > 0) {
+        drainRate -= (game.staff.mascot * 0.4);
+    }
+    drainRate = Math.max(1, drainRate);
+
+    for (let i = 0; i < game.tablesOwned; i++) {
+        let seat = seats[i];
+        if (seat.occupied && seat.charData) {
+            seat.patience -= drainRate;
+            uiNeedsUpdate = true;
+
+            // If patience hits 0, they get mad and walk out!
+            if (seat.patience <= 0) {
+                playSound('error');
+                spawnFloatingMoney("😡 WALKOUT!", `seat-${i}`, '#e74c3c');
+                
+                // Clear the table
+                seat.occupied = false; 
+                seat.charData = null;
+                seat.needsMenu = false;
+                seat.isCooking = false;
+                seat.cookStep = 0;
+                seat.needsServing = false;
+                seat.needsToPay = false;
+                seat.patience = 100;
+                updateKitchenUI();
+            }
+        }
+    }
+    if (uiNeedsUpdate) updateUI();
+}, 1000);
+
 let lastClickTime = 0;
 let clickWarnings = 0;
 
 function clickStove(index) {
-    // --- ANTI-CHEAT: AUTO-CLICKER ---
     let now = Date.now();
     if (now - lastClickTime < 50) { 
         clickWarnings++;
         if (clickWarnings > 5) {
             alert("🚨 ANTI-CHEAT: Auto-clicker detected! The Health Inspector fined you $10,000!");
             game.wallet = Math.max(0, game.wallet - 10000); 
-            clickWarnings = 0;
-            updateUI();
-            playSound('error');
+            clickWarnings = 0; updateUI(); playSound('error');
         }
         return; 
     }
@@ -205,13 +292,9 @@ function clickStove(index) {
         const stoveElements = document.querySelectorAll('.stove-station');
         const currentStove = stoveElements[index];
         if (currentStove) {
-            const eggEmoji = document.createElement('div');
-            eggEmoji.className = 'egg-drop';
-            eggEmoji.innerText = '🥚';
-            currentStove.appendChild(eggEmoji);
-            setTimeout(() => eggEmoji.remove(), 500);
+            const eggEmoji = document.createElement('div'); eggEmoji.className = 'egg-drop'; eggEmoji.innerText = '🥚';
+            currentStove.appendChild(eggEmoji); setTimeout(() => eggEmoji.remove(), 500);
         }
-        
         finishCooking(index); return; 
     }
     updateUI(); updateKitchenUI();
@@ -229,63 +312,39 @@ function finishCooking(index) {
             let extra = 0;
             for (let j = 0; j < game.tablesOwned; j++) { 
                 if (extra >= maxExtra) break; 
-                
                 let otherSeat = seats[j];
                 if (j !== index && otherSeat.occupied && otherSeat.isCooking) { 
-                    
                     let reqNoodle = otherSeat.cookStep === 0 ? 1 : 0;
                     let reqBroth  = otherSeat.cookStep === 0 ? 1 : 0;
                     let reqSpice  = otherSeat.cookStep <= 1 ? 1 : 0;
                     let reqEgg    = otherSeat.cookStep <= 2 ? 1 : 0;
                     
-                    if (game.inv.noodle >= reqNoodle && 
-                        game.inv.broth >= reqBroth && 
-                        game.inv.spice >= reqSpice && 
-                        game.inv.egg >= reqEgg) {
-                        
-                        game.inv.noodle -= reqNoodle;
-                        game.inv.broth -= reqBroth;
-                        game.inv.spice -= reqSpice;
-                        game.inv.egg -= reqEgg;
-                        
-                        otherSeat.isCooking = false; 
-                        otherSeat.needsServing = true; 
-                        otherSeat.patience = 100; 
-                        otherSeat.cookStep = 3; 
-                        extra++; 
+                    if (game.inv.noodle >= reqNoodle && game.inv.broth >= reqBroth && game.inv.spice >= reqSpice && game.inv.egg >= reqEgg) {
+                        game.inv.noodle -= reqNoodle; game.inv.broth -= reqBroth; game.inv.spice -= reqSpice; game.inv.egg -= reqEgg;
+                        otherSeat.isCooking = false; otherSeat.needsServing = true; otherSeat.patience = 100; otherSeat.cookStep = 3; extra++; 
                     } else {
-                        let msg = document.getElementById('out-of-stock-msg');
-                        if(msg) msg.classList.remove('hidden');
+                        let msg = document.getElementById('out-of-stock-msg'); if(msg) msg.classList.remove('hidden');
                     }
                 } 
             }
         }
-        saveGame(); 
-        updateUI(); 
-        updateKitchenUI();
+        saveGame(); updateUI(); updateKitchenUI();
     }, 400);
 }
 
-function getMonkeySpeed() { return Math.max(50, 3000 * Math.pow(0.85, game.idxAuto)) / rushMultiplier; }
+function getMonkeySpeed() { 
+    return Math.max(50, 3000 * Math.pow(0.85, game.idxAuto) * (game.autoChefSpeedMulti || 1)) / rushMultiplier; 
+}
 
 function runMonkeyLoop() {
     if (game.idxAuto > 0) {
         for (let i = 0; i < game.tablesOwned; i++) {
             let s = seats[i];
-            
-            if (!s.occupied) continue;
-            if (s.charData === null) continue;
+            if (!s.occupied || s.charData === null) continue;
             if (s.needsServing && s.charData.wantsBoba && game.inv.boba < 1) continue; 
 
-            if (game.staff.waiter > 0 && (s.needsServing || s.needsToPay)) { 
-                handleTableClick(i); 
-                break; 
-            }
-            
-            if (s.needsMenu || (!s.isCooking && !s.needsServing && !s.needsToPay)) { 
-                handleTableClick(i); 
-                break; 
-            }
+            if (game.staff.waiter > 0 && (s.needsServing || s.needsToPay)) { handleTableClick(i); break; }
+            if (s.needsMenu || (!s.isCooking && !s.needsServing && !s.needsToPay)) { handleTableClick(i); break; }
         }
     }
     setTimeout(runMonkeyLoop, getMonkeySpeed());
@@ -327,7 +386,7 @@ function updateUI() {
     if(document.getElementById('stat-menu')) document.getElementById('stat-menu').innerText = `${currentRecipeName} ($${formatMoney(game.currentMenuPrice)})`;
 
     let pBtn = document.getElementById('btn-prestige'); 
-    if(pBtn) { if(game.wallet >= 1e12) pBtn.removeAttribute('disabled'); else pBtn.setAttribute('disabled', 'true'); }
+    if(pBtn) { if(game.idxRecipe >= 999) pBtn.removeAttribute('disabled'); else pBtn.setAttribute('disabled', 'true'); }
 
     seats.forEach((seat, i) => {
         let el = document.getElementById(`seat-${i}`); if (!el) return;
@@ -407,11 +466,33 @@ function buyDecor(id, cost) { if(game.decorOwned.includes(id)) { game.activeDeco
 function renderDecorPanel() { let container = document.getElementById('decor-container'); if(!container) return; let html = ""; TRACK_DECOR.forEach(d => { let isOwned = game.decorOwned.includes(d.id); let isActive = game.activeDecor === d.id; let btnText = isActive ? "EQUIPPED" : (isOwned ? "EQUIP" : `BUY: $${formatMoney(d.cost)}`); let canAfford = game.wallet >= d.cost || isOwned ? "affordable" : ""; html += `<button class="tycoon-pad ${canAfford} ${isActive?'active':''}" style="margin:5px;" onclick="buyDecor('${d.id}', ${d.cost})"><b>${d.name}</b><br>${btnText}</button>`; }); container.innerHTML = html; }
 function applyTheme() { document.getElementById('main-container').className = "game-container " + game.activeDecor; }
 
-function prestigeGame() { if(game.wallet >= 1e12 && confirm("Sell franchise for Monkey Money? Reset money/upgrades for a permanent x2 profit multiplier!")) { let st = game.monkeyMoney + 1; let tm = game.turfMult; let d = game.decorOwned; let ad = game.activeDecor; let rv = game.rivals; localStorage.clear(); game = { wallet: 150, monkeyMoney: st, turfMult: tm, lastSaveTime: Date.now(), tablesOwned: 1, idxTable: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxAds: 0, idxSpecial: 0, currentMenuPrice: 50, activeDecor: ad, decorOwned: d, autoRefill: false, staff: {waiter:0,ninja:0,mascot:0}, rivals: rv, inv: {...defaultInv}, upgrades: {} }; saveGame(); location.reload(); } }
+function prestigeGame() { 
+    if(game.idxRecipe >= 999 && confirm("Sell franchise for Monkey Money? Reset money/upgrades for 50 Monkey Money and a permanent profit multiplier!")) { 
+        let st = (game.monkeyMoney || 0) + 50; 
+        let tm = game.turfMult; let d = game.decorOwned; let ad = game.activeDecor; let rv = game.rivals; let ach = game.achievements || [];
+        localStorage.clear(); 
+        game = { wallet: 150, monkeyMoney: st, turfMult: tm, lastSaveTime: Date.now(), tablesOwned: 1, idxTable: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxAds: 0, idxSpecial: 0, currentMenuPrice: 50, activeDecor: ad, decorOwned: d, autoRefill: false, staff: {waiter:0,ninja:0,mascot:0}, rivals: rv, inv: {...defaultInv}, upgrades: {}, achievements: ach, autoChefSpeedMulti: 1 }; 
+        saveGame(); location.reload(); 
+    } else if (game.idxRecipe < 999) {
+        alert("You must unlock Universal Ramen (Level 1000) before you can franchise!");
+    }
+}
 function resetGame() { if(confirm("Erase all history?")) { localStorage.clear(); location.reload(); } }
 
-// --- CHANGED GODMODE PASSWORD TO admin2026 ---
-let typed = ""; document.addEventListener('keydown', (e) => { typed += e.key.toLowerCase(); if (typed.endsWith("???")) { document.getElementById('admin-panel').classList.remove('hidden'); typed = ""; } if (typed.length > 20) typed = typed.slice(-20); });
+function openBlackMarket() {
+    let cost = 10;
+    let buy = confirm(`🕵️ THE BLACK MARKET 🕵️\n\nSpend 10 Monkey Money to permanently make your Auto-Chefs 10% faster?\n\nYou have: ${game.monkeyMoney || 0} MM`);
+    if (buy) {
+        if (game.monkeyMoney >= cost) {
+            game.monkeyMoney -= cost;
+            game.autoChefSpeedMulti = (game.autoChefSpeedMulti || 1) * 0.9;
+            saveGame(); updateUI();
+            alert("⚙️ UPGRADE SUCCESSFUL! Your Auto-Chefs are now permanently faster!");
+        } else { alert("❌ Not enough Monkey Money! Defeat rivals or Franchise to earn more."); }
+    }
+}
+
+let typed = ""; document.addEventListener('keydown', (e) => { typed += e.key.toLowerCase(); if (typed.endsWith("admin2026")) { document.getElementById('admin-panel').classList.remove('hidden'); typed = ""; } if (typed.length > 20) typed = typed.slice(-20); });
 function cheatMoney(amt) { game.wallet += amt; saveGame(); updateUI(); }
 function setCustomMoney() { let val = parseFloat(document.getElementById('custom-money').value); if(!isNaN(val)) { game.wallet = val; saveGame(); updateUI(); } }
 function adminMaxIngredients() { game.inv.noodle=1e15; game.inv.broth=1e15; game.inv.spice=1e15; game.inv.egg=1e15; game.inv.boba=1e15; if(document.getElementById('out-of-stock-msg')) document.getElementById('out-of-stock-msg').classList.add('hidden'); saveGame(); updateUI(); }
@@ -420,18 +501,11 @@ function triggerEvent(type) {
     let t = document.getElementById('event-toast');
     if(!t) return;
     if(type==='rush') { t.innerText = "🚨 RUSH HOUR! (3x Speed & Pay)"; t.className = "event-toast active"; isRushHour = true; rushMultiplier = 3; setTimeout(() => { isRushHour=false; rushMultiplier=1; }, 30000); }
-   if (type === 'health') {
-        // The Math Magic: 75% of current wallet, but never less than $1,000
+    if (type === 'health') {
         let fineAmount = Math.max(1000, game.wallet * 0.30); 
-        
         game.wallet -= fineAmount;
-        
-        // Safety check so they don't go into negative debt
         if (game.wallet < 0) game.wallet = 0; 
-        
-        saveGame();
-        updateUI();
-        
+        saveGame(); updateUI();
         alert(`🚨 HEALTH INSPECTOR! 🚨\nThey found a monkey eating noodles out of the pot. You have been fined $${formatMoney(fineAmount)}!`);
     }
     setTimeout(() => t.classList.remove('active'), 5000); updateUI();
@@ -439,35 +513,23 @@ function triggerEvent(type) {
 function nukeRivals() { game.rivals.forEach(r => { if(r.hp > 0) { r.hp = 0; game.turfMult += r.multReward; }}); saveGame(); renderTurfPanel(); updateUI(); alert("All rivals eradicated. Maximum Turf Multiplier applied.");}
 function adminMaxEverything() {
     let needsJumpstart = (game.idxAuto === 0); 
-
-    // 1. A ridiculous amount of money to afford level 1000 stuff
     game.wallet = 1e50; 
     game.monkeyMoney = 1e9;
-    
-    // 2. THE MEGA UPGRADES (Index 999 = Level 1000)
-    game.tablesOwned = 1000; // ⚠️ WARNING: This might cause lag!
+    game.tablesOwned = 1000; 
     game.idxTable = 999;
-    game.idxRecipe = 999; // Unlocks the final "Universal Ramen"
+    game.idxRecipe = 999; 
     game.idxWok = 999;
     game.idxAuto = 999;
     game.idxAds = 999;
-    
-    // 3. Max out inventory and staff
     game.inv.noodle = 1e20; game.inv.broth = 1e20; game.inv.spice = 1e20; game.inv.egg = 1e20; game.inv.boba = 1e20;
     game.staff.waiter = 500; game.staff.ninja = 500; game.staff.mascot = 500;
-    
     game.decorOwned = TRACK_DECOR.map(d => d.id);
     game.activeDecor = 'theme-gold';
-    
     game.rivals.forEach(r => { if(r.hp > 0) { r.hp = 0; game.turfMult += r.multReward; }});
-    
     if(document.getElementById('out-of-stock-msg')) document.getElementById('out-of-stock-msg').classList.add('hidden');
-    
     initTables(); applyTheme(); saveGame(); updateUI(); updateKitchenUI(); 
     renderStaffPanel(); renderTurfPanel(); renderDecorPanel();
-    
     if (needsJumpstart) runMonkeyLoop();
-    
     playSound('cash');
     alert("👑 GOD MODE: LEVEL 1000 REACHED! Warning: Your browser might lag due to the sheer amount of ramen being processed.");
 }
@@ -478,7 +540,7 @@ function loadGame() {
     let s = localStorage.getItem('RamenUltimateData'); 
     if(s) { 
         let parsed = JSON.parse(s); game = { ...game, ...parsed }; 
-        if(game.michelinStars !== undefined) { game.monkeyMoney = game.michelinStars; delete game.michelinStars; } 
+        if(!game.achievements) game.achievements = [];
         if(!game.staff) game.staff = {waiter:0,ninja:0,mascot:0};
         if(game.autoRefill === undefined) game.autoRefill = false;
         if(game.idxAds === undefined) game.idxAds = 0;
@@ -486,19 +548,17 @@ function loadGame() {
         if(!game.rivals) game.rivals = JSON.parse(JSON.stringify(INITIAL_RIVALS));
         
         let now = Date.now(); 
-        
-        // --- ANTI-CHEAT: TIME TRAVEL DETECTION ---
         if (now < game.lastSaveTime) {
             alert("🚨 ANTI-CHEAT: Time Anomaly Detected! Your calendar went backwards. Offline progress voided.");
-            game.lastSaveTime = now;
-            saveGame();
-            return; 
+            game.lastSaveTime = now; saveGame(); return; 
         }
 
         let timeDiff = now - game.lastSaveTime; let secondsAway = Math.floor(timeDiff / 1000);
         if(secondsAway > 60 && game.idxAuto > 0 && game.tablesOwned > 0) {
             let cycles = secondsAway / (getMonkeySpeed() / 1000); 
             let estimatedEarnings = cycles * game.tablesOwned * game.currentMenuPrice * getPrestigeMultiplier() * 0.5; 
+            
+            if (game.idxRecipe >= 999) estimatedEarnings *= 1000000;
             
             if(estimatedEarnings > 100) {
                 game.wallet += estimatedEarnings;
@@ -512,157 +572,66 @@ function loadGame() {
 }
 function closeOfflineModal() { document.getElementById('offline-modal').classList.add('hidden'); playSound('cash'); saveGame(); }
 
-// 4. The Background Event Loop (Runs every 1 minute)
-setInterval(() => {
-    checkAchievements();
-    
-    let roll = Math.random();
-    
-    // 5% chance: Spawn the Golden Macaque (rolls 0.00 to 0.05)
-    if (roll < 0.05) { 
-        spawnGoldenMacaque(); 
-    } 
-    // 5% chance: Natural Rush Hour (rolls 0.05 to 0.10)
-    else if (roll < 0.10 && !isRushHour) { 
-        triggerEvent('rush'); 
-    } 
-    // 5% chance: THE BRUTAL HEALTH INSPECTOR (rolls 0.10 to 0.15)
-    else if (roll < 0.15) { 
-        triggerEvent('health'); 
-    }
-    // 5% chance: FREE SUPPLY DROP (rolls 0.15 to 0.20)
-    else if (roll < 0.20) {
-        // Automatically refill 5,000 of everything!
-        game.inv.noodle += 5000;
-        game.inv.broth += 5000;
-        game.inv.spice += 5000;
-        game.inv.egg += 5000;
-        game.inv.boba += 5000;
-        
-        saveGame();
-        updateKitchenUI(); // Refreshes the ingredient numbers on the screen
-        playSound('cash'); 
-        
-        alert("🚚 SUPPLY DROP! 🚚\nA confused delivery driver just dropped off 5,000 of every ingredient for free!");
-    }
-    
-}, 60000);
-
-initTables(); loadGame(); updateUI(); updateKitchenUI(); renderDecorPanel(); renderStaffPanel(); renderTurfPanel(); customerArrives(); if (game.idxAuto > 0) runMonkeyLoop(); setInterval(saveGame, 10000);
-
-// --- NEW GAME MECHANICS ---
-
-// 1. Ensure the save file tracks achievements
-if(!game.achievements) game.achievements = [];
-
-// 2. The Achievement Checker
 function checkAchievements() {
     let check = (id, name, req) => {
         if(!game.achievements.includes(id) && req()) {
             game.achievements.push(id);
-            document.getElementById('achieve-name').innerText = name;
-            let toast = document.getElementById('achieve-toast');
-            toast.classList.remove('hidden-toast');
-            playSound('cash'); // Play a happy sound
-            setTimeout(() => toast.classList.add('hidden-toast'), 4000);
-            saveGame();
+            if (!game.monkeyMoney) game.monkeyMoney = 0;
+            game.monkeyMoney += 5;
+            let toast = document.getElementById('event-toast');
+            if (toast) {
+                toast.innerText = `🏆 ACHIEVEMENT UNLOCKED: ${name}`;
+                toast.className = "event-toast active";
+                playSound('cash');
+                setTimeout(() => toast.classList.remove('active'), 4000);
+            }
+            saveGame(); updateUI();
         }
     };
-    
-    // The Milestones
-    check('first_blood', 'First Blood (Defeated a Rival)', () => game.rivals[0].hp <= 0);
-    check('millionaire', 'The 1% ($1M in the Bank)', () => game.wallet >= 1000000);
-    check('ramen_god', 'Ramen God (Unlocked 400 Recipes)', () => game.idxRecipe >= 399);
-    check('empire', 'Franchise King (Bought 100 Tables)', () => game.tablesOwned >= 100);
+    check('first_blood', 'First Blood (+5 MM)', () => game.rivals && game.rivals[0].hp <= 0);
+    check('millionaire', 'The 1% (+5 MM)', () => game.wallet >= 1000000);
+    check('ramen_god', 'Ramen God (+5 MM)', () => game.idxRecipe >= 399);
+    check('empire', 'Franchise King (+5 MM)', () => game.tablesOwned >= 100);
 }
 
-// 3. The Golden Macaque
 function spawnGoldenMacaque() {
     let m = document.createElement('div');
     m.className = 'golden-macaque';
     m.innerText = '🐒✨';
+    m.style.position = 'fixed';
+    m.style.fontSize = '3rem';
+    m.style.cursor = 'pointer';
+    m.style.zIndex = '9999';
+    m.style.left = Math.random() * 80 + 'vw';
+    m.style.top = Math.random() * 80 + 'vh';
+    m.style.animation = 'floatUp 2s infinite alternate';
+    
     m.onclick = () => {
         m.remove();
-        let bonus = (game.wallet * 0.15) + 5000; // Gives 15% of current bank + $5k base
+        let bonus = (game.wallet * 0.15) + 5000; 
         game.wallet += bonus;
         playSound('cash');
         alert(`🌟 YOU CAUGHT THE GOLDEN MACAQUE! 🌟\nReward: $${formatMoney(bonus)}!`);
         updateUI();
     };
     document.body.appendChild(m);
-   // Change the very last line inside spawnGoldenMacaque() to this:
-setTimeout(() => { if (m.parentElement) m.remove(); }, 12000);
+    setTimeout(() => { if (m.parentElement) m.remove(); }, 12000);
 }
 
-// 4. The Background Event Loop (Runs every 10 seconds)
 setInterval(() => {
     checkAchievements();
-    
     let roll = Math.random();
-    if (roll < 0.05) { 
-        // 5% chance: Spawn the Golden Macaque
-        spawnGoldenMacaque(); 
-    } else if (roll < 0.08 && !isRushHour) { 
-        // 3% chance: Natural Rush Hour
-        triggerEvent('rush'); 
-    } else if (roll < 0.09) { 
-        // 1% chance: Natural Health Inspector Fine
-        triggerEvent('health'); 
-    }
-}, 10000);
-
-function spawnFloatingMoney(amount, targetId) {
-    let targetEl = document.getElementById(targetId);
-    let floatText = document.createElement('div');
-    floatText.className = 'floating-money';
-    floatText.innerText = `+$${formatMoney(amount)}`;
     
-    if (targetEl) {
-        // Get the exact screen coordinates of the table
-        let rect = targetEl.getBoundingClientRect();
-        floatText.style.position = 'fixed';
-        floatText.style.left = (rect.left + 20) + 'px';
-        floatText.style.top = rect.top + 'px';
-    } else {
-        // Fallback if the seat isn't found
-        floatText.style.position = 'fixed';
-        floatText.style.left = '50%';
-        floatText.style.top = '50%';
+    if (roll < 0.05) { spawnGoldenMacaque(); } 
+    else if (roll < 0.10 && !isRushHour) { triggerEvent('rush'); } 
+    else if (roll < 0.15) { triggerEvent('health'); }
+    else if (roll < 0.20) {
+        game.inv.noodle += 5000; game.inv.broth += 5000; game.inv.spice += 5000; game.inv.egg += 5000; game.inv.boba += 5000;
+        saveGame(); updateKitchenUI(); playSound('cash'); 
+        alert("🚚 SUPPLY DROP! 🚚\nA confused delivery driver just dropped off 5,000 of every ingredient for free!");
     }
-    
-    // Attach to the body so screen refreshes don't delete it
-    document.body.appendChild(floatText);
-    setTimeout(() => floatText.remove(), 1000);
-}
-
-// --- AUTO-REFILL SYSTEM ---
-
-function autoRefillIngredients() {
-    // You can adjust these to match your actual game's shop prices!
-    let restockAmount = 100; // How many ingredients it buys at a time
-    let cost = 50;           // How much money it costs to buy that batch
-    let threshold = 10;      // When stock drops below this number, it buys more
-
-    let didRefill = false;
-
-    // Check each ingredient. If it's low AND we have enough money, buy it!
-    if (game.inv.noodle <= threshold && game.wallet >= cost) { game.inv.noodle += restockAmount; game.wallet -= cost; didRefill = true; }
-    if (game.inv.broth <= threshold && game.wallet >= cost) { game.inv.broth += restockAmount; game.wallet -= cost; didRefill = true; }
-    if (game.inv.spice <= threshold && game.wallet >= cost) { game.inv.spice += restockAmount; game.wallet -= cost; didRefill = true; }
-    if (game.inv.egg <= threshold && game.wallet >= cost) { game.inv.egg += restockAmount; game.wallet -= cost; didRefill = true; }
-    if (game.inv.boba <= threshold && game.wallet >= cost) { game.inv.boba += restockAmount; game.wallet -= cost; didRefill = true; }
-
-    // If we bought anything, update the screen so the player sees it
-    if (didRefill) {
-        updateUI();
-        updateKitchenUI();
+    else if (roll < 0.25) {
+        window.vipPartyActive = 5;
+        alert("🚌 VIP PARTY BUS ARRIVED! 🚌\nThe next 5 customers to sit down will be guaranteed VIPs!");
     }
-}
-
-// Check the kitchen inventory every 1 second (1000 milliseconds)
-setInterval(() => {
-    // Optional: If you only want this to work AFTER they buy an auto-chef, you can change this line to: 
-    // if (game.idxAuto > 0) autoRefillIngredients();
-    
-    autoRefillIngredients();
-}, 1000);
+}, 60000);

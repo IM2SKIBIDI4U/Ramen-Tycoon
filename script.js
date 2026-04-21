@@ -365,31 +365,43 @@ function finishCooking(index) {
 }
 
 function getMonkeySpeed() { 
-    return Math.max(50, 3000 * Math.pow(0.85, game.idxAuto) * (game.autoChefSpeedMulti || 1)) / rushMultiplier; 
+    // Base speed starts at 3000ms (3 seconds)
+    // Every level of Main Chef (idxAuto) reduces this by 15%
+    let baseSpeed = 3000 * Math.pow(0.85, game.idxAuto);
+    
+    // Apply Black Market multiplier (autoChefSpeedMulti)
+    let finalSpeed = baseSpeed * (game.autoChefSpeedMulti || 1);
+    
+    // Divide by rushMultiplier (3x faster during rush hour) 
+    // Cap at 50ms so the game doesn't crash from speed
+    return Math.max(50, finalSpeed / rushMultiplier); 
 }
 
 function runMonkeyLoop() {
-    // Only work if Waiter Chimp is hired
+    // Only perform actions if Waiters are hired
     if (game.staff.waiter > 0) {
         for (let i = 0; i < game.tablesOwned; i++) {
             let s = seats[i];
             
+            // Skip empty seats
             if (!s.occupied || s.charData === null) continue;
             
-            // Waiters handle Menu, Serving, and Paying
+            // Waiters handle taking the menu, serving, and collecting cash
             if (s.needsMenu || s.needsServing || s.needsToPay) { 
-                // Check for Boba stock before attempting to serve
+                // Check for Boba stock if required
                 if (s.needsServing && s.charData.wantsBoba && game.inv.boba < 1) continue; 
                 
                 handleTableClick(i); 
-                // The waiter performs one action then waits for the next "tick"
-                break; 
+                break; // Perform one action per loop tick
             }
         }
     }
     
-    // Tick speed is determined by the Main Chef level (idxAuto)
-    setTimeout(runMonkeyLoop, getMonkeySpeed());
+    // RE-CALCULATE SPEED HERE:
+    // This makes the upgrade "Main Chef Speed" actually speed up the loop
+    let currentSpeed = getMonkeySpeed();
+    
+    setTimeout(runMonkeyLoop, currentSpeed);
 }
 
 function buyTable() { let u = TRACK_TABLES[game.idxTable]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.tablesOwned++; game.idxTable++; playSound('cash'); saveGame(); updateUI(); updateKitchenUI(); } }

@@ -159,20 +159,20 @@ function processTable(i) {
 
     while ((s.needsMenu || s.needsServing || s.needsToPay) && steps < 3) {
        
-        function handleTableClick(i) {
+        // --- FIX: Remove the "processTable" wrapper and update logic ---
+function handleTableClick(i) {
     let s = seats[i];
     if (!s || !s.occupied || s.charData === null) return;
 
     if (s.needsMenu) {
-        // Check if you have enough ingredients to start
+        // ONE CLICK: Takes order and starts cooking immediately
         if (game.inv.noodle >= 1 && game.inv.broth >= 1) {
             s.needsMenu = false;
             s.isCooking = true;
-            s.cookStep = 0; // Reset cook step to 0
+            s.cookStep = 0; 
             updateUI();
             updateKitchenUI();
         } else {
-            // Show the out of stock message if you can't start
             let msg = document.getElementById('out-of-stock-msg');
             if(msg) msg.classList.remove('hidden');
             playSound('error');
@@ -199,6 +199,7 @@ function collectPayment(index) {
     if (game.idxRecipe >= 999) finalValue *= 1000000;
     
     game.wallet += finalValue;
+    game.monkeyMoney += 1;
     playSound('cash');
     spawnFloatingMoney(finalValue, `seat-${index}`);
 
@@ -365,7 +366,6 @@ function getMonkeySpeed() {
 }
 
 function runMonkeyLoop() {
-    // Check if you have staff (adjust 'waiter' to match your variable name)
     if (game.staff.waiter > 0) {
         for (let i = 0; i < game.tablesOwned; i++) {
             let s = seats[i];
@@ -376,13 +376,16 @@ function runMonkeyLoop() {
         }
     }
 
-    // FORMULA: Starts at 1200ms and gets 150ms faster per chef upgrade
-    // The Math.max(200, ...) ensures they don't get so fast the game crashes
-    let staffSpeed = Math.max(200, 1200 - (game.upgrades.chef * 150));
+    // FIX: Use idxAuto (Main Chef Level) to calculate speed
+    // This starts at 2000ms and gets faster every time you buy a Main Chef upgrade
+    let staffSpeed = Math.max(100, 2000 - (game.idxAuto * 150));
     
+    // Also apply the Black Market multiplier and Rush Hour
+    staffSpeed = (staffSpeed * (game.autoChefSpeedMulti || 1)) / rushMultiplier;
+
     setTimeout(runMonkeyLoop, staffSpeed);
 }
-
+        
 function buyTable() { let u = TRACK_TABLES[game.idxTable]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.tablesOwned++; game.idxTable++; playSound('cash'); saveGame(); updateUI(); updateKitchenUI(); } }
 function buyRecipe() { let u = TRACK_RECIPES[game.idxRecipe]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.currentMenuPrice = u.value; game.idxRecipe++; playSound('cash'); saveGame(); updateUI(); } }
 function buyAuto() { 

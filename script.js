@@ -152,17 +152,49 @@ function spawnWalkingCustomer(seatIdx, char) {
 }
 
 function handleTableClick(index) {
-    let seat = seats[index]; if (!seat.occupied) return;
-    if (seat.needsMenu) { seat.needsMenu = false; seat.patience = 100; updateUI(); } 
+    let seat = seats[index]; 
+    if (!seat.occupied || seat.charData === null) return;
+
+    // 1. AUTO-TAKE ORDER & START COOKING
+    if (seat.needsMenu) { 
+        seat.needsMenu = false; 
+        seat.patience = 100; 
+        
+        // Immediately transition to cooking so the Waiter doesn't get stuck
+        seat.isCooking = true; 
+        seat.cookStep = 0; 
+        
+        updateUI(); 
+        updateKitchenUI();
+    } 
+    // 2. AUTO-SERVE
     else if (seat.needsServing) { 
         if(seat.charData && seat.charData.wantsBoba) {
-            if(game.inv.boba < 1) { document.getElementById('out-of-stock-msg').classList.remove('hidden'); playSound('error'); return; }
+            if(game.inv.boba < 1) { 
+                document.getElementById('out-of-stock-msg').classList.remove('hidden'); 
+                playSound('error'); 
+                return; 
+            }
             game.inv.boba--;
         }
-        seat.needsServing = false; seat.needsToPay = true; seat.patience = 100; playSound('serve'); updateUI(); 
+        seat.needsServing = false; 
+        seat.needsToPay = true; 
+        seat.patience = 100; 
+        playSound('serve'); 
+        updateUI(); 
     } 
-    else if (seat.needsToPay) collectPayment(index); 
-    else if (!seat.isCooking) { seat.isCooking = true; seat.cookStep = 0; seat.patience = 100; updateUI(); updateKitchenUI(); }
+    // 3. AUTO-PAY
+    else if (seat.needsToPay) {
+        collectPayment(index); 
+    }
+    // 4. MANUAL START (If they are just sitting there)
+    else if (!seat.isCooking) { 
+        seat.isCooking = true; 
+        seat.cookStep = 0; 
+        seat.patience = 100; 
+        updateUI(); 
+        updateKitchenUI(); 
+    }
 }
 
 function collectPayment(index) {
@@ -337,24 +369,26 @@ function getMonkeySpeed() {
 }
 
 function runMonkeyLoop() {
-    // Only do something if you have actually hired Waiters!
+    // Only work if Waiter Chimp is hired
     if (game.staff.waiter > 0) {
         for (let i = 0; i < game.tablesOwned; i++) {
             let s = seats[i];
             
-            // Ignore empty seats
             if (!s.occupied || s.charData === null) continue;
             
-            // WAITERS handle taking the menu, serving the food, and collecting cash. No cooking!
+            // Waiters handle Menu, Serving, and Paying
             if (s.needsMenu || s.needsServing || s.needsToPay) { 
+                // Check for Boba stock before attempting to serve
                 if (s.needsServing && s.charData.wantsBoba && game.inv.boba < 1) continue; 
+                
                 handleTableClick(i); 
-                break; // One action per "tick"
+                // The waiter performs one action then waits for the next "tick"
+                break; 
             }
         }
     }
     
-    // The speed of this tick is controlled by the Main Chef level!
+    // Tick speed is determined by the Main Chef level (idxAuto)
     setTimeout(runMonkeyLoop, getMonkeySpeed());
 }
 

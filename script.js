@@ -151,18 +151,20 @@ function spawnWalkingCustomer(seatIdx, char) {
     setTimeout(() => { seats[seatIdx].charData = char; seats[seatIdx].needsMenu = true; updateUI(); }, 1000 / rushMultiplier);
 }
 
-processTable(i);
-    let seat = seats[index]; if (!seat.occupied) return;
-    if (seat.needsMenu) { seat.needsMenu = false; seat.patience = 100; updateUI(); } 
-    else if (seat.needsServing) { 
-        if(seat.charData && seat.charData.wantsBoba) {
-            if(game.inv.boba < 1) { document.getElementById('out-of-stock-msg').classList.remove('hidden'); playSound('error'); return; }
-            game.inv.boba--;
-        }
-        seat.needsServing = false; seat.needsToPay = true; seat.patience = 100; playSound('serve'); updateUI(); 
-    } 
-    else if (seat.needsToPay) collectPayment(index); 
-    else if (!seat.isCooking) { seat.isCooking = true; seat.cookStep = 0; seat.patience = 100; updateUI(); updateKitchenUI(); }
+function processTable(i) {
+    let s = seats[i];
+    if (!s || !s.occupied || s.charData === null) return;
+
+    let steps = 0;
+
+    while ((s.needsMenu || s.needsServing || s.needsToPay) && steps < 3) {
+        handleTableClick(i);
+        steps++;
+
+        // re-get seat in case it changed
+        s = seats[i];
+        if (!s || !s.occupied || s.charData === null) break;
+    }
 }
 
 function collectPayment(index) {

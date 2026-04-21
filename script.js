@@ -158,26 +158,24 @@ function processTable(i) {
     let steps = 0;
 
     while ((s.needsMenu || s.needsServing || s.needsToPay) && steps < 3) {
-       function handleTableClick(i) {
+       
+        function handleTableClick(i) {
     let s = seats[i];
-    if (!s.occupied) return;
+    if (!s || !s.occupied || s.charData === null) return;
 
-    // FIX: Combined taking order and cooking into one flow
     if (s.needsMenu) {
-        if (game.inv.noodle > 0) { // Make sure you check for noodles!
+        // Check if you have enough ingredients to start
+        if (game.inv.noodle >= 1 && game.inv.broth >= 1) {
             s.needsMenu = false;
             s.isCooking = true;
-            game.inv.noodle--; // Subtract stock immediately
+            s.cookStep = 0; // Reset cook step to 0
             updateUI();
             updateKitchenUI();
-            
-            // Start the cooking timer
-            setTimeout(() => {
-                s.isCooking = false;
-                s.needsServing = true;
-                updateUI();
-                updateKitchenUI();
-            }, 1500); 
+        } else {
+            // Show the out of stock message if you can't start
+            let msg = document.getElementById('out-of-stock-msg');
+            if(msg) msg.classList.remove('hidden');
+            playSound('error');
         }
     } 
     else if (s.needsServing) {
@@ -185,7 +183,7 @@ function processTable(i) {
         s.needsToPay = true;
     } 
     else if (s.needsToPay) {
-        collectPayment(i); // This should call your existing payment function
+        collectPayment(i);
     }
     updateUI();
 }
@@ -600,6 +598,8 @@ function loadGame() {
        
         // Offline earnings disabled
 game.lastSaveTime = now;
+    }
+}
 
 function checkAchievements() {
     let check = (id, name, req) => {
@@ -666,11 +666,12 @@ setInterval(() => {
 }, 60000);
 
 window.onload = () => {
-    // loadGame(); <-- Delete or comment this out to stop the offline chart
-    initTables();
-    updateUI();
-    customerArrives();
-    runMonkeyLoop();
+    loadGame();          
+    initTables();        
+    updateUI();          
+    updateKitchenUI();   
+    customerArrives();   
+    runMonkeyLoop(); // This starts your staff and speed logic
 };
     
     function processTable(i) {

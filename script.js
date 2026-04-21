@@ -151,7 +151,7 @@ function spawnWalkingCustomer(seatIdx, char) {
     setTimeout(() => { seats[seatIdx].charData = char; seats[seatIdx].needsMenu = true; updateUI(); }, 1000 / rushMultiplier);
 }
 
-function handleTableClick(index) {
+processTable(i);
     let seat = seats[index]; if (!seat.occupied) return;
     if (seat.needsMenu) { seat.needsMenu = false; seat.patience = 100; updateUI(); } 
     else if (seat.needsServing) { 
@@ -647,3 +647,29 @@ window.onload = () => {
     customerArrives();   
     
 runMonkeyLoop();
+    
+    function processTable(i) {
+    let s = seats[i];
+    if (!s.occupied || s.charData === null) return;
+
+    let steps = 0;
+
+    while (steps < 5) { // safety limit
+        if (s.needsMenu) {
+            giveMenu(i);
+        } 
+        else if (s.needsServing) {
+            // check resources if needed
+            if (s.charData.wantsBoba && game.inv.boba < 1) break;
+            serveCustomer(i);
+        } 
+        else if (s.needsToPay) {
+            collectPayment(i);
+        } 
+        else {
+            break; // nothing left to do
+        }
+
+        steps++;
+    }
+}

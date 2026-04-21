@@ -358,7 +358,12 @@ function finishCooking(index) {
 }
 
 function getMonkeySpeed() { 
-    return Math.max(50, 3000 * Math.pow(0.85, game.idxAuto) * (game.autoChefSpeedMulti || 1)) / rushMultiplier; 
+    // This formula makes them 15% faster per level
+    let baseSpeed = 3000 * Math.pow(0.85, game.idxAuto);
+    // This applies your Black Market multiplier (autoChefSpeedMulti)
+    let finalSpeed = baseSpeed * (game.autoChefSpeedMulti || 1);
+    // Divide by rushMultiplier (3x faster during rush hour) and cap it at 50ms
+    return Math.max(50, finalSpeed) / rushMultiplier; 
 }
 
 function runMonkeyLoop() {

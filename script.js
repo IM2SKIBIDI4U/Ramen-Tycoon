@@ -570,25 +570,9 @@ function loadGame() {
             alert("🚨 ANTI-CHEAT: Time Anomaly Detected! Your calendar went backwards. Offline progress voided.");
             game.lastSaveTime = now; saveGame(); return; 
         }
-
-        let timeDiff = now - game.lastSaveTime; let secondsAway = Math.floor(timeDiff / 1000);
-        if(secondsAway > 60 && game.idxAuto > 0 && game.tablesOwned > 0) {
-            let cycles = secondsAway / (getMonkeySpeed() / 1000); 
-            let estimatedEarnings = cycles * game.tablesOwned * game.currentMenuPrice * getPrestigeMultiplier() * 0.5; 
-            
-            if (game.idxRecipe >= 999) estimatedEarnings *= 1000000;
-            
-            if(estimatedEarnings > 100) {
-                game.wallet += estimatedEarnings;
-                if(document.getElementById('offline-earned')) document.getElementById('offline-earned').innerText = formatMoney(estimatedEarnings);
-                if(document.getElementById('offline-time')) document.getElementById('offline-time').innerText = `${Math.floor(secondsAway/60)} Minutes`;
-                if(document.getElementById('offline-modal')) document.getElementById('offline-modal').classList.remove('hidden');
-            }
-        }
-    } 
-    applyTheme();
-}
-function closeOfflineModal() { document.getElementById('offline-modal').classList.add('hidden'); playSound('cash'); saveGame(); }
+       
+        // Offline earnings disabled
+game.lastSaveTime = now;
 
 function checkAchievements() {
     let check = (id, name, req) => {

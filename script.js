@@ -151,43 +151,20 @@ function spawnWalkingCustomer(seatIdx, char) {
     setTimeout(() => { seats[seatIdx].charData = char; seats[seatIdx].needsMenu = true; updateUI(); }, 1000 / rushMultiplier);
 }
 
-function processTable(i) {
-    let s = seats[i];
-    if (!s || !s.occupied || s.charData === null) return;
-
-    let steps = 0;
-
-    while ((s.needsMenu || s.needsServing || s.needsToPay) && steps < 3) {
-       
-        // --- FIX: Remove the "processTable" wrapper and update logic ---
-function handleTableClick(i) {
-    let s = seats[i];
-    if (!s || !s.occupied || s.charData === null) return;
-
-    if (s.needsMenu) {
-        // ONE CLICK: Takes order and starts cooking immediately
-        if (game.inv.noodle >= 1 && game.inv.broth >= 1) {
-            s.needsMenu = false;
-            s.isCooking = true;
-            s.cookStep = 0; 
-            updateUI();
-            updateKitchenUI();
-        } else {
-            let msg = document.getElementById('out-of-stock-msg');
-            if(msg) msg.classList.remove('hidden');
-            playSound('error');
+function handleTableClick(index) {
+    let seat = seats[index]; if (!seat.occupied) return;
+    if (seat.needsMenu) { seat.needsMenu = false; seat.patience = 100; updateUI(); } 
+    else if (seat.needsServing) { 
+        if(seat.charData && seat.charData.wantsBoba) {
+            if(game.inv.boba < 1) { document.getElementById('out-of-stock-msg').classList.remove('hidden'); playSound('error'); return; }
+            game.inv.boba--;
         }
+        seat.needsServing = false; seat.needsToPay = true; seat.patience = 100; playSound('serve'); updateUI(); 
     } 
-    else if (s.needsServing) {
-        s.needsServing = false;
-        s.needsToPay = true;
-    } 
-    else if (s.needsToPay) {
-        collectPayment(i);
-    }
-    updateUI();
+    else if (seat.needsToPay) collectPayment(index); 
+    else if (!seat.isCooking) { seat.isCooking = true; seat.cookStep = 0; seat.patience = 100; updateUI(); updateKitchenUI(); }
 }
-        
+
 function collectPayment(index) {
     let seat = seats[index];
     let mult = seat.charData.isVIP ? 10 : 1;
@@ -199,7 +176,6 @@ function collectPayment(index) {
     if (game.idxRecipe >= 999) finalValue *= 1000000;
     
     game.wallet += finalValue;
-    game.monkeyMoney += 1;
     playSound('cash');
     spawnFloatingMoney(finalValue, `seat-${index}`);
 
@@ -357,35 +333,31 @@ function finishCooking(index) {
 }
 
 function getMonkeySpeed() { 
-    // This formula makes them 15% faster per level
-    let baseSpeed = 3000 * Math.pow(0.85, game.idxAuto);
-    // This applies your Black Market multiplier (autoChefSpeedMulti)
-    let finalSpeed = baseSpeed * (game.autoChefSpeedMulti || 1);
-    // Divide by rushMultiplier (3x faster during rush hour) and cap it at 50ms
-    return Math.max(50, finalSpeed) / rushMultiplier; 
+    return Math.max(50, 3000 * Math.pow(0.85, game.idxAuto) * (game.autoChefSpeedMulti || 1)) / rushMultiplier; 
 }
 
 function runMonkeyLoop() {
+    // Only do something if you have actually hired Waiters!
     if (game.staff.waiter > 0) {
         for (let i = 0; i < game.tablesOwned; i++) {
             let s = seats[i];
-            if (s.occupied && (s.needsMenu || s.needsServing || s.needsToPay)) {
-                handleTableClick(i);
-                break; 
+            
+            // Ignore empty seats
+            if (!s.occupied || s.charData === null) continue;
+            
+            // WAITERS handle taking the menu, serving the food, and collecting cash. No cooking!
+            if (s.needsMenu || s.needsServing || s.needsToPay) { 
+                if (s.needsServing && s.charData.wantsBoba && game.inv.boba < 1) continue; 
+                handleTableClick(i); 
+                break; // One action per "tick"
             }
         }
     }
-
-    // FIX: Use idxAuto (Main Chef Level) to calculate speed
-    // This starts at 2000ms and gets faster every time you buy a Main Chef upgrade
-    let staffSpeed = Math.max(100, 2000 - (game.idxAuto * 150));
     
-    // Also apply the Black Market multiplier and Rush Hour
-    staffSpeed = (staffSpeed * (game.autoChefSpeedMulti || 1)) / rushMultiplier;
-
-    setTimeout(runMonkeyLoop, staffSpeed);
+    // The speed of this tick is controlled by the Main Chef level!
+    setTimeout(runMonkeyLoop, getMonkeySpeed());
 }
-        
+
 function buyTable() { let u = TRACK_TABLES[game.idxTable]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.tablesOwned++; game.idxTable++; playSound('cash'); saveGame(); updateUI(); updateKitchenUI(); } }
 function buyRecipe() { let u = TRACK_RECIPES[game.idxRecipe]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.currentMenuPrice = u.value; game.idxRecipe++; playSound('cash'); saveGame(); updateUI(); } }
 function buyAuto() { 
@@ -598,11 +570,25 @@ function loadGame() {
             alert("🚨 ANTI-CHEAT: Time Anomaly Detected! Your calendar went backwards. Offline progress voided.");
             game.lastSaveTime = now; saveGame(); return; 
         }
-       
-        // Offline earnings disabled
-game.lastSaveTime = now;
-    }
+
+        let timeDiff = now - game.lastSaveTime; let secondsAway = Math.floor(timeDiff / 1000);
+        if(secondsAway > 60 && game.idxAuto > 0 && game.tablesOwned > 0) {
+            let cycles = secondsAway / (getMonkeySpeed() / 1000); 
+            let estimatedEarnings = cycles * game.tablesOwned * game.currentMenuPrice * getPrestigeMultiplier() * 0.5; 
+            
+            if (game.idxRecipe >= 999) estimatedEarnings *= 1000000;
+            
+            if(estimatedEarnings > 100) {
+                game.wallet += estimatedEarnings;
+                if(document.getElementById('offline-earned')) document.getElementById('offline-earned').innerText = formatMoney(estimatedEarnings);
+                if(document.getElementById('offline-time')) document.getElementById('offline-time').innerText = `${Math.floor(secondsAway/60)} Minutes`;
+                if(document.getElementById('offline-modal')) document.getElementById('offline-modal').classList.remove('hidden');
+            }
+        }
+    } 
+    applyTheme();
 }
+function closeOfflineModal() { document.getElementById('offline-modal').classList.add('hidden'); playSound('cash'); saveGame(); }
 
 function checkAchievements() {
     let check = (id, name, req) => {
@@ -668,37 +654,14 @@ setInterval(() => {
     }
 }, 60000);
 
+// --- BOOT UP THE GAME ---
 window.onload = () => {
     loadGame();          
     initTables();        
     updateUI();          
     updateKitchenUI();   
     customerArrives();   
-    runMonkeyLoop(); // This starts your staff and speed logic
-};
     
-    function processTable(i) {
-    let s = seats[i];
-    if (!s.occupied || s.charData === null) return;
-
-    let steps = 0;
-
-    while (steps < 5) { // safety limit
-        if (s.needsMenu) {
-            giveMenu(i);
-        } 
-        else if (s.needsServing) {
-            // check resources if needed
-            if (s.charData.wantsBoba && game.inv.boba < 1) break;
-            serveCustomer(i);
-        } 
-        else if (s.needsToPay) {
-            collectPayment(i);
-        } 
-        else {
-            break; // nothing left to do
-        }
-
-        steps++;
-    }
-}
+    // Start the worker loop immediately! Waiters will now work even if Chef Speed is Level 0.
+    runMonkeyLoop();
+};

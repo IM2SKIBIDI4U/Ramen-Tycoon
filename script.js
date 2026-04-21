@@ -646,6 +646,4 @@ window.onload = () => {
     updateKitchenUI();   
     customerArrives();   
     
-    // Start the worker loop immediately! Waiters will now work even if Chef Speed is Level 0.
-    runMonkeyLoop();
-};
+runMonkeyLoop();

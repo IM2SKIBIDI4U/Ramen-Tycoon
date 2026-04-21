@@ -158,15 +158,38 @@ function processTable(i) {
     let steps = 0;
 
     while ((s.needsMenu || s.needsServing || s.needsToPay) && steps < 3) {
-        handleTableClick(i);
-        steps++;
+       function handleTableClick(i) {
+    let s = seats[i];
+    if (!s.occupied) return;
 
-        // re-get seat in case it changed
-        s = seats[i];
-        if (!s || !s.occupied || s.charData === null) break;
+    // FIX: Combined taking order and cooking into one flow
+    if (s.needsMenu) {
+        if (game.inv.noodle > 0) { // Make sure you check for noodles!
+            s.needsMenu = false;
+            s.isCooking = true;
+            game.inv.noodle--; // Subtract stock immediately
+            updateUI();
+            updateKitchenUI();
+            
+            // Start the cooking timer
+            setTimeout(() => {
+                s.isCooking = false;
+                s.needsServing = true;
+                updateUI();
+                updateKitchenUI();
+            }, 1500); 
+        }
+    } 
+    else if (s.needsServing) {
+        s.needsServing = false;
+        s.needsToPay = true;
+    } 
+    else if (s.needsToPay) {
+        collectPayment(i); // This should call your existing payment function
     }
+    updateUI();
 }
-
+        
 function collectPayment(index) {
     let seat = seats[index];
     let mult = seat.charData.isVIP ? 10 : 1;
@@ -339,25 +362,22 @@ function getMonkeySpeed() {
 }
 
 function runMonkeyLoop() {
-    // Only do something if you have actually hired Waiters!
+    // Check if you have staff (adjust 'waiter' to match your variable name)
     if (game.staff.waiter > 0) {
         for (let i = 0; i < game.tablesOwned; i++) {
             let s = seats[i];
-            
-            // Ignore empty seats
-            if (!s.occupied || s.charData === null) continue;
-            
-            // WAITERS handle taking the menu, serving the food, and collecting cash. No cooking!
-            if (s.needsMenu || s.needsServing || s.needsToPay) { 
-                if (s.needsServing && s.charData.wantsBoba && game.inv.boba < 1) continue; 
-                handleTableClick(i); 
-                break; // One action per "tick"
+            if (s.occupied && (s.needsMenu || s.needsServing || s.needsToPay)) {
+                handleTableClick(i);
+                break; 
             }
         }
     }
+
+    // FORMULA: Starts at 1200ms and gets 150ms faster per chef upgrade
+    // The Math.max(200, ...) ensures they don't get so fast the game crashes
+    let staffSpeed = Math.max(200, 1200 - (game.upgrades.chef * 150));
     
-    // The speed of this tick is controlled by the Main Chef level!
-    setTimeout(runMonkeyLoop, getMonkeySpeed());
+    setTimeout(runMonkeyLoop, staffSpeed);
 }
 
 function buyTable() { let u = TRACK_TABLES[game.idxTable]; if (u && game.wallet >= u.cost) { game.wallet -= u.cost; game.tablesOwned++; game.idxTable++; playSound('cash'); saveGame(); updateUI(); updateKitchenUI(); } }
@@ -640,15 +660,13 @@ setInterval(() => {
     }
 }, 60000);
 
-// --- BOOT UP THE GAME ---
 window.onload = () => {
-    loadGame();          
-    initTables();        
-    updateUI();          
-    updateKitchenUI();   
-    customerArrives();   
-    
-runMonkeyLoop();
+    // loadGame(); <-- Delete or comment this out to stop the offline chart
+    initTables();
+    updateUI();
+    customerArrives();
+    runMonkeyLoop();
+};
     
     function processTable(i) {
     let s = seats[i];

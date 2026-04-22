@@ -54,32 +54,21 @@ if (!document.getElementById('floating-money-style')) {
     document.head.appendChild(style);
 }
 
-// --- BALANCED ARRAYS & DATA ---
-const TRACK_TABLES = Array.from({length: 1000}, (_, i) => ({ 
-    name: `Table ${i+2}`, 
-    cost: Math.floor(250 * Math.pow(1.13, i)) // Higher start, smoother growth
-}));
+// --- ARRAYS & DATA ---
+const TRACK_TABLES = Array.from({length: 1000}, (_, i) => ({ name: `Table ${i+2}`, cost: Math.floor(150 * Math.pow(1.15, i)) }));
+const TRACK_WOK = Array.from({length: 1000}, (_, i) => ({ name: `Wok Lvl ${i+2}`, cost: Math.floor(100000 * Math.pow(1.15, i)) }));
+const TRACK_AUTO = Array.from({length: 1000}, (_, i) => ({ name: `Chef Speed Lvl ${i+1}`, cost: Math.floor(1500 * Math.pow(1.15, i)) }));
+const TRACK_ADS = Array.from({length: 1000}, (_, i) => ({ name: `Marketing Lvl ${i+1}`, cost: Math.floor(500 * Math.pow(1.15, i)) }));
 
-const TRACK_WOK = Array.from({length: 1000}, (_, i) => ({ 
-    name: `Wok Lvl ${i+2}`, 
-    cost: Math.floor(50000 * Math.pow(1.14, i)) // Reduced initial cost
-}));
-
-const TRACK_AUTO = Array.from({length: 1000}, (_, i) => ({ 
-    name: `Chef Speed Lvl ${i+1}`, 
-    cost: Math.floor(1000 * Math.pow(1.12, i)) // Cheaper early speed
-}));
-
-// RECIPES: Increased cost and value scaling so upgrades feel impactful
+const R_PRE = ["Basic", "Spicy", "Crispy", "Golden", "Mega", "Ultra", "Hyper", "Quantum", "Galactic", "Cosmic", "Mystic", "Atomic", "Neon", "Shadow", "Celestial", "Divine", "Infernal", "Supreme", "Ethereal", "Infinity"];
+const R_BASE = ["Shoyu", "Miso", "Tonkotsu", "Udon", "Soba", "Truffle", "Wagyu", "Dragon", "Phoenix", "Nova", "Kelp", "Katsu", "Kimchi", "Kitsune", "Bison", "Kraken", "Leviathan", "Titan", "Emperor", "Godzilla"];
+const RAMEN_NAMES = ["Basic Shoyu", "Miso Pork", "Spicy Tonkotsu", "Chicken Paitan", "Seafood Ramen", "Veggie Udon", "Truffle Ramen"];
 const TRACK_RECIPES = Array.from({length: 1000}, (_, i) => {
     let name = i < RAMEN_NAMES.length ? RAMEN_NAMES[i] : `${R_PRE[i % R_PRE.length]} ${R_BASE[Math.floor(i / R_PRE.length) % R_BASE.length]} Ramen`;
     if (i === 999) name = "The Universal Ramen";
-    return { 
-        name, 
-        cost: Math.floor(500 * Math.pow(1.06, i)), // Slightly steeper cost
-        value: Math.floor(65 * Math.pow(1.055, i)) // Significantly better payout per level
-    };
+    return { name, cost: Math.floor(400 * Math.pow(1.04, i)), value: Math.floor(100 * Math.pow(1.035, i)) };
 });
+
 const TRACK_DECOR = [ { id: 'theme-default', name: 'Standard Store', cost: 0 }, { id: 'theme-neon', name: 'Cyberpunk Neon', cost: 500000 }, { id: 'theme-zen', name: 'Zen Garden', cost: 10000000 }, { id: 'theme-gold', name: 'Solid Gold Palace', cost: 1000000000 } ];
 
 const TRACK_STAFF = [
@@ -89,11 +78,11 @@ const TRACK_STAFF = [
 ];
 
 const INITIAL_RIVALS = [
-    { id: 'sushi', name: '🍣 Sushi Pandas', hp: 25000, maxHp: 25000, cost: 2500, multReward: 0.5 },
-    { id: 'burger', name: '🍔 Burger Bears', hp: 500000, maxHp: 500000, cost: 25000, multReward: 1.0 },
-    { id: 'pizza', name: '🍕 Pizza Penguins', hp: 10000000, maxHp: 10000000, cost: 750000, multReward: 2.0 },
-    { id: 'taco', name: '🌮 Taco Tigers', hp: 5e8, maxHp: 5e8, cost: 1e8, multReward: 4.0 },
-    { id: 'boss', name: '🦍 The Silverback Syndicate', hp: 1e12, maxHp: 1e12, cost: 1e11, multReward: 10.0 }
+    { id: 'sushi', name: '🍣 Sushi Pandas', hp: 50000, maxHp: 50000, cost: 5000, multReward: 0.5 },
+    { id: 'burger', name: '🍔 Burger Bears', hp: 1000000, maxHp: 1000000, cost: 50000, multReward: 1.0 },
+    { id: 'pizza', name: '🍕 Pizza Penguins', hp: 50000000, maxHp: 50000000, cost: 1000000, multReward: 2.0 },
+    { id: 'taco', name: '🌮 Taco Tigers', hp: 1e10, maxHp: 1e10, cost: 5e8, multReward: 5.0 },
+    { id: 'boss', name: '🦍 The Silverback Syndicate', hp: 1e15, maxHp: 1e15, cost: 1e12, multReward: 20.0 }
 ];
 
 const defaultInv = { noodle: 10, broth: 10, spice: 10, egg: 10, boba: 10 };
@@ -610,9 +599,7 @@ function adminMaxEverything() {
 }
 function closeAdmin() { document.getElementById('admin-panel').classList.add('hidden'); }
 
-function saveGame() { 
-    localStorage.setItem('RamenUltimateData', JSON.stringify(game)); 
-}
+function saveGame() { game.lastSaveTime = Date.now(); localStorage.setItem('RamenUltimateData', JSON.stringify(game)); }
 function loadGame() { 
     let s = localStorage.getItem('RamenUltimateData'); 
     if(s) { 
@@ -624,7 +611,30 @@ function loadGame() {
         if(game.inv.boba === undefined) game.inv.boba = 10;
         if(!game.rivals) game.rivals = JSON.parse(JSON.stringify(INITIAL_RIVALS));
         
-       
+        let now = Date.now(); 
+        if (now < game.lastSaveTime) {
+            alert("🚨 ANTI-CHEAT: Time Anomaly Detected! Your calendar went backwards. Offline progress voided.");
+            game.lastSaveTime = now; saveGame(); return; 
+        }
+
+        let timeDiff = now - game.lastSaveTime; let secondsAway = Math.floor(timeDiff / 1000);
+        if(secondsAway > 60 && game.idxAuto > 0 && game.tablesOwned > 0) {
+            let cycles = secondsAway / (getMonkeySpeed() / 1000); 
+            let estimatedEarnings = cycles * game.tablesOwned * game.currentMenuPrice * getPrestigeMultiplier() * 0.5; 
+            
+            if (game.idxRecipe >= 999) estimatedEarnings *= 1000000;
+            
+            if(estimatedEarnings > 100) {
+                game.wallet += estimatedEarnings;
+                if(document.getElementById('offline-earned')) document.getElementById('offline-earned').innerText = formatMoney(estimatedEarnings);
+                if(document.getElementById('offline-time')) document.getElementById('offline-time').innerText = `${Math.floor(secondsAway/60)} Minutes`;
+                if(document.getElementById('offline-modal')) document.getElementById('offline-modal').classList.remove('hidden');
+            }
+        }
+    } 
+    applyTheme();
+}
+function closeOfflineModal() { document.getElementById('offline-modal').classList.add('hidden'); playSound('cash'); saveGame(); }
 
 function checkAchievements() {
     let check = (id, name, req) => {
@@ -676,15 +686,15 @@ setInterval(() => {
     checkAchievements();
     let roll = Math.random();
     
-    if (roll < 0.01) { spawnGoldenMacaque(); } 
+    if (roll < 0.05) { spawnGoldenMacaque(); } 
     else if (roll < 0.10 && !isRushHour) { triggerEvent('rush'); } 
     else if (roll < 0.15) { triggerEvent('health'); }
-    else if (roll < 0.05) {
+    else if (roll < 0.20) {
         game.inv.noodle += 5000; game.inv.broth += 5000; game.inv.spice += 5000; game.inv.egg += 5000; game.inv.boba += 5000;
         saveGame(); updateKitchenUI(); playSound('cash'); 
         alert("🚚 SUPPLY DROP! 🚚\nA confused delivery driver just dropped off 5,000 of every ingredient for free!");
     }
-    else if (roll < 0.10) {
+    else if (roll < 0.25) {
         window.vipPartyActive = 5;
         alert("🚌 VIP PARTY BUS ARRIVED! 🚌\nThe next 5 customers to sit down will be guaranteed VIPs!");
     }

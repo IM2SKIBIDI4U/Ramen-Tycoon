@@ -676,15 +676,15 @@ setInterval(() => {
     checkAchievements();
     let roll = Math.random();
     
-    if (roll < 0.05) { spawnGoldenMacaque(); } 
+    if (roll < 0.01) { spawnGoldenMacaque(); } 
     else if (roll < 0.10 && !isRushHour) { triggerEvent('rush'); } 
     else if (roll < 0.15) { triggerEvent('health'); }
-    else if (roll < 0.20) {
+    else if (roll < 0.05) {
         game.inv.noodle += 5000; game.inv.broth += 5000; game.inv.spice += 5000; game.inv.egg += 5000; game.inv.boba += 5000;
         saveGame(); updateKitchenUI(); playSound('cash'); 
         alert("🚚 SUPPLY DROP! 🚚\nA confused delivery driver just dropped off 5,000 of every ingredient for free!");
     }
-    else if (roll < 0.25) {
+    else if (roll < 0.10) {
         window.vipPartyActive = 5;
         alert("🚌 VIP PARTY BUS ARRIVED! 🚌\nThe next 5 customers to sit down will be guaranteed VIPs!");
     }

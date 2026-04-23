@@ -55,10 +55,25 @@ if (!document.getElementById('floating-money-style')) {
 }
 
 // --- ARRAYS & DATA ---
-const TRACK_TABLES = Array.from({length: 1000}, (_, i) => ({ name: `Table ${i+2}`, cost: Math.floor(150 * Math.pow(1.15, i)) }));
-const TRACK_WOK = Array.from({length: 1000}, (_, i) => ({ name: `Wok Lvl ${i+2}`, cost: Math.floor(100000 * Math.pow(1.15, i)) }));
-const TRACK_AUTO = Array.from({length: 1000}, (_, i) => ({ name: `Chef Speed Lvl ${i+1}`, cost: Math.floor(1500 * Math.pow(1.15, i)) }));
-const TRACK_ADS = Array.from({length: 1000}, (_, i) => ({ name: `Marketing Lvl ${i+1}`, cost: Math.floor(500 * Math.pow(1.15, i)) }));
+const TRACK_TABLES = Array.from({length: 1000}, (_, i) => ({ 
+    name: `Table ${i+2}`, 
+    cost: Math.floor(200 * Math.pow(1.12, i)) 
+}));
+
+const TRACK_WOK = Array.from({length: 1000}, (_, i) => ({ 
+    name: `Wok Lvl ${i+2}`, 
+    cost: Math.floor(75000 * Math.pow(1.13, i)) 
+}));
+
+const TRACK_AUTO = Array.from({length: 1000}, (_, i) => ({ 
+    name: `Chef Speed Lvl ${i+1}`, 
+    cost: Math.floor(1200 * Math.pow(1.11, i)) 
+}));
+const TRACK_ADS = Array.from({length: 1000}, (_, i) => ({ 
+    name: `Marketing Lvl ${i+1}`, 
+    // Starts at $1,000 and grows at 1.15x
+    cost: Math.floor(1000 * Math.pow(1.15, i)) 
+}));
 
 const R_PRE = ["Basic", "Spicy", "Crispy", "Golden", "Mega", "Ultra", "Hyper", "Quantum", "Galactic", "Cosmic", "Mystic", "Atomic", "Neon", "Shadow", "Celestial", "Divine", "Infernal", "Supreme", "Ethereal", "Infinity"];
 const R_BASE = ["Shoyu", "Miso", "Tonkotsu", "Udon", "Soba", "Truffle", "Wagyu", "Dragon", "Phoenix", "Nova", "Kelp", "Katsu", "Kimchi", "Kitsune", "Bison", "Kraken", "Leviathan", "Titan", "Emperor", "Godzilla"];
@@ -66,7 +81,15 @@ const RAMEN_NAMES = ["Basic Shoyu", "Miso Pork", "Spicy Tonkotsu", "Chicken Pait
 const TRACK_RECIPES = Array.from({length: 1000}, (_, i) => {
     let name = i < RAMEN_NAMES.length ? RAMEN_NAMES[i] : `${R_PRE[i % R_PRE.length]} ${R_BASE[Math.floor(i / R_PRE.length) % R_BASE.length]} Ramen`;
     if (i === 999) name = "The Universal Ramen";
-    return { name, cost: Math.floor(400 * Math.pow(1.04, i)), value: Math.floor(100 * Math.pow(1.035, i)) };
+    
+    // Cost: Starts at $500, scales at 1.072x per level
+    let cost = Math.floor(500 * Math.pow(1.072, i)); 
+    
+    // Value: Starts at $65, scales at 1.1345x per level
+    // This makes Level 1000 ≈ 1.00e59 (100 Ocd)
+    let value = Math.floor(65 * Math.pow(1.1345, i)); 
+    
+    return { name, cost, value };
 });
 
 const TRACK_DECOR = [ { id: 'theme-default', name: 'Standard Store', cost: 0 }, { id: 'theme-neon', name: 'Cyberpunk Neon', cost: 500000 }, { id: 'theme-zen', name: 'Zen Garden', cost: 10000000 }, { id: 'theme-gold', name: 'Solid Gold Palace', cost: 1000000000 } ];
@@ -131,13 +154,27 @@ function switchTab(tab) { document.querySelectorAll('.view-panel').forEach(p => 
 
 function initTables() { let d = document.getElementById('dining-area'); if(d.children.length === 0) { for(let i=0; i<1000; i++) { let div = document.createElement('div'); div.id = `seat-${i}`; div.className = 'seat locked'; d.appendChild(div); } } }
 
-function getPrestigeMultiplier() { return (1 + (game.monkeyMoney * 2)) * game.turfMult; }
-
+function getPrestigeMultiplier() { 
+    // Each Monkey Money adds a 5% bonus (compounding via addition)
+    // Plus your Turf Multiplier from defeating rivals
+    return (1 + (game.monkeyMoney * 0.5)) * game.turfMult; 
+}
 function customerArrives() { 
-    if (waitList.length < 10) { waitList.push(generateRandomChar()); renderWaitList(); } 
+    if (waitList.length < 10) { 
+        waitList.push(generateRandomChar()); 
+        renderWaitList(); 
+    } 
     checkEmptySeats(); 
-    let speed = Math.max(200, 2500 * Math.pow(0.90, game.idxAds || 0)) / rushMultiplier; 
-    setTimeout(customerArrives, speed); 
+    
+    // BALANCE MATH:
+    // Base delay is 4000ms (4 seconds).
+    // Every level of Ads (idxAds) makes customers 8% faster.
+    let baseDelay = 4000 * Math.pow(0.92, game.idxAds || 0);
+    
+    // During Rush Hour, customers arrive 3x faster
+    let finalDelay = Math.max(300, baseDelay / rushMultiplier); 
+    
+    setTimeout(customerArrives, finalDelay); 
 }
 function renderWaitList() { document.getElementById('wait-list').innerHTML = waitList.map(char => `<div style="margin-bottom: 5px;">${renderCharHTML(char)}</div>`).join(''); }
 

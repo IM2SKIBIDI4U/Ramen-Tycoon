@@ -334,8 +334,8 @@ function clickStove(index) {
     if (now - lastClickTime < 50) { 
         clickWarnings++;
         if (clickWarnings > 5) {
-            alert("🚨 ANTI-CHEAT: Auto-clicker detected! The Health Inspector fined you $10,000!");
-            game.wallet = Math.max(0, game.wallet - 10000); 
+            alert("🚨 ANTI-CHEAT: Auto-clicker detected! The Health Inspector fined you $10,00000000000000000000000!");
+            game.wallet = Math.max(0, game.wallet - 100000000000000000000000000000000); 
             clickWarnings = 0; updateUI(); playSound('error');
         }
         return; 
@@ -659,7 +659,7 @@ function loadGame() {
             let cycles = secondsAway / (getMonkeySpeed() / 1000); 
             let estimatedEarnings = cycles * game.tablesOwned * game.currentMenuPrice * getPrestigeMultiplier() * 0.5; 
             
-            if (game.idxRecipe >= 999) estimatedEarnings *= 1000000;
+            if (game.idxRecipe >= 999) estimatedEarnings *= 0;
             
             if(estimatedEarnings > 100) {
                 game.wallet += estimatedEarnings;

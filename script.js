@@ -71,7 +71,6 @@ const TRACK_AUTO = Array.from({length: 1000}, (_, i) => ({
 }));
 const TRACK_ADS = Array.from({length: 1000}, (_, i) => ({ 
     name: `Marketing Lvl ${i+1}`, 
-    // Starts at $1,000 and grows at 1.15x
     cost: Math.floor(1000 * Math.pow(1.15, i)) 
 }));
 
@@ -82,11 +81,7 @@ const TRACK_RECIPES = Array.from({length: 1000}, (_, i) => {
     let name = i < RAMEN_NAMES.length ? RAMEN_NAMES[i] : `${R_PRE[i % R_PRE.length]} ${R_BASE[Math.floor(i / R_PRE.length) % R_BASE.length]} Ramen`;
     if (i === 999) name = "The Universal Ramen";
     
-    // Cost: Starts at $500, scales at 1.072x per level
     let cost = Math.floor(500 * Math.pow(1.072, i)); 
-    
-    // Value: Starts at $65, scales at 1.1345x per level
-    // This makes Level 1000 ≈ 1.00e59 (100 Ocd)
     let value = Math.floor(65 * Math.pow(1.1345, i)); 
     
     return { name, cost, value };
@@ -114,7 +109,7 @@ let game = {
     tablesOwned: 1, idxTable: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxSpecial: 0, currentMenuPrice: 50,
     activeDecor: 'theme-default', decorOwned: ['theme-default'], autoRefill: false,
     staff: { waiter: 0, ninja: 0, mascot: 0 }, rivals: JSON.parse(JSON.stringify(INITIAL_RIVALS)),
-    inv: { ...defaultInv }, upgrades: {}, achievements: [], autoChefSpeedMulti: 1
+    inv: { ...defaultInv }, upgrades: {}, achievements: [], autoChefSpeedMulti: 1, idxAds: 0
 };
 
 window.vipPartyActive = 0; 
@@ -155,10 +150,9 @@ function switchTab(tab) { document.querySelectorAll('.view-panel').forEach(p => 
 function initTables() { let d = document.getElementById('dining-area'); if(d.children.length === 0) { for(let i=0; i<1000; i++) { let div = document.createElement('div'); div.id = `seat-${i}`; div.className = 'seat locked'; d.appendChild(div); } } }
 
 function getPrestigeMultiplier() { 
-    // Each Monkey Money adds a 5% bonus (compounding via addition)
-    // Plus your Turf Multiplier from defeating rivals
     return (1 + (game.monkeyMoney * 0.5)) * game.turfMult; 
 }
+
 function customerArrives() { 
     if (waitList.length < 10) { 
         waitList.push(generateRandomChar()); 
@@ -166,16 +160,12 @@ function customerArrives() {
     } 
     checkEmptySeats(); 
     
-    // BALANCE MATH:
-    // Base delay is 4000ms (4 seconds).
-    // Every level of Ads (idxAds) makes customers 8% faster.
     let baseDelay = 4000 * Math.pow(0.92, game.idxAds || 0);
-    
-    // During Rush Hour, customers arrive 3x faster
     let finalDelay = Math.max(300, baseDelay / rushMultiplier); 
     
     setTimeout(customerArrives, finalDelay); 
 }
+
 function renderWaitList() { document.getElementById('wait-list').innerHTML = waitList.map(char => `<div style="margin-bottom: 5px;">${renderCharHTML(char)}</div>`).join(''); }
 
 function checkEmptySeats() {
@@ -192,19 +182,16 @@ function handleTableClick(index) {
     let seat = seats[index]; 
     if (!seat.occupied || seat.charData === null) return;
 
-    // 1. AUTO-TAKE ORDER & START COOKING
+    // 1. TAKE ORDER & START COOKING AUTOMATICALLY
     if (seat.needsMenu) { 
         seat.needsMenu = false; 
         seat.patience = 100; 
-        
-        // Immediately transition to cooking so the Waiter doesn't get stuck
         seat.isCooking = true; 
         seat.cookStep = 0; 
-        
         updateUI(); 
         updateKitchenUI();
     } 
-    // 2. AUTO-SERVE
+    // 2. SERVE THE RAMEN
     else if (seat.needsServing) { 
         if(seat.charData && seat.charData.wantsBoba) {
             if(game.inv.boba < 1) { 
@@ -220,11 +207,11 @@ function handleTableClick(index) {
         playSound('serve'); 
         updateUI(); 
     } 
-    // 3. AUTO-PAY
+    // 3. COLLECT THE COIN
     else if (seat.needsToPay) {
         collectPayment(index); 
     }
-    // 4. MANUAL START (If they are just sitting there)
+    // 4. COOK STAGE FAILSAFE (Forces stove initialization if client stalls)
     else if (!seat.isCooking) { 
         seat.isCooking = true; 
         seat.cookStep = 0; 
@@ -288,12 +275,11 @@ setInterval(() => {
     }
 }, 1000);
 
-// --- NEW PATIENCE DRAIN SYSTEM ---
+// --- PATIENCE DRAIN SYSTEM ---
 setInterval(() => {
     let uiNeedsUpdate = false;
     let drainRate = 5; 
     
-    // Mascot Buff slows down the drain!
     if (game.staff && game.staff.mascot > 0) {
         drainRate -= (game.staff.mascot * 0.4);
     }
@@ -305,12 +291,10 @@ setInterval(() => {
             seat.patience -= drainRate;
             uiNeedsUpdate = true;
 
-            // If patience hits 0, they get mad and walk out!
             if (seat.patience <= 0) {
                 playSound('error');
                 spawnFloatingMoney("😡 WALKOUT!", `seat-${i}`, '#e74c3c');
                 
-                // Clear the table
                 seat.occupied = false; 
                 seat.charData = null;
                 seat.needsMenu = false;
@@ -402,42 +386,29 @@ function finishCooking(index) {
 }
 
 function getMonkeySpeed() { 
-    // Base speed starts at 3000ms (3 seconds)
-    // Every level of Main Chef (idxAuto) reduces this by 15%
     let baseSpeed = 3000 * Math.pow(0.85, game.idxAuto);
-    
-    // Apply Black Market multiplier (autoChefSpeedMulti)
     let finalSpeed = baseSpeed * (game.autoChefSpeedMulti || 1);
-    
-    // Divide by rushMultiplier (3x faster during rush hour) 
-    // Cap at 50ms so the game doesn't crash from speed
     return Math.max(50, finalSpeed / rushMultiplier); 
 }
 
+// --- FIXED AUTO SERVER LOOP ---
 function runMonkeyLoop() {
-    // Only perform actions if Waiters are hired
     if (game.staff.waiter > 0) {
         for (let i = 0; i < game.tablesOwned; i++) {
             let s = seats[i];
-            
-            // Skip empty seats
             if (!s.occupied || s.charData === null) continue;
             
             // Waiters handle taking the menu, serving, and collecting cash
             if (s.needsMenu || s.needsServing || s.needsToPay) { 
-                // Check for Boba stock if required
+                // Don't get frozen waiting on a table that wants Boba when you have none
                 if (s.needsServing && s.charData.wantsBoba && game.inv.boba < 1) continue; 
                 
                 handleTableClick(i); 
-                break; // Perform one action per loop tick
+                break; // Handle one table per loop step to simulate moving staff members
             }
         }
     }
-    
-    // RE-CALCULATE SPEED HERE:
-    // This makes the upgrade "Main Chef Speed" actually speed up the loop
     let currentSpeed = getMonkeySpeed();
-    
     setTimeout(runMonkeyLoop, currentSpeed);
 }
 
@@ -598,22 +569,8 @@ function cheatMoney(amt) { game.wallet += amt; saveGame(); updateUI(); }
 function setCustomMoney() { let val = parseFloat(document.getElementById('custom-money').value); if(!isNaN(val)) { game.wallet = val; saveGame(); updateUI(); } }
 function adminMaxIngredients() { game.inv.noodle=1e15; game.inv.broth=1e15; game.inv.spice=1e15; game.inv.egg=1e15; game.inv.boba=1e15; if(document.getElementById('out-of-stock-msg')) document.getElementById('out-of-stock-msg').classList.add('hidden'); saveGame(); updateUI(); }
 function cheatStars() { game.monkeyMoney++; saveGame(); updateUI(); }
-function triggerEvent(type) {
-    let t = document.getElementById('event-toast');
-    if(!t) return;
-    if(type==='rush') { t.innerText = "🚨 RUSH HOUR! (3x Speed & Pay)"; t.className = "event-toast active"; isRushHour = true; rushMultiplier = 3; setTimeout(() => { isRushHour=false; rushMultiplier=1; }, 30000); }
-    if (type === 'health') {
-        let fineAmount = Math.max(1000, game.wallet * 0.30); 
-        game.wallet -= fineAmount;
-        if (game.wallet < 0) game.wallet = 0; 
-        saveGame(); updateUI();
-        alert(`🚨 HEALTH INSPECTOR! 🚨\nThey found a monkey eating noodles out of the pot. You have been fined $${formatMoney(fineAmount)}!`);
-    }
-    setTimeout(() => t.classList.remove('active'), 5000); updateUI();
-}
-function nukeRivals() { game.rivals.forEach(r => { if(r.hp > 0) { r.hp = 0; game.turfMult += r.multReward; }}); saveGame(); renderTurfPanel(); updateUI(); alert("All rivals eradicated. Maximum Turf Multiplier applied.");}
+
 function adminMaxEverything() {
-    let needsJumpstart = (game.idxAuto === 0); 
     game.wallet = 1e50; 
     game.monkeyMoney = 1e9;
     game.tablesOwned = 1000; 
@@ -622,120 +579,35 @@ function adminMaxEverything() {
     game.idxWok = 999;
     game.idxAuto = 999;
     game.idxAds = 999;
-    game.inv.noodle = 1e20; game.inv.broth = 1e20; game.inv.spice = 1e20; game.inv.egg = 1e20; game.inv.boba = 1e20;
-    game.staff.waiter = 500; game.staff.ninja = 500; game.staff.mascot = 500;
-    game.decorOwned = TRACK_DECOR.map(d => d.id);
-    game.activeDecor = 'theme-gold';
-    game.rivals.forEach(r => { if(r.hp > 0) { r.hp = 0; game.turfMult += r.multReward; }});
-    if(document.getElementById('out-of-stock-msg')) document.getElementById('out-of-stock-msg').classList.add('hidden');
-    initTables(); applyTheme(); saveGame(); updateUI(); updateKitchenUI(); 
-    renderStaffPanel(); renderTurfPanel(); renderDecorPanel();
-    if (needsJumpstart) runMonkeyLoop();
-    playSound('cash');
-    alert("👑 GOD MODE: LEVEL 1000 REACHED! Warning: Your browser might lag due to the sheer amount of ramen being processed.");
+    adminMaxIngredients();
+    saveGame();
+    updateUI();
+    location.reload();
 }
-function closeAdmin() { document.getElementById('admin-panel').classList.add('hidden'); }
 
-function saveGame() { game.lastSaveTime = Date.now(); localStorage.setItem('RamenUltimateData', JSON.stringify(game)); }
-function loadGame() { 
-    let s = localStorage.getItem('RamenUltimateData'); 
-    if(s) { 
-        let parsed = JSON.parse(s); game = { ...game, ...parsed }; 
-        if(!game.achievements) game.achievements = [];
-        if(!game.staff) game.staff = {waiter:0,ninja:0,mascot:0};
-        if(game.autoRefill === undefined) game.autoRefill = false;
-        if(game.idxAds === undefined) game.idxAds = 0;
-        if(game.inv.boba === undefined) game.inv.boba = 10;
-        if(!game.rivals) game.rivals = JSON.parse(JSON.stringify(INITIAL_RIVALS));
-        
-        let now = Date.now(); 
-        if (now < game.lastSaveTime) {
-            alert("🚨 ANTI-CHEAT: Time Anomaly Detected! Your calendar went backwards. Offline progress voided.");
-            game.lastSaveTime = now; saveGame(); return; 
+function saveGame() {
+    localStorage.setItem('RamenUltimateData', JSON.stringify(game));
+}
+
+// --- OFFLINE PROGRESS HARD-SET TO ZERO PERMANENTLY ---
+function loadGame() {
+    let saved = localStorage.getItem('RamenUltimateData');
+    if (saved) {
+        let parsed = JSON.parse(saved);
+        game = Object.assign(game, parsed);
+
+        let now = Date.now();
+        let timeDiff = now - (game.lastSaveTime || now);
+        let secondsAway = Math.floor(timeDiff / 1000);
+
+        if (secondsAway > 60) {
+            if(document.getElementById('offline-earned')) document.getElementById('offline-earned').innerText = "0";
+            if(document.getElementById('offline-time')) document.getElementById('offline-time').innerText = `${Math.floor(secondsAway/60)} Minutes`;
+            if(document.getElementById('offline-modal')) document.getElementById('offline-modal').classList.remove('hidden');
         }
-
-        let timeDiff = now - game.lastSaveTime; let secondsAway = Math.floor(timeDiff / 1000);
-        if(secondsAway > 60 && game.idxAuto > 0 && game.tablesOwned > 0) {
-            let cycles = secondsAway / (getMonkeySpeed() / 1000); 
-            let estimatedEarnings = cycles * game.tablesOwned * game.currentMenuPrice * getPrestigeMultiplier() * 0.5; 
-            
-            if (game.idxRecipe >= 999) estimatedEarnings *= 0;
-            
-            if(estimatedEarnings > 0) {
-                game.wallet += estimatedEarnings;
-                if(document.getElementById('offline-earned')) document.getElementById('offline-earned').innerText = formatMoney(estimatedEarnings);
-                if(document.getElementById('offline-time')) document.getElementById('offline-time').innerText = `${Math.floor(secondsAway/60)} Minutes`;
-                if(document.getElementById('offline-modal')) document.getElementById('offline-modal').classList.remove('hidden');
-            }
-        }
-    } 
-    applyTheme();
-}
-function closeOfflineModal() { document.getElementById('offline-modal').classList.add('hidden'); playSound('cash'); saveGame(); }
-
-function checkAchievements() {
-    let check = (id, name, req) => {
-        if(!game.achievements.includes(id) && req()) {
-            game.achievements.push(id);
-            if (!game.monkeyMoney) game.monkeyMoney = 0;
-            game.monkeyMoney += 5;
-            let toast = document.getElementById('event-toast');
-            if (toast) {
-                toast.innerText = `🏆 ACHIEVEMENT UNLOCKED: ${name}`;
-                toast.className = "event-toast active";
-                playSound('cash');
-                setTimeout(() => toast.classList.remove('active'), 4000);
-            }
-            saveGame(); updateUI();
-        }
-    };
-    check('first_blood', 'First Blood (+5 MM)', () => game.rivals && game.rivals[0].hp <= 0);
-    check('millionaire', 'The 1% (+5 MM)', () => game.wallet >= 1000000);
-    check('ramen_god', 'Ramen God (+5 MM)', () => game.idxRecipe >= 399);
-    check('empire', 'Franchise King (+5 MM)', () => game.tablesOwned >= 100);
-}
-
-function spawnGoldenMacaque() {
-    let m = document.createElement('div');
-    m.className = 'golden-macaque';
-    m.innerText = '🐒✨';
-    m.style.position = 'fixed';
-    m.style.fontSize = '3rem';
-    m.style.cursor = 'pointer';
-    m.style.zIndex = '9999';
-    m.style.left = Math.random() * 80 + 'vw';
-    m.style.top = Math.random() * 80 + 'vh';
-    m.style.animation = 'floatUp 2s infinite alternate';
-    
-    m.onclick = () => {
-        m.remove();
-        let bonus = (game.wallet * 0.15) + 5000; 
-        game.wallet += bonus;
-        playSound('cash');
-        alert(`🌟 YOU CAUGHT THE GOLDEN MACAQUE! 🌟\nReward: $${formatMoney(bonus)}!`);
-        updateUI();
-    };
-    document.body.appendChild(m);
-    setTimeout(() => { if (m.parentElement) m.remove(); }, 12000);
-}
-
-setInterval(() => {
-    checkAchievements();
-    let roll = Math.random();
-    
-    if (roll < 0.05) { spawnGoldenMacaque(); } 
-    else if (roll < 0.10 && !isRushHour) { triggerEvent('rush'); } 
-    else if (roll < 0.15) { triggerEvent('health'); }
-    else if (roll < 0.20) {
-        game.inv.noodle += 5000; game.inv.broth += 5000; game.inv.spice += 5000; game.inv.egg += 5000; game.inv.boba += 5000;
-        saveGame(); updateKitchenUI(); playSound('cash'); 
-        alert("🚚 SUPPLY DROP! 🚚\nA confused delivery driver just dropped off 5,000 of every ingredient for free!");
+        game.lastSaveTime = now;
     }
-    else if (roll < 0.25) {
-        window.vipPartyActive = 5;
-        alert("🚌 VIP PARTY BUS ARRIVED! 🚌\nThe next 5 customers to sit down will be guaranteed VIPs!");
-    }
-}, 60000);
+}
 
 // --- BOOT UP THE GAME ---
 window.onload = () => {
@@ -744,7 +616,5 @@ window.onload = () => {
     updateUI();          
     updateKitchenUI();   
     customerArrives();   
-    
-    // Start the worker loop immediately! Waiters will now work even if Chef Speed is Level 0.
-    runMonkeyLoop();
+    runMonkeyLoop(); 
 };

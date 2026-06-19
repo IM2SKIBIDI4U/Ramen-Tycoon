@@ -661,7 +661,7 @@ function loadGame() {
             
             if (game.idxRecipe >= 999) estimatedEarnings *= 0;
             
-            if(estimatedEarnings > 0) {
+            if(estimatedEarnings > 100) {
                 game.wallet += estimatedEarnings;
                 if(document.getElementById('offline-earned')) document.getElementById('offline-earned').innerText = formatMoney(estimatedEarnings);
                 if(document.getElementById('offline-time')) document.getElementById('offline-time').innerText = `${Math.floor(secondsAway/60)} Minutes`;

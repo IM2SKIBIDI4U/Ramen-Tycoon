@@ -112,7 +112,11 @@ let game = {
     inv: { ...defaultInv }, upgrades: {}, achievements: [], autoChefSpeedMulti: 1, idxAds: 0,
     servedCount: 0, totalEarned: 0, vipServed: 0, combo: 0, bestCombo: 0,
     rivalsDefeated: 0, eventsTriggered: 0, missionCycle: 0, missions: [],
-    missionStreak: 0, lastMissionReset: Date.now()
+    missionStreak: 0, lastMissionReset: Date.now(),
+    restaurantXp: 0, popularity: 50, dailySpecialIndex: 0,
+    specialEndsAt: Date.now() + 86400000, is3D: true, cameraAngle: 0,
+    nightMode: false, deliveryActive: null, deliveriesCompleted: 0,
+    staffTraining: { waiter: 0, ninja: 0, mascot: 0 }, reviews: []
 };
 
 window.vipPartyActive = 0; 
@@ -133,6 +137,14 @@ const ACHIEVEMENT_DEFINITIONS = [
     { id: 'vip-club', icon: '👑', title: 'VIP Club', description: 'Serve 5 VIPs or critics', check: () => game.vipServed >= 5 },
     { id: 'tycoon', icon: '💎', title: 'True Tycoon', description: 'Earn $100,000 lifetime revenue', check: () => game.totalEarned >= 100000 },
     { id: 'warlord', icon: '⚔️', title: 'Turf Warlord', description: 'Defeat your first rival', check: () => game.rivalsDefeated >= 1 }
+];
+
+const DAILY_SPECIALS = [
+    { name: 'Golden Egg Ramen', icon: '🥚', description: 'Eggs taste legendary today', multiplier: 1.5 },
+    { name: 'Neon Boba Blast', icon: '🧋', description: 'Boba fans pay premium prices', multiplier: 1.35 },
+    { name: 'Chef’s Secret Miso', icon: '🥣', description: 'A cozy bowl for serious foodies', multiplier: 1.25 },
+    { name: 'Dragon Spice Challenge', icon: '🌶️', description: 'Brave guests leave giant tips', multiplier: 1.75 },
+    { name: 'Midnight Tonkotsu', icon: '🌙', description: 'Late-night broth is twice as rich', multiplier: 1.6 }
 ];
 
 function createMissionSet() {
@@ -186,13 +198,23 @@ function normalizeGameState() {
     const numericDefaults = {
         wallet: 150, monkeyMoney: 0, turfMult: 1, tablesOwned: 1,
         idxTable: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxAds: 0,
-        currentMenuPrice: 50, autoChefSpeedMulti: 1
+        currentMenuPrice: 50, autoChefSpeedMulti: 1, restaurantXp: 0,
+        popularity: 50, dailySpecialIndex: 0, specialEndsAt: Date.now() + 86400000,
+        cameraAngle: 0, deliveriesCompleted: 0
     };
     Object.entries(numericDefaults).forEach(([key, fallback]) => {
         if (!Number.isFinite(game[key])) game[key] = fallback;
     });
     game.activeDecor = typeof game.activeDecor === 'string' ? game.activeDecor : 'theme-default';
     game.autoRefill = Boolean(game.autoRefill);
+    game.is3D = game.is3D !== false;
+    game.nightMode = Boolean(game.nightMode);
+    game.popularity = Math.max(0, Math.min(100, game.popularity));
+    game.staffTraining = { waiter: 0, ninja: 0, mascot: 0, ...(game.staffTraining || {}) };
+    game.reviews = Array.isArray(game.reviews) ? game.reviews.slice(0, 6) : [];
+    if (!game.deliveryActive || !Number.isFinite(game.deliveryActive.endsAt) || game.deliveryActive.endsAt <= Date.now()) {
+        game.deliveryActive = null;
+    }
     game.inv = { ...defaultInv, ...(game.inv || {}) };
     game.staff = { waiter: 0, ninja: 0, mascot: 0, ...(game.staff || {}) };
     game.rivals = Array.isArray(game.rivals) && game.rivals.length ? game.rivals : JSON.parse(JSON.stringify(INITIAL_RIVALS));
@@ -205,6 +227,83 @@ function normalizeGameState() {
         game[key] = Number.isFinite(game[key]) ? game[key] : 0;
     });
     if (!Array.isArray(game.missions) || game.missions.length !== 3) game.missions = createMissionSet();
+}
+
+function getRestaurantLevel() {
+    return 1 + Math.floor(Math.sqrt(Math.max(0, game.restaurantXp) / 25));
+}
+
+function gainRestaurantXp(amount) {
+    const oldLevel = getRestaurantLevel();
+    game.restaurantXp += Math.max(0, amount);
+    const newLevel = getRestaurantLevel();
+    if (newLevel > oldLevel) {
+        game.wallet += newLevel * 100;
+        showAchievementToast({ icon: '🏆', title: `Restaurant Level ${newLevel}!` });
+    }
+}
+
+function rotateDailySpecialIfNeeded() {
+    if (Date.now() < game.specialEndsAt) return;
+    game.dailySpecialIndex = (game.dailySpecialIndex + 1) % DAILY_SPECIALS.length;
+    game.specialEndsAt = Date.now() + 86400000;
+    saveGame();
+}
+
+function getDailySpecial() {
+    rotateDailySpecialIfNeeded();
+    return DAILY_SPECIALS[game.dailySpecialIndex] || DAILY_SPECIALS[0];
+}
+
+function getPopularityMultiplier() {
+    return 0.75 + (game.popularity / 200);
+}
+
+function addReview(text, positive = true) {
+    game.reviews.unshift({ text, positive, time: Date.now() });
+    game.reviews = game.reviews.slice(0, 6);
+}
+
+function renderReviewFeed() {
+    const container = document.getElementById('review-feed');
+    if (!container) return;
+    if (!game.reviews.length) {
+        container.innerHTML = '<div class="empty-reviews">Your first guests are still deciding what to write...</div>';
+        return;
+    }
+    container.innerHTML = game.reviews.map(review => `<div class="review-card ${review.positive ? 'positive' : 'negative'}"><span>${review.positive ? '⭐' : '💬'}</span><p>${review.text}</p></div>`).join('');
+}
+
+function renderDeliveryPanel() {
+    const status = document.getElementById('delivery-status');
+    const button = document.getElementById('btn-delivery');
+    if (!status || !button) return;
+    if (game.deliveryActive) {
+        const remaining = Math.max(0, Math.ceil((game.deliveryActive.endsAt - Date.now()) / 1000));
+        status.innerText = `In transit · ${remaining}s`;
+        button.innerText = 'Cooking...';
+        button.disabled = true;
+    } else {
+        status.innerText = `${game.deliveriesCompleted} delivered`;
+        button.innerText = 'Dispatch Order';
+        button.disabled = false;
+    }
+}
+
+function renderRestaurantControls() {
+    const special = getDailySpecial();
+    const specialLabel = document.getElementById('daily-special');
+    const countdown = document.getElementById('special-countdown');
+    const modeButton = document.getElementById('btn-3d');
+    const nightButton = document.getElementById('btn-night');
+    if (specialLabel) specialLabel.innerText = `${special.icon} ${special.name} · ${special.multiplier}x`;
+    if (countdown) countdown.innerText = `${special.description} · ${Math.max(1, Math.ceil((game.specialEndsAt - Date.now()) / 3600000))}h left`;
+    if (modeButton) {
+        modeButton.innerText = game.is3D ? '🏛️ 3D Mode' : '📐 Flat Mode';
+        modeButton.classList.toggle('active', game.is3D);
+    }
+    if (nightButton) nightButton.innerText = game.nightMode ? '☀️ Day Shift' : '🌙 Night Shift';
+    renderDeliveryPanel();
 }
 
 function resetMissionsIfNeeded() {
@@ -290,6 +389,7 @@ function renderMissionsPanel() {
         </div>`;
     }).join('');
     renderAchievementsPanel();
+    renderReviewFeed();
 }
 
 let seats = Array.from({length: 1000}, () => ({ occupied: false, needsMenu: false, isCooking: false, cookStep: 0, needsServing: false, needsToPay: false, patience: 100, charData: null }));
@@ -379,12 +479,12 @@ function collectPayment(index) {
     let seat = seats[index]; if(!seat || !seat.charData) return;
     let mult = seat.charData.isVIP ? 10 : 1;
     if(seat.charData.isCritic) mult *= 25; 
-    if(game.staff.mascot > 0) mult += (game.staff.mascot * 0.5); 
+    if(game.staff.mascot > 0) mult += (game.staff.mascot * 0.5) + ((game.staffTraining.mascot || 0) * 0.25);
     
     game.combo++;
     game.bestCombo = Math.max(game.bestCombo, game.combo);
     const comboMultiplier = 1 + Math.min(game.combo, 10) * 0.05;
-    let finalValue = (game.currentMenuPrice * mult) * getPrestigeMultiplier() * rushMultiplier * comboMultiplier;
+    let finalValue = (game.currentMenuPrice * mult) * getPrestigeMultiplier() * rushMultiplier * comboMultiplier * getDailySpecial().multiplier * getPopularityMultiplier();
     
     if (game.idxRecipe >= 999) finalValue *= 1000000;
     
@@ -392,6 +492,9 @@ function collectPayment(index) {
     game.totalEarned += finalValue;
     game.servedCount++;
     if (seat.charData.isVIP || seat.charData.isCritic) game.vipServed++;
+    game.popularity = Math.min(100, game.popularity + (seat.charData.isVIP ? 1.5 : 0.35));
+    gainRestaurantXp(Math.max(1, Math.ceil(finalValue / 100)));
+    addReview(seat.charData.isCritic ? 'The critic is scribbling notes. That is usually a good sign.' : (seat.charData.isVIP ? 'The VIP is already asking for a second bowl!' : 'Fast service, warm broth, happy guest.'));
     playSound('cash');
     spawnFloatingMoney(finalValue, `seat-${index}`);
 
@@ -437,6 +540,16 @@ setInterval(() => {
     }
 }, 1000);
 
+setInterval(() => {
+    if (game.deliveryActive && Date.now() >= game.deliveryActive.endsAt) {
+        completeDelivery();
+    } else if (game.deliveryActive) {
+        renderDeliveryPanel();
+    }
+    rotateDailySpecialIfNeeded();
+    renderRestaurantControls();
+}, 1000);
+
 // --- PATIENCE DRAIN SYSTEM ---
 setInterval(() => {
     let uiNeedsUpdate = false;
@@ -466,6 +579,8 @@ setInterval(() => {
                 seat.needsToPay = false;
                 seat.patience = 100;
                 game.combo = 0;
+                game.popularity = Math.max(0, game.popularity - 2);
+                addReview('The wait was too long. The guest left before trying the ramen.', false);
                 updateKitchenUI();
             }
         }
@@ -493,7 +608,7 @@ function clickStove(index) {
     let seat = seats[index]; if (!seat || !seat.isCooking) return;
     let msg = document.getElementById('out-of-stock-msg');
     
-    if(seat.cookStep === 0 && game.staff.ninja > 0 && Math.random() < (game.staff.ninja * 0.05)) {
+    if(seat.cookStep === 0 && game.staff.ninja > 0 && Math.random() < ((game.staff.ninja * 0.05) + ((game.staffTraining.ninja || 0) * 0.02))) {
         if(game.inv.noodle<1||game.inv.broth<1||game.inv.spice<1||game.inv.egg<1) { if(msg) msg.classList.remove('hidden'); playSound('error'); return; }
         game.inv.noodle--; game.inv.broth--; game.inv.spice--; game.inv.egg--;
         seat.cookStep = 3; playSound('cook'); finishCooking(index); return;
@@ -550,7 +665,8 @@ function finishCooking(index) {
 
 function getMonkeySpeed() { 
     let baseSpeed = 3000 * Math.pow(0.85, game.idxAuto);
-    let finalSpeed = baseSpeed * (game.autoChefSpeedMulti || 1);
+    let trainingBoost = 1 - Math.min(0.45, (game.staffTraining.waiter || 0) * 0.03);
+    let finalSpeed = baseSpeed * (game.autoChefSpeedMulti || 1) * trainingBoost;
     return Math.max(50, finalSpeed / rushMultiplier); 
 }
 
@@ -615,6 +731,8 @@ function updateUI() {
     if(document.getElementById('star-mult')) document.getElementById('star-mult').innerText = getPrestigeMultiplier().toFixed(1);
     if(document.getElementById('stat-served')) document.getElementById('stat-served').innerText = formatMoney(game.servedCount);
     if(document.getElementById('stat-combo')) document.getElementById('stat-combo').innerText = game.combo;
+    if(document.getElementById('stat-level')) document.getElementById('stat-level').innerText = getRestaurantLevel();
+    if(document.getElementById('stat-popularity')) document.getElementById('stat-popularity').innerText = Math.round(game.popularity);
     
     let currentRecipeName = (game.idxRecipe > 0 && TRACK_RECIPES[game.idxRecipe-1]) ? TRACK_RECIPES[game.idxRecipe-1].name : RAMEN_NAMES[0];
     if(document.getElementById('stat-menu')) document.getElementById('stat-menu').innerText = `${currentRecipeName} ($${formatMoney(game.currentMenuPrice)})`;
@@ -642,6 +760,7 @@ function updateUI() {
     renderPad('pad-wok', TRACK_WOK, game.idxWok, 'buyWok', '🍳 WOK'); 
     renderPad('pad-auto', TRACK_AUTO, game.idxAuto, 'buyAuto', '🐒 MAIN CHEF');
     renderPad('pad-ads', TRACK_ADS, game.idxAds || 0, 'buyAds', '📺 ADVERTISE');
+    renderRestaurantControls();
     renderMissionsPanel();
 }
 
@@ -660,6 +779,24 @@ function updateKitchenUI() {
 }
 
 function buyStaff(id, cost) { if(game.wallet >= cost) { game.wallet -= cost; game.staff[id]++; playSound('cash'); saveGame(); updateUI(); renderStaffPanel(); } }
+
+function trainStaff(id) {
+    const currentLevel = game.staffTraining[id] || 0;
+    const cost = 2500 * (currentLevel + 1);
+    if (game.wallet < cost) {
+        playSound('error');
+        return;
+    }
+    game.wallet -= cost;
+    game.staffTraining[id] = currentLevel + 1;
+    gainRestaurantXp(10);
+    playSound('cash');
+    addReview(`The ${id} team just finished advanced training. Service is getting sharper.`, true);
+    saveGame();
+    updateUI();
+    renderStaffPanel();
+}
+
 function renderStaffPanel() {
     let container = document.getElementById('staff-container');
     if(!container) return;
@@ -667,7 +804,9 @@ function renderStaffPanel() {
     TRACK_STAFF.forEach(s => {
         let cost = s.baseCost * Math.pow(s.mult, game.staff[s.id]);
         let afford = game.wallet >= cost ? "affordable" : "";
-        html += `<button class="tycoon-pad ${afford}" onclick="buyStaff('${s.id}', ${cost})"><b>${s.name}</b><br>Hired: ${game.staff[s.id]}<br>Hire Cost: $${formatMoney(cost)}</button>`;
+        const trainingLevel = game.staffTraining[s.id] || 0;
+        const trainingCost = 2500 * (trainingLevel + 1);
+        html += `<div class="staff-card"><button class="tycoon-pad ${afford}" onclick="buyStaff('${s.id}', ${cost})"><b>${s.name}</b><br>Hired: ${game.staff[s.id]}<br>Hire Cost: $${formatMoney(cost)}</button><button class="training-btn ${game.wallet >= trainingCost ? 'ready' : ''}" onclick="trainStaff('${s.id}')">🎓 Train Lv.${trainingLevel} · $${formatMoney(trainingCost)}</button></div>`;
     });
     container.innerHTML = html;
 }
@@ -699,7 +838,57 @@ function renderTurfPanel() {
 
 function buyDecor(id, cost) { if(game.decorOwned.includes(id)) { game.activeDecor = id; applyTheme(); saveGame(); renderDecorPanel(); } else if(game.wallet >= cost) { game.wallet -= cost; game.decorOwned.push(id); game.activeDecor = id; playSound('cash'); applyTheme(); saveGame(); updateUI(); renderDecorPanel(); } else { playSound('error'); } }
 function renderDecorPanel() { let container = document.getElementById('decor-container'); if(!container) return; let html = ""; TRACK_DECOR.forEach(d => { let isOwned = game.decorOwned.includes(d.id); let isActive = game.activeDecor === d.id; let btnText = isActive ? "EQUIPPED" : (isOwned ? "EQUIP" : `BUY: $${formatMoney(d.cost)}`); let canAfford = game.wallet >= d.cost || isOwned ? "affordable" : ""; html += `<button class="tycoon-pad ${canAfford} ${isActive?'active':''}" style="margin:5px;" onclick="buyDecor('${d.id}', ${d.cost})"><b>${d.name}</b><br>${btnText}</button>`; }); container.innerHTML = html; }
-function applyTheme() { let mc = document.getElementById('main-container'); if(mc) mc.className = "game-container " + game.activeDecor; }
+function applyTheme() {
+    const mc = document.getElementById('main-container');
+    if (!mc) return;
+    mc.className = `game-container ${game.activeDecor} ${game.is3D ? 'three-d-mode' : 'flat-mode'} ${game.nightMode ? 'night-mode' : ''}`;
+    const scene = document.getElementById('restaurant-scene');
+    if (scene) scene.style.setProperty('--camera-angle', `${game.cameraAngle}deg`);
+}
+
+function toggle3DMode() {
+    game.is3D = !game.is3D;
+    applyTheme();
+    renderRestaurantControls();
+    saveGame();
+}
+
+function rotateCamera() {
+    game.cameraAngle = (game.cameraAngle + 15) % 360;
+    applyTheme();
+    saveGame();
+}
+
+function toggleNightMode() {
+    game.nightMode = !game.nightMode;
+    applyTheme();
+    renderRestaurantControls();
+    saveGame();
+}
+
+function startDelivery() {
+    if (game.deliveryActive) return;
+    const reward = Math.ceil(Math.max(150, game.currentMenuPrice * 5) * getDailySpecial().multiplier * getPopularityMultiplier());
+    game.deliveryActive = { endsAt: Date.now() + 15000, reward };
+    playSound('serve');
+    renderDeliveryPanel();
+    saveGame();
+}
+
+function completeDelivery() {
+    if (!game.deliveryActive) return;
+    const reward = game.deliveryActive.reward;
+    game.wallet += reward;
+    game.deliveriesCompleted++;
+    game.popularity = Math.min(100, game.popularity + 1);
+    gainRestaurantXp(15);
+    addReview('A delivery arrived hot, fast, and packed with extra noodles.');
+    showAchievementToast({ icon: '🚚', title: 'Delivery Complete!' });
+    game.deliveryActive = null;
+    playSound('cash');
+    updateUI();
+    saveGame();
+}
 
 function prestigeGame() { 
     if(game.idxRecipe >= 999 && confirm("Sell franchise for Monkey Money? Reset money/upgrades for 50 Monkey Money and a permanent profit multiplier!")) { 

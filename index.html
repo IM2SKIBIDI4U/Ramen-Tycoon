@@ -20,7 +20,8 @@
                 Menu: <b id="stat-menu">Basic Shoyu ($50)</b><br>
                 <span style="color:#f1c40f; font-size:0.9rem;">🐒 Monkey Money: <b id="stat-stars">0</b> (<span id="star-mult">1</span>x Profits)</span><br>
                 <span style="color:#0984e3; font-size:0.9rem;">🗺️ Turf Bonus: <b id="stat-turf">1</b>x</span><br>
-                <span style="color:#8e44ad; font-size:0.9rem;">🍜 Served: <b id="stat-served">0</b> · 🔥 Combo: <b id="stat-combo">0</b></span>
+                <span style="color:#8e44ad; font-size:0.9rem;">🍜 Served: <b id="stat-served">0</b> · 🔥 Combo: <b id="stat-combo">0</b></span><br>
+                <span style="color:#e17055; font-size:0.9rem;">🏆 Lv.<b id="stat-level">1</b> · ⭐ <b id="stat-popularity">50</b>% Popularity</span>
             </div>
         </div>
 
@@ -45,10 +46,43 @@
             <div id="out-of-stock-msg" class="hidden" style="color: #ff4d4d; font-weight: bold; margin-top: 5px;">⚠️ OUT OF STOCK! ⚠️</div>
         </div>
 
+        <div class="restaurant-command-bar glass-panel">
+            <div class="command-group">
+                <span class="command-label">RESTAURANT CONTROL</span>
+                <button class="scene-control active" id="btn-3d" onclick="toggle3DMode()">🏛️ 3D Mode</button>
+                <button class="scene-control" onclick="rotateCamera()">🔄 Rotate Camera</button>
+                <button class="scene-control" id="btn-night" onclick="toggleNightMode()">🌙 Night Shift</button>
+            </div>
+            <div class="special-card">
+                <span>👨‍🍳 TODAY'S SPECIAL</span>
+                <strong id="daily-special">Loading special...</strong>
+                <small id="special-countdown">Rotates soon</small>
+            </div>
+            <div class="delivery-card">
+                <span>🚚 DELIVERY DISPATCH</span>
+                <strong id="delivery-status">Ready for orders</strong>
+                <button class="delivery-btn" id="btn-delivery" onclick="startDelivery()">Dispatch Order</button>
+            </div>
+        </div>
+
         <div class="restaurant-floor glass-panel" id="rest-floor">
             <div id="view-dining" class="view-panel active-view">
-                <div class="outside-queue"><div id="wait-list" class="queue-line"></div><div class="door-frame">🚪 ENTRANCE</div></div>
-                <div id="dining-area"></div>
+                <div class="restaurant-scene" id="restaurant-scene">
+                    <div class="scene-back-wall">
+                        <div class="scene-window"><span>🌆</span><small>MONKEY CITY</small></div>
+                        <div class="neon-sign">RAMEN<br><b>MONKEY</b></div>
+                        <div class="wall-lamp lamp-left">💡</div>
+                        <div class="wall-lamp lamp-right">💡</div>
+                    </div>
+                    <div class="scene-counter"><span>🍜 OPEN KITCHEN</span><b>CHEF'S COUNTER</b></div>
+                    <div class="scene-plant plant-left">🌿</div>
+                    <div class="scene-plant plant-right">🌿</div>
+                    <div class="scene-floor">
+                        <div class="outside-queue"><div id="wait-list" class="queue-line"></div><div class="door-frame">🚪 ENTRANCE</div></div>
+                        <div id="dining-area"></div>
+                    </div>
+                    <div class="scene-light-pool"></div>
+                </div>
             </div>
 
             <div id="view-kitchen" class="view-panel hidden-view kitchen-bg">
@@ -93,6 +127,8 @@
                 <div id="mission-container" class="mission-grid"></div>
                 <h3 class="section-label">Restaurant Hall of Fame</h3>
                 <div id="achievements-container" class="achievement-grid"></div>
+                <h3 class="section-label">🗣️ Guest Reviews</h3>
+                <div id="review-feed" class="review-feed"></div>
             </div>
         </div>
 
@@ -139,7 +175,7 @@
         <button class="reset-btn matrix-text" style="color: #ff4d4d; margin-top: 15px;" onclick="document.getElementById('admin-panel').classList.add('hidden')">[ CLOSE TERMINAL ]</button>
     </div>
 
-    <script src="script.js?v=3"></script>
+    <script src="script.js?v=4"></script>
     <div id="achieve-toast" class="hidden-toast">
     🏆 <b id="achieve-name">Achievement Unlocked!</b>
     </div>

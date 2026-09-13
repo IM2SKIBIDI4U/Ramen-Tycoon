@@ -19,7 +19,8 @@
             <div class="stats-box">
                 Menu: <b id="stat-menu">Basic Shoyu ($50)</b><br>
                 <span style="color:#f1c40f; font-size:0.9rem;">🐒 Monkey Money: <b id="stat-stars">0</b> (<span id="star-mult">1</span>x Profits)</span><br>
-                <span style="color:#0984e3; font-size:0.9rem;">🗺️ Turf Bonus: <b id="stat-turf">1</b>x</span>
+                <span style="color:#0984e3; font-size:0.9rem;">🗺️ Turf Bonus: <b id="stat-turf">1</b>x</span><br>
+                <span style="color:#8e44ad; font-size:0.9rem;">🍜 Served: <b id="stat-served">0</b> · 🔥 Combo: <b id="stat-combo">0</b></span>
             </div>
         </div>
 
@@ -29,6 +30,7 @@
             <button class="tab-btn" id="btn-staff" onclick="switchTab('staff')">🐒 Staff</button>
             <button class="tab-btn" id="btn-map" onclick="switchTab('map')">🗺️ Turf Wars</button>
             <button class="tab-btn" id="btn-decor" onclick="switchTab('decor')">🎨 Decor</button>
+            <button class="tab-btn" id="btn-missions" onclick="switchTab('missions')">🎯 Missions</button>
         </div>
 
         <div class="pantry-panel glass-panel">
@@ -69,6 +71,29 @@
                 <h2>🎨 Restaurant Themes</h2>
                 <div class="pad-container" id="decor-container"></div>
             </div>
+
+            <div id="view-missions" class="view-panel hidden-view missions-view">
+                <div class="missions-header">
+                    <div>
+                        <h2>🎯 Monkey Business HQ</h2>
+                        <p>Complete contracts, build your streak, and unlock permanent bragging rights.</p>
+                    </div>
+                    <div class="mission-streak">
+                        <span>DAILY STREAK</span>
+                        <strong id="mission-streak">0</strong>
+                        <small>contracts completed</small>
+                    </div>
+                </div>
+                <div class="mission-stats">
+                    <div><span>🍜 Bowls Served</span><b id="mission-served">0</b></div>
+                    <div><span>💰 Lifetime Revenue</span><b id="mission-revenue">$0</b></div>
+                    <div><span>👑 Best Combo</span><b id="mission-best-combo">0</b></div>
+                </div>
+                <h3 class="section-label">Active Contracts</h3>
+                <div id="mission-container" class="mission-grid"></div>
+                <h3 class="section-label">Restaurant Hall of Fame</h3>
+                <div id="achievements-container" class="achievement-grid"></div>
+            </div>
         </div>
 
         <div class="tycoon-section glass-panel">
@@ -81,6 +106,7 @@
                 <div id="pad-ads" class="pad-slot"></div>
             </div>
             <button class="modern-btn prestige-btn" id="btn-prestige" onclick="prestigeGame()">🌟 Claim Monkey Money (Req: $1 Trillion)</button>
+            <button class="modern-btn black-market-btn" onclick="openBlackMarket()">🕵️ Visit the Black Market</button>
             <button class="reset-btn" onclick="resetGame()">Hard Reset Data</button>
         </div>
     </div>
@@ -113,7 +139,7 @@
         <button class="reset-btn matrix-text" style="color: #ff4d4d; margin-top: 15px;" onclick="document.getElementById('admin-panel').classList.add('hidden')">[ CLOSE TERMINAL ]</button>
     </div>
 
-    <script src="script.js?v=2"></script>
+    <script src="script.js?v=3"></script>
     <div id="achieve-toast" class="hidden-toast">
     🏆 <b id="achieve-name">Achievement Unlocked!</b>
     </div>

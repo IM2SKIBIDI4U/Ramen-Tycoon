@@ -11,8 +11,8 @@ h1 { font-weight: 900; margin: 0 0 20px 0; font-size: 2.5rem; text-shadow: 2px 2
 .stats-box { text-align: right; background: rgba(0,0,0,0.03); padding: 10px 15px; border-radius: 12px; }
 
 /* Tabs */
-.tab-nav { display: flex; gap: 10px; margin-bottom: 10px; }
-.tab-btn { flex: 1; padding: 12px; font-size: 1.1rem; font-family: 'Nunito', sans-serif; font-weight: 800; border: none; border-radius: 12px; background: rgba(0,0,0,0.05); cursor: pointer; transition: 0.3s; color: var(--text); }
+.tab-nav { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+.tab-btn { flex: 1 1 120px; min-width: 120px; padding: 12px 8px; font-size: 1.1rem; font-family: 'Nunito', sans-serif; font-weight: 800; border: none; border-radius: 12px; background: rgba(0,0,0,0.05); cursor: pointer; transition: 0.3s; color: var(--text); }
 .tab-btn:hover { background: rgba(0,0,0,0.1); transform: translateY(-2px); }
 .tab-btn.active { background: var(--primary); color: white; box-shadow: 0 5px 15px rgba(9, 132, 227, 0.4); }
 .view-panel { display: none; height: 500px; overflow-y: auto; border-radius: 12px; position: relative; animation: fadeIn 0.3s ease-in-out; }
@@ -202,4 +202,260 @@ h1 { font-weight: 900; margin: 0 0 20px 0; font-size: 2.5rem; text-shadow: 2px 2
 .hidden-toast {
     opacity: 0 !important;
     pointer-events: none;
+}
+
+/* --- EXPANSION: MISSIONS & EVENTS --- */
+.event-toast {
+    position: fixed;
+    top: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #2d3436;
+    color: #fff;
+    padding: 12px 22px;
+    border-radius: 999px;
+    font-weight: 900;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.22);
+    z-index: 10001;
+    animation: toastIn 0.3s ease-out;
+}
+
+.black-market-btn {
+    margin-top: 12px;
+    background: #6c5ce7;
+    box-shadow: 0 6px 0 #4834d4;
+}
+
+.missions-view {
+    padding: 24px;
+    background: linear-gradient(145deg, rgba(108,92,231,0.08), rgba(0,184,148,0.08));
+}
+
+.missions-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    align-items: center;
+    text-align: left;
+}
+
+.missions-header h2 {
+    margin: 0 0 5px;
+}
+
+.missions-header p {
+    margin: 0;
+    color: #636e72;
+}
+
+.mission-streak {
+    min-width: 120px;
+    padding: 12px;
+    text-align: center;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #fdcb6e, #e17055);
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(225,112,85,0.22);
+}
+
+.mission-streak span,
+.mission-streak small {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 900;
+}
+
+.mission-streak strong {
+    display: block;
+    font-size: 2rem;
+    line-height: 1.1;
+}
+
+.mission-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 22px 0;
+}
+
+.mission-stats > div {
+    padding: 13px;
+    text-align: left;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.78);
+    border: 1px solid rgba(0,0,0,0.06);
+}
+
+.mission-stats span,
+.mission-stats b {
+    display: block;
+}
+
+.mission-stats span {
+    color: #636e72;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.mission-stats b {
+    margin-top: 4px;
+    font-size: 1.3rem;
+}
+
+.section-label {
+    margin: 20px 0 10px;
+    text-align: left;
+}
+
+.mission-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.mission-card {
+    padding: 14px;
+    text-align: left;
+    background: rgba(255,255,255,0.92);
+    border: 1px solid rgba(108,92,231,0.16);
+    border-radius: 14px;
+    box-shadow: 0 7px 18px rgba(0,0,0,0.06);
+}
+
+.mission-card.claimed {
+    opacity: 0.65;
+    filter: saturate(0.65);
+}
+
+.mission-card-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    min-height: 52px;
+}
+
+.mission-icon {
+    font-size: 1.8rem;
+}
+
+.mission-card-top b,
+.mission-card-top small {
+    display: block;
+}
+
+.mission-card-top b {
+    font-size: 1rem;
+}
+
+.mission-card-top small {
+    margin-top: 3px;
+    color: #636e72;
+    font-size: 0.78rem;
+}
+
+.mission-progress {
+    height: 9px;
+    margin: 16px 0 8px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #dfe6e9;
+}
+
+.mission-progress div {
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #6c5ce7, #00b894);
+    transition: width 0.3s ease;
+}
+
+.mission-card-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.78rem;
+    font-weight: 900;
+}
+
+.mission-claim {
+    border: 0;
+    border-radius: 7px;
+    padding: 7px 9px;
+    color: #636e72;
+    background: #dfe6e9;
+    font-size: 0.68rem;
+    font-weight: 900;
+}
+
+.mission-claim.ready {
+    color: #fff;
+    background: #00b894;
+    cursor: pointer;
+    box-shadow: 0 3px 0 #008f72;
+}
+
+.mission-reward {
+    margin-top: 10px;
+    color: #b7791f;
+    font-size: 0.78rem;
+}
+
+.achievement-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 9px;
+    padding-bottom: 10px;
+}
+
+.achievement-card {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 10px;
+    text-align: left;
+    color: #b2bec3;
+    background: rgba(255,255,255,0.65);
+    border-radius: 10px;
+}
+
+.achievement-card.unlocked {
+    color: #2d3436;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+
+.achievement-icon {
+    font-size: 1.35rem;
+}
+
+.achievement-card b,
+.achievement-card small {
+    display: block;
+}
+
+.achievement-card small {
+    margin-top: 2px;
+    font-size: 0.7rem;
+}
+
+@keyframes toastIn {
+    from { opacity: 0; transform: translate(-50%, -12px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.golden-macaque {
+    border: 0;
+    background: transparent;
+    line-height: 1;
+    text-shadow: 0 4px 0 rgba(0,0,0,0.12);
+}
+
+@media (max-width: 760px) {
+    .tab-nav { flex-wrap: wrap; }
+    .tab-btn { min-width: calc(33.333% - 7px); }
+    .missions-header { align-items: stretch; flex-direction: column; }
+    .mission-streak { align-self: flex-start; }
+    .mission-grid,
+    .achievement-grid { grid-template-columns: 1fr; }
+    .mission-stats { grid-template-columns: 1fr; }
 }

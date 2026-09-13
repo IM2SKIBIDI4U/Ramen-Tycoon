@@ -109,10 +109,50 @@ let game = {
     tablesOwned: 1, idxTable: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxSpecial: 0, currentMenuPrice: 50,
     activeDecor: 'theme-default', decorOwned: ['theme-default'], autoRefill: false,
     staff: { waiter: 0, ninja: 0, mascot: 0 }, rivals: JSON.parse(JSON.stringify(INITIAL_RIVALS)),
-    inv: { ...defaultInv }, upgrades: {}, achievements: [], autoChefSpeedMulti: 1, idxAds: 0
+    inv: { ...defaultInv }, upgrades: {}, achievements: [], autoChefSpeedMulti: 1, idxAds: 0,
+    servedCount: 0, totalEarned: 0, vipServed: 0, combo: 0, bestCombo: 0,
+    rivalsDefeated: 0, eventsTriggered: 0, missionCycle: 0, missions: [],
+    missionStreak: 0, lastMissionReset: Date.now()
 };
 
 window.vipPartyActive = 0; 
+
+const MISSION_DEFINITIONS = [
+    { id: 'serve', icon: '🍜', title: 'Bowl Rush', description: 'Serve hungry customers', type: 'servedCount', baseTarget: 5, reward: 250 },
+    { id: 'revenue', icon: '💰', title: 'Stack the Cash', description: 'Earn restaurant revenue', type: 'totalEarned', baseTarget: 500, reward: 400 },
+    { id: 'vip', icon: '👑', title: 'VIP Treatment', description: 'Serve VIP or critic customers', type: 'vipServed', baseTarget: 1, reward: 750 },
+    { id: 'combo', icon: '🔥', title: 'Perfect Service', description: 'Build a payment combo', type: 'bestCombo', baseTarget: 5, reward: 650 },
+    { id: 'rivals', icon: '⚔️', title: 'Market Takeover', description: 'Defeat rival restaurants', type: 'rivalsDefeated', baseTarget: 1, reward: 1000 },
+    { id: 'events', icon: '⚡', title: 'Chaos Coordinator', description: 'Trigger special events', type: 'eventsTriggered', baseTarget: 2, reward: 500 }
+];
+
+const ACHIEVEMENT_DEFINITIONS = [
+    { id: 'first-bowl', icon: '🥢', title: 'First Bowl', description: 'Serve your first customer', check: () => game.servedCount >= 1 },
+    { id: 'busy-kitchen', icon: '🍥', title: 'Busy Kitchen', description: 'Serve 25 customers', check: () => game.servedCount >= 25 },
+    { id: 'combo-master', icon: '🔥', title: 'Combo Master', description: 'Reach a 10 bowl combo', check: () => game.bestCombo >= 10 },
+    { id: 'vip-club', icon: '👑', title: 'VIP Club', description: 'Serve 5 VIPs or critics', check: () => game.vipServed >= 5 },
+    { id: 'tycoon', icon: '💎', title: 'True Tycoon', description: 'Earn $100,000 lifetime revenue', check: () => game.totalEarned >= 100000 },
+    { id: 'warlord', icon: '⚔️', title: 'Turf Warlord', description: 'Defeat your first rival', check: () => game.rivalsDefeated >= 1 }
+];
+
+function createMissionSet() {
+    const cycle = game.missionCycle || 0;
+    const start = cycle % MISSION_DEFINITIONS.length;
+    return [0, 1, 2].map((offset) => {
+        const definition = MISSION_DEFINITIONS[(start + offset) % MISSION_DEFINITIONS.length];
+        const scale = 1 + Math.floor(cycle / 3) * 0.25;
+        return {
+            id: `${definition.id}-${cycle}`,
+            title: definition.title,
+            icon: definition.icon,
+            description: definition.description,
+            type: definition.type,
+            target: Math.ceil(definition.baseTarget * scale),
+            reward: Math.ceil(definition.reward * scale),
+            claimed: false
+        };
+    });
+}
 
 const charColors = { skin: ["#ffdbac", "#f1c27d", "#e0ac69", "#8d5524", "#4a3219"], hair: ["#090806", "#4a2511", "#b7a69e", "#d6c4c2", "#e25822"], shirt: ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6"], pants: ["#2980b9", "#2c3e50", "#7f8c8d"] };
 
@@ -142,10 +182,120 @@ function renderCharHTML(c) {
     return `<div class="rpg-char${vipClass}" style="--skin:${c.skin}; --hair:${c.hair}; --shirt:${c.isVIP?'#f1c40f':c.shirt}; --pants:${c.pants};">${crown}${critic}${boba}<div class="rpg-head"><div class="rpg-hair"></div><div class="rpg-eyes"><div class="rpg-eye"></div><div class="rpg-eye"></div></div></div><div class="rpg-body"></div><div class="rpg-legs"><div class="rpg-leg"></div><div class="rpg-leg"></div></div></div>`; 
 }
 
+function normalizeGameState() {
+    const numericDefaults = {
+        wallet: 150, monkeyMoney: 0, turfMult: 1, tablesOwned: 1,
+        idxTable: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxAds: 0,
+        currentMenuPrice: 50, autoChefSpeedMulti: 1
+    };
+    Object.entries(numericDefaults).forEach(([key, fallback]) => {
+        if (!Number.isFinite(game[key])) game[key] = fallback;
+    });
+    game.activeDecor = typeof game.activeDecor === 'string' ? game.activeDecor : 'theme-default';
+    game.autoRefill = Boolean(game.autoRefill);
+    game.inv = { ...defaultInv, ...(game.inv || {}) };
+    game.staff = { waiter: 0, ninja: 0, mascot: 0, ...(game.staff || {}) };
+    game.rivals = Array.isArray(game.rivals) && game.rivals.length ? game.rivals : JSON.parse(JSON.stringify(INITIAL_RIVALS));
+    game.decorOwned = Array.isArray(game.decorOwned) && game.decorOwned.length ? game.decorOwned : ['theme-default'];
+    game.achievements = Array.isArray(game.achievements) ? game.achievements : [];
+    game.missionCycle = Number.isFinite(game.missionCycle) ? game.missionCycle : 0;
+    game.missionStreak = Number.isFinite(game.missionStreak) ? game.missionStreak : 0;
+    game.lastMissionReset = Number.isFinite(game.lastMissionReset) ? game.lastMissionReset : Date.now();
+    ['servedCount', 'totalEarned', 'vipServed', 'combo', 'bestCombo', 'rivalsDefeated', 'eventsTriggered'].forEach((key) => {
+        game[key] = Number.isFinite(game[key]) ? game[key] : 0;
+    });
+    if (!Array.isArray(game.missions) || game.missions.length !== 3) game.missions = createMissionSet();
+}
+
+function resetMissionsIfNeeded() {
+    if (Date.now() - game.lastMissionReset < 86400000) return;
+    game.missionCycle++;
+    game.missionStreak = 0;
+    game.lastMissionReset = Date.now();
+    game.missions = createMissionSet();
+    saveGame();
+}
+
+function getMissionProgress(mission) {
+    return Math.min(mission.target, Number(game[mission.type] || 0));
+}
+
+function showAchievementToast(achievement) {
+    const toast = document.getElementById('achieve-toast');
+    const name = document.getElementById('achieve-name');
+    if (!toast || !name) return;
+    name.innerText = `${achievement.icon} ${achievement.title}`;
+    toast.classList.remove('hidden-toast');
+    clearTimeout(window.achievementToastTimeout);
+    window.achievementToastTimeout = setTimeout(() => toast.classList.add('hidden-toast'), 4500);
+}
+
+function checkAchievements() {
+    ACHIEVEMENT_DEFINITIONS.forEach((achievement) => {
+        if (!game.achievements.includes(achievement.id) && achievement.check()) {
+            game.achievements.push(achievement.id);
+            game.monkeyMoney += 1;
+            showAchievementToast(achievement);
+            spawnFloatingMoney('+1 Monkey Money', 'money', '#f1c40f');
+        }
+    });
+}
+
+function claimMission(index) {
+    const mission = game.missions[index];
+    if (!mission || mission.claimed || getMissionProgress(mission) < mission.target) return;
+    mission.claimed = true;
+    game.wallet += mission.reward;
+    game.missionStreak++;
+    playSound('cash');
+    showAchievementToast({ icon: '🎯', title: `${mission.title} Complete` });
+    updateUI();
+    saveGame();
+}
+
+function renderAchievementsPanel() {
+    const container = document.getElementById('achievements-container');
+    if (!container) return;
+    container.innerHTML = ACHIEVEMENT_DEFINITIONS.map((achievement) => {
+        const unlocked = game.achievements.includes(achievement.id);
+        return `<div class="achievement-card ${unlocked ? 'unlocked' : ''}">
+            <span class="achievement-icon">${unlocked ? achievement.icon : '🔒'}</span>
+            <div><b>${achievement.title}</b><small>${achievement.description}</small></div>
+        </div>`;
+    }).join('');
+}
+
+function renderMissionsPanel() {
+    resetMissionsIfNeeded();
+    const container = document.getElementById('mission-container');
+    if (!container) return;
+    const streak = document.getElementById('mission-streak');
+    const served = document.getElementById('mission-served');
+    const revenue = document.getElementById('mission-revenue');
+    const bestCombo = document.getElementById('mission-best-combo');
+    if (streak) streak.innerText = game.missionStreak;
+    if (served) served.innerText = formatMoney(game.servedCount);
+    if (revenue) revenue.innerText = `$${formatMoney(game.totalEarned)}`;
+    if (bestCombo) bestCombo.innerText = game.bestCombo;
+    container.innerHTML = game.missions.map((mission, index) => {
+        const progress = getMissionProgress(mission);
+        const percent = Math.min(100, (progress / mission.target) * 100);
+        const complete = progress >= mission.target;
+        const buttonText = mission.claimed ? 'CLAIMED' : (complete ? 'CLAIM REWARD' : 'IN PROGRESS');
+        return `<div class="mission-card ${mission.claimed ? 'claimed' : ''}">
+            <div class="mission-card-top"><span class="mission-icon">${mission.icon}</span><div><b>${mission.title}</b><small>${mission.description}</small></div></div>
+            <div class="mission-progress"><div style="width:${percent}%"></div></div>
+            <div class="mission-card-bottom"><span>${formatMoney(progress)} / ${formatMoney(mission.target)}</span><button class="mission-claim ${complete && !mission.claimed ? 'ready' : ''}" onclick="claimMission(${index})" ${complete && !mission.claimed ? '' : 'disabled'}>${buttonText}</button></div>
+            <div class="mission-reward">Reward: <strong>$${formatMoney(mission.reward)}</strong></div>
+        </div>`;
+    }).join('');
+    renderAchievementsPanel();
+}
+
 let seats = Array.from({length: 1000}, () => ({ occupied: false, needsMenu: false, isCooking: false, cookStep: 0, needsServing: false, needsToPay: false, patience: 100, charData: null }));
 let waitList = []; let isRushHour = false; let rushMultiplier = 1;
 
-function switchTab(tab) { document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active-view')); document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); document.getElementById(`view-${tab}`).classList.add('active-view'); document.getElementById(`btn-${tab}`).classList.add('active'); if(tab==='decor') renderDecorPanel(); if(tab==='staff') renderStaffPanel(); if(tab==='map') renderTurfPanel(); }
+function switchTab(tab) { document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active-view')); document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); document.getElementById(`view-${tab}`).classList.add('active-view'); document.getElementById(`btn-${tab}`).classList.add('active'); if(tab==='decor') renderDecorPanel(); if(tab==='staff') renderStaffPanel(); if(tab==='map') renderTurfPanel(); if(tab==='missions') renderMissionsPanel(); }
 
 function initTables() { let d = document.getElementById('dining-area'); if(d && d.children.length === 0) { for(let i=0; i<1000; i++) { let div = document.createElement('div'); div.id = `seat-${i}`; div.className = 'seat locked'; d.appendChild(div); } } }
 
@@ -231,11 +381,17 @@ function collectPayment(index) {
     if(seat.charData.isCritic) mult *= 25; 
     if(game.staff.mascot > 0) mult += (game.staff.mascot * 0.5); 
     
-    let finalValue = (game.currentMenuPrice * mult) * getPrestigeMultiplier() * rushMultiplier;
+    game.combo++;
+    game.bestCombo = Math.max(game.bestCombo, game.combo);
+    const comboMultiplier = 1 + Math.min(game.combo, 10) * 0.05;
+    let finalValue = (game.currentMenuPrice * mult) * getPrestigeMultiplier() * rushMultiplier * comboMultiplier;
     
     if (game.idxRecipe >= 999) finalValue *= 1000000;
     
     game.wallet += finalValue;
+    game.totalEarned += finalValue;
+    game.servedCount++;
+    if (seat.charData.isVIP || seat.charData.isCritic) game.vipServed++;
     playSound('cash');
     spawnFloatingMoney(finalValue, `seat-${index}`);
 
@@ -248,6 +404,7 @@ function collectPayment(index) {
     seat.needsToPay = false;
     seat.patience = 100;
 
+    checkAchievements();
     saveGame(); 
     updateUI();
 }
@@ -308,6 +465,7 @@ setInterval(() => {
                 seat.needsServing = false;
                 seat.needsToPay = false;
                 seat.patience = 100;
+                game.combo = 0;
                 updateKitchenUI();
             }
         }
@@ -455,6 +613,8 @@ function updateUI() {
     if(document.getElementById('stat-stars')) document.getElementById('stat-stars').innerText = game.monkeyMoney; 
     if(document.getElementById('stat-turf')) document.getElementById('stat-turf').innerText = game.turfMult.toFixed(1);
     if(document.getElementById('star-mult')) document.getElementById('star-mult').innerText = getPrestigeMultiplier().toFixed(1);
+    if(document.getElementById('stat-served')) document.getElementById('stat-served').innerText = formatMoney(game.servedCount);
+    if(document.getElementById('stat-combo')) document.getElementById('stat-combo').innerText = game.combo;
     
     let currentRecipeName = (game.idxRecipe > 0 && TRACK_RECIPES[game.idxRecipe-1]) ? TRACK_RECIPES[game.idxRecipe-1].name : RAMEN_NAMES[0];
     if(document.getElementById('stat-menu')) document.getElementById('stat-menu').innerText = `${currentRecipeName} ($${formatMoney(game.currentMenuPrice)})`;
@@ -482,6 +642,7 @@ function updateUI() {
     renderPad('pad-wok', TRACK_WOK, game.idxWok, 'buyWok', '🍳 WOK'); 
     renderPad('pad-auto', TRACK_AUTO, game.idxAuto, 'buyAuto', '🐒 MAIN CHEF');
     renderPad('pad-ads', TRACK_ADS, game.idxAds || 0, 'buyAds', '📺 ADVERTISE');
+    renderMissionsPanel();
 }
 
 function updateKitchenUI() {
@@ -517,7 +678,7 @@ function attackRival(idx) {
         game.wallet -= rival.cost;
         rival.hp -= Math.max(1, rival.maxHp * 0.1); 
         playSound('cook');
-        if(rival.hp <= 0) { rival.hp = 0; game.turfMult += rival.multReward; playSound('cash'); alert(`DEFEATED ${rival.name}! Global Profit Multiplier increased by +${rival.multReward}x!`); }
+        if(rival.hp <= 0) { rival.hp = 0; game.turfMult += rival.multReward; game.rivalsDefeated++; checkAchievements(); playSound('cash'); alert(`DEFEATED ${rival.name}! Global Profit Multiplier increased by +${rival.multReward}x!`); }
         saveGame(); updateUI(); renderTurfPanel();
     } else { playSound('error'); }
 }
@@ -569,6 +730,8 @@ function openBlackMarket() {
 let rushTimeout;
 function triggerEvent(type) {
     const toast = document.getElementById('event-toast');
+    game.eventsTriggered++;
+    checkAchievements();
 
     if (type === 'rush') {
         isRushHour = true;
@@ -620,6 +783,43 @@ function closeAdmin() {
     if (adminPanel) adminPanel.classList.add('hidden');
 }
 
+let goldenMonkeyTimer;
+function scheduleGoldenMonkey() {
+    clearTimeout(goldenMonkeyTimer);
+    goldenMonkeyTimer = setTimeout(() => {
+        spawnGoldenMonkey();
+        scheduleGoldenMonkey();
+    }, 25000 + Math.random() * 25000);
+}
+
+function spawnGoldenMonkey() {
+    if (document.querySelector('.golden-macaque')) return;
+    const monkey = document.createElement('button');
+    monkey.className = 'golden-macaque';
+    monkey.type = 'button';
+    monkey.innerText = '🐒';
+    monkey.title = 'Click for a golden bonus!';
+    monkey.setAttribute('aria-label', 'Collect the golden monkey bonus');
+    monkey.onclick = () => claimGoldenMonkey(monkey);
+    document.body.appendChild(monkey);
+    setTimeout(() => monkey.remove(), 12000);
+}
+
+function claimGoldenMonkey(monkey) {
+    if (!monkey || !monkey.isConnected) return;
+    const reward = Math.max(250, game.currentMenuPrice * 20) * getPrestigeMultiplier();
+    game.wallet += reward;
+    game.monkeyMoney++;
+    game.eventsTriggered++;
+    window.vipPartyActive += 5;
+    monkey.remove();
+    showAchievementToast({ icon: '🌟', title: 'Golden Monkey Found!' });
+    spawnFloatingMoney(`+$${formatMoney(reward)} +1 MM`, 'money', '#f1c40f');
+    checkAchievements();
+    updateUI();
+    saveGame();
+}
+
 let typed = ""; document.addEventListener('keydown', (e) => { typed += e.key.toLowerCase(); if (typed.endsWith("idk")) { let ap = document.getElementById('admin-panel'); if(ap) ap.classList.remove('hidden'); typed = ""; } if (typed.length > 20) typed = typed.slice(-20); });
 function cheatMoney(amt) { game.wallet += amt; saveGame(); updateUI(); }
 function setCustomMoney() { let val = parseFloat(document.getElementById('custom-money').value); if(!isNaN(val)) { game.wallet = val; saveGame(); updateUI(); } }
@@ -642,14 +842,20 @@ function adminMaxEverything() {
 }
 
 function saveGame() {
+    game.lastSaveTime = Date.now();
     localStorage.setItem('RamenUltimateData', JSON.stringify(game));
 }
 
 function loadGame() {
     let saved = localStorage.getItem('RamenUltimateData');
     if (saved) {
-        let parsed = JSON.parse(saved);
-        game = Object.assign(game, parsed);
+        try {
+            let parsed = JSON.parse(saved);
+            game = Object.assign(game, parsed);
+        } catch (error) {
+            localStorage.removeItem('RamenUltimateData');
+            console.warn('Saved game was invalid. Starting a fresh restaurant.', error);
+        }
 
         let now = Date.now();
         let timeDiff = now - (game.lastSaveTime || now);
@@ -662,6 +868,8 @@ function loadGame() {
         }
         game.lastSaveTime = now;
     }
+    normalizeGameState();
+    resetMissionsIfNeeded();
 }
 
 function closeOfflineModal() {
@@ -675,9 +883,11 @@ function closeOfflineModal() {
 // --- BOOT UP THE GAME ---
 window.onload = () => {
     loadGame();          
+    applyTheme();
     initTables();        
     updateUI();          
     updateKitchenUI();   
     customerArrives();   
     runMonkeyLoop(); 
+    scheduleGoldenMonkey();
 };

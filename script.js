@@ -566,6 +566,60 @@ function openBlackMarket() {
     }
 }
 
+let rushTimeout;
+function triggerEvent(type) {
+    const toast = document.getElementById('event-toast');
+
+    if (type === 'rush') {
+        isRushHour = true;
+        rushMultiplier = 2;
+        if (toast) {
+            toast.innerText = '🚨 RUSH HOUR! Profits and customer speed doubled for 30 seconds! 🚨';
+            toast.classList.remove('hidden');
+        }
+        clearTimeout(rushTimeout);
+        rushTimeout = setTimeout(() => {
+            isRushHour = false;
+            rushMultiplier = 1;
+            if (toast) toast.classList.add('hidden');
+        }, 30000);
+    } else if (type === 'health') {
+        const fine = Math.min(game.wallet, 10000);
+        game.wallet -= fine;
+        if (toast) {
+            toast.innerText = `🧾 HEALTH INSPECTOR FINE: -$${formatMoney(fine)}`;
+            toast.classList.remove('hidden');
+            clearTimeout(rushTimeout);
+            rushTimeout = setTimeout(() => toast.classList.add('hidden'), 4000);
+        }
+        playSound('error');
+        updateUI();
+        saveGame();
+    }
+}
+
+function nukeRivals() {
+    if (!confirm('Defeat every rival and claim all remaining turf bonuses?')) return;
+
+    let bonus = 0;
+    game.rivals.forEach(rival => {
+        if (rival.hp > 0) {
+            rival.hp = 0;
+            bonus += rival.multReward;
+        }
+    });
+    game.turfMult += bonus;
+    playSound('cash');
+    saveGame();
+    updateUI();
+    renderTurfPanel();
+}
+
+function closeAdmin() {
+    const adminPanel = document.getElementById('admin-panel');
+    if (adminPanel) adminPanel.classList.add('hidden');
+}
+
 let typed = ""; document.addEventListener('keydown', (e) => { typed += e.key.toLowerCase(); if (typed.endsWith("idk")) { let ap = document.getElementById('admin-panel'); if(ap) ap.classList.remove('hidden'); typed = ""; } if (typed.length > 20) typed = typed.slice(-20); });
 function cheatMoney(amt) { game.wallet += amt; saveGame(); updateUI(); }
 function setCustomMoney() { let val = parseFloat(document.getElementById('custom-money').value); if(!isNaN(val)) { game.wallet = val; saveGame(); updateUI(); } }

@@ -110,10 +110,10 @@
             <button class="god-btn" onclick="triggerEvent('health')">Force Health Inspector</button>
             <button class="god-btn" style="color: #e74c3c; border-color: #e74c3c;" onclick="nukeRivals()">Nuke All Rivals</button>
         </div>
-        <button class="reset-btn matrix-text" style="color: #ff4d4d; margin-top: 15px;" onclick="closeAdmin()">[ CLOSE TERMINAL ]</button>
+        <button class="reset-btn matrix-text" style="color: #ff4d4d; margin-top: 15px;" onclick="document.getElementById('admin-panel').classList.add('hidden')">[ CLOSE TERMINAL ]</button>
     </div>
 
-    <script src="script.js"></script>
+    <script src="script.js?v=2"></script>
     <div id="achieve-toast" class="hidden-toast">
     🏆 <b id="achieve-name">Achievement Unlocked!</b>
     </div>

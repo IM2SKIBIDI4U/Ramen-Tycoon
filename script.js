@@ -395,6 +395,255 @@ function renderMissionsPanel() {
 let seats = Array.from({length: 1000}, () => ({ occupied: false, needsMenu: false, isCooking: false, cookStep: 0, needsServing: false, needsToPay: false, patience: 100, charData: null }));
 let waitList = []; let isRushHour = false; let rushMultiplier = 1;
 
+const FPS_MAP = [
+    '################',
+    '#..............#',
+    '#..#.....#.....#',
+    '#..............#',
+    '#.....##.......#',
+    '#..............#',
+    '#..#........#..#',
+    '#..............#',
+    '#..............#',
+    '################'
+];
+const FPS_TABLE_POSITIONS = [
+    { x: 4.5, y: 3.5 }, { x: 8.5, y: 3.5 }, { x: 11.5, y: 3.5 },
+    { x: 4.5, y: 6.5 }, { x: 8.5, y: 6.5 }, { x: 11.5, y: 6.5 }
+];
+const FPS_FOV = Math.PI / 3;
+let fpsOpen = false;
+let fpsAnimationFrame = null;
+let fpsLastFrame = 0;
+let fpsKeys = {};
+let fpsPlayer = { x: 2.5, y: 8, angle: -Math.PI / 2 };
+let fpsCanvas = null;
+let fpsContext = null;
+
+function normalizeFpsAngle(angle) {
+    while (angle > Math.PI) angle -= Math.PI * 2;
+    while (angle < -Math.PI) angle += Math.PI * 2;
+    return angle;
+}
+
+function isFpsWall(x, y) {
+    const row = FPS_MAP[Math.floor(y)];
+    return !row || row[Math.floor(x)] === '#';
+}
+
+function resizeFpsCanvas() {
+    if (!fpsCanvas) return;
+    const scale = Math.min(window.devicePixelRatio || 1, 2);
+    fpsCanvas.width = Math.floor(window.innerWidth * scale);
+    fpsCanvas.height = Math.floor(window.innerHeight * scale);
+    fpsCanvas.style.width = `${window.innerWidth}px`;
+    fpsCanvas.style.height = `${window.innerHeight}px`;
+    if (fpsContext) fpsContext.setTransform(scale, 0, 0, scale, 0, 0);
+}
+
+function getFpsTargetTable() {
+    let closest = null;
+    FPS_TABLE_POSITIONS.forEach((position, index) => {
+        if (index >= game.tablesOwned) return;
+        const dx = position.x - fpsPlayer.x;
+        const dy = position.y - fpsPlayer.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
+        if (distance < 2.1 && Math.abs(relative) < 0.8 && (!closest || distance < closest.distance)) {
+            closest = { index, distance };
+        }
+    });
+    return closest;
+}
+
+function getFpsTableStatus(index) {
+    const seat = seats[index];
+    if (!seat || !seat.occupied) return 'Empty table';
+    if (!seat.charData) return 'Customer arriving';
+    if (seat.needsMenu) return 'Customer is ready to order';
+    if (seat.isCooking) return `Cooking step ${seat.cookStep + 1}`;
+    if (seat.needsServing) return 'Ramen is ready to serve';
+    if (seat.needsToPay) return 'Payment is waiting';
+    return 'Table in service';
+}
+
+function getFpsTableAction(index) {
+    const seat = seats[index];
+    if (!seat || !seat.occupied || !seat.charData) return 'Wait for a customer';
+    if (seat.needsMenu) return 'Take order';
+    if (seat.isCooking) return 'Cook next step';
+    if (seat.needsServing) return 'Serve ramen';
+    if (seat.needsToPay) return 'Collect payment';
+    return 'Check table';
+}
+
+function interactWithFpsTable() {
+    const target = getFpsTargetTable();
+    if (!target) return;
+    const seat = seats[target.index];
+    if (!seat || !seat.occupied || !seat.charData) return;
+    if (seat.isCooking) {
+        clickStove(target.index);
+    } else {
+        handleTableClick(target.index);
+    }
+}
+
+function updateFpsMovement(delta) {
+    const forward = (fpsKeys.w || fpsKeys.arrowup ? 1 : 0) - (fpsKeys.s || fpsKeys.arrowdown ? 1 : 0);
+    const strafe = (fpsKeys.d || fpsKeys.arrowright ? 1 : 0) - (fpsKeys.a || fpsKeys.arrowleft ? 1 : 0);
+    if (!forward && !strafe) return;
+    const sprint = fpsKeys.shift ? 1.65 : 1;
+    const speed = delta * 2.8 * sprint;
+    const length = Math.sqrt(forward * forward + strafe * strafe) || 1;
+    const dx = ((Math.cos(fpsPlayer.angle) * forward) + (Math.cos(fpsPlayer.angle + Math.PI / 2) * strafe)) / length * speed;
+    const dy = ((Math.sin(fpsPlayer.angle) * forward) + (Math.sin(fpsPlayer.angle + Math.PI / 2) * strafe)) / length * speed;
+    const nextX = fpsPlayer.x + dx;
+    const nextY = fpsPlayer.y + dy;
+    if (!isFpsWall(nextX, fpsPlayer.y)) fpsPlayer.x = nextX;
+    if (!isFpsWall(fpsPlayer.x, nextY)) fpsPlayer.y = nextY;
+}
+
+function drawFpsTable(context, table, canvasWidth, canvasHeight) {
+    const dx = table.x - fpsPlayer.x;
+    const dy = table.y - fpsPlayer.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
+    if (Math.abs(relative) > FPS_FOV / 2 + 0.15) return;
+    const screenX = canvasWidth / 2 + (relative / FPS_FOV) * canvasWidth;
+    const tableHeight = Math.min(canvasHeight * 0.55, 175 / Math.max(0.4, distance));
+    const tableWidth = tableHeight * 1.25;
+    const floorY = canvasHeight * 0.73 + Math.min(40, distance * 3);
+    const seat = seats[table.index];
+    const isTarget = getFpsTargetTable()?.index === table.index;
+    context.save();
+    context.globalAlpha = Math.max(0.45, 1 - distance / 14);
+    context.fillStyle = '#3d261c';
+    context.fillRect(screenX - tableWidth / 2, floorY - tableHeight * 0.2, tableWidth, tableHeight * 0.8);
+    context.fillStyle = seat && seat.occupied ? (seat.needsServing ? '#00b894' : seat.needsToPay ? '#ffeaa7' : '#d35400') : '#8e6e53';
+    context.fillRect(screenX - tableWidth / 2, floorY - tableHeight * 0.35, tableWidth, tableHeight * 0.18);
+    context.fillStyle = '#21160f';
+    context.fillRect(screenX - tableWidth * 0.38, floorY - tableHeight * 0.04, tableWidth * 0.12, tableHeight * 0.55);
+    context.fillRect(screenX + tableWidth * 0.26, floorY - tableHeight * 0.04, tableWidth * 0.12, tableHeight * 0.55);
+    if (seat && seat.occupied && seat.charData) {
+        context.fillStyle = seat.charData.isVIP ? '#f1c40f' : seat.charData.shirt;
+        context.fillRect(screenX - tableWidth * 0.14, floorY - tableHeight * 0.95, tableWidth * 0.28, tableHeight * 0.4);
+        context.fillStyle = seat.charData.skin;
+        context.beginPath();
+        context.arc(screenX, floorY - tableHeight * 1.05, Math.max(5, tableHeight * 0.16), 0, Math.PI * 2);
+        context.fill();
+    }
+    if (isTarget) {
+        context.strokeStyle = '#ffeaa7';
+        context.lineWidth = 4;
+        context.strokeRect(screenX - tableWidth / 2 - 6, floorY - tableHeight * 1.1, tableWidth + 12, tableHeight * 1.2);
+    }
+    context.restore();
+}
+
+function renderFpsScene(timestamp = 0) {
+    if (!fpsOpen || !fpsContext) return;
+    const delta = Math.min(0.05, (timestamp - fpsLastFrame) / 1000 || 0);
+    fpsLastFrame = timestamp;
+    updateFpsMovement(delta);
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const context = fpsContext;
+    const night = game.nightMode;
+    context.fillStyle = night ? '#080d24' : '#80c7e8';
+    context.fillRect(0, 0, width, height / 2);
+    context.fillStyle = night ? '#15131b' : '#5d4037';
+    context.fillRect(0, height / 2, width, height / 2);
+    context.fillStyle = night ? 'rgba(108,92,231,0.13)' : 'rgba(255,234,167,0.15)';
+    context.fillRect(0, height / 2, width, height / 2);
+
+    const rayStep = 2;
+    for (let column = 0; column < width; column += rayStep) {
+        const rayAngle = fpsPlayer.angle - FPS_FOV / 2 + (column / width) * FPS_FOV;
+        let distance = 0;
+        while (distance < 18) {
+            distance += 0.025;
+            if (isFpsWall(fpsPlayer.x + Math.cos(rayAngle) * distance, fpsPlayer.y + Math.sin(rayAngle) * distance)) break;
+        }
+        const corrected = Math.max(0.1, distance * Math.cos(rayAngle - fpsPlayer.angle));
+        const wallHeight = Math.min(height, height / corrected * 0.82);
+        const shade = Math.max(35, Math.min(190, 185 - corrected * 10));
+        context.fillStyle = night ? `rgb(${shade * 0.35},${shade * 0.38},${shade})` : `rgb(${shade},${shade * 0.78},${shade * 0.52})`;
+        context.fillRect(column, height / 2 - wallHeight / 2, rayStep + 1, wallHeight);
+    }
+
+    FPS_TABLE_POSITIONS
+        .map((position, index) => ({ ...position, index, distance: Math.hypot(position.x - fpsPlayer.x, position.y - fpsPlayer.y) }))
+        .sort((a, b) => b.distance - a.distance)
+        .forEach(table => drawFpsTable(context, table, width, height));
+
+    const target = getFpsTargetTable();
+    const objective = document.querySelector('.fps-objective');
+    const status = document.getElementById('fps-status');
+    if (objective) objective.innerText = target ? `Press E: ${getFpsTableAction(target.index)}` : 'Walk close to a table and face it';
+    if (status) status.innerText = target ? getFpsTableStatus(target.index) : `Position ${fpsPlayer.x.toFixed(1)}, ${fpsPlayer.y.toFixed(1)} · ${game.is3D ? '3D restaurant' : 'service map'}`;
+    fpsAnimationFrame = requestAnimationFrame(renderFpsScene);
+}
+
+function bindFirstPersonControls() {
+    if (window.firstPersonControlsBound) return;
+    window.firstPersonControlsBound = true;
+    document.addEventListener('keydown', event => {
+        if (!fpsOpen) return;
+        const key = event.key.toLowerCase();
+        if (key === 'escape') {
+            closeFirstPerson();
+            return;
+        }
+        if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(key)) {
+            fpsKeys[key] = true;
+            event.preventDefault();
+        }
+        if (key === 'e' && !event.repeat) {
+            interactWithFpsTable();
+            event.preventDefault();
+        }
+    });
+    document.addEventListener('keyup', event => {
+        if (fpsOpen) fpsKeys[event.key.toLowerCase()] = false;
+    });
+    document.addEventListener('mousemove', event => {
+        if (fpsOpen && document.pointerLockElement === fpsCanvas) {
+            fpsPlayer.angle += event.movementX * 0.0025;
+        }
+    });
+    window.addEventListener('resize', resizeFpsCanvas);
+}
+
+function toggleFirstPerson() {
+    fpsCanvas = document.getElementById('fps-canvas');
+    fpsContext = fpsCanvas ? fpsCanvas.getContext('2d') : null;
+    const overlay = document.getElementById('fps-overlay');
+    if (!overlay || !fpsCanvas || !fpsContext) return;
+    bindFirstPersonControls();
+    fpsOpen = !fpsOpen;
+    overlay.classList.toggle('hidden', !fpsOpen);
+    document.body.classList.toggle('first-person-open', fpsOpen);
+    if (fpsOpen) {
+        resizeFpsCanvas();
+        fpsLastFrame = 0;
+        fpsAnimationFrame = requestAnimationFrame(renderFpsScene);
+        fpsCanvas.focus();
+    } else if (fpsAnimationFrame) {
+        cancelAnimationFrame(fpsAnimationFrame);
+    }
+}
+
+function closeFirstPerson() {
+    if (!fpsOpen) return;
+    fpsOpen = false;
+    document.getElementById('fps-overlay')?.classList.add('hidden');
+    document.body.classList.remove('first-person-open');
+    fpsKeys = {};
+    if (document.pointerLockElement === fpsCanvas) document.exitPointerLock();
+    if (fpsAnimationFrame) cancelAnimationFrame(fpsAnimationFrame);
+}
+
 function switchTab(tab) { document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active-view')); document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); document.getElementById(`view-${tab}`).classList.add('active-view'); document.getElementById(`btn-${tab}`).classList.add('active'); if(tab==='decor') renderDecorPanel(); if(tab==='staff') renderStaffPanel(); if(tab==='map') renderTurfPanel(); if(tab==='missions') renderMissionsPanel(); }
 
 function initTables() { let d = document.getElementById('dining-area'); if(d && d.children.length === 0) { for(let i=0; i<1000; i++) { let div = document.createElement('div'); div.id = `seat-${i}`; div.className = 'seat locked'; d.appendChild(div); } } }

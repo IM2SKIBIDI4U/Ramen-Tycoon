@@ -50,6 +50,7 @@
             <div class="command-group">
                 <span class="command-label">RESTAURANT CONTROL</span>
                 <button class="scene-control active" id="btn-3d" onclick="toggle3DMode()">🏛️ 3D Mode</button>
+                <button class="scene-control" id="btn-fps" onclick="toggleFirstPerson()">🚶 First Person</button>
                 <button class="scene-control" onclick="rotateCamera()">🔄 Rotate Camera</button>
                 <button class="scene-control" id="btn-night" onclick="toggleNightMode()">🌙 Night Shift</button>
             </div>
@@ -175,7 +176,21 @@
         <button class="reset-btn matrix-text" style="color: #ff4d4d; margin-top: 15px;" onclick="document.getElementById('admin-panel').classList.add('hidden')">[ CLOSE TERMINAL ]</button>
     </div>
 
-    <script src="script.js?v=4"></script>
+    <div id="fps-overlay" class="hidden" aria-label="First person restaurant mode">
+        <canvas id="fps-canvas"></canvas>
+        <div class="fps-topbar">
+            <div><strong>🍜 RAMEN MONKEY</strong><span>FIRST-PERSON SERVICE SHIFT</span></div>
+            <button class="fps-exit" onclick="closeFirstPerson()">✕ Exit Restaurant</button>
+        </div>
+        <div class="fps-crosshair">+</div>
+        <div class="fps-hud">
+            <div class="fps-objective">Walk to a table and press <b>E</b></div>
+            <div class="fps-status" id="fps-status">Loading restaurant...</div>
+            <div class="fps-controls">WASD / arrows to move · Mouse to look · E to interact · Shift to sprint</div>
+        </div>
+    </div>
+
+    <script src="script.js?v=5"></script>
     <div id="achieve-toast" class="hidden-toast">
     🏆 <b id="achieve-name">Achievement Unlocked!</b>
     </div>

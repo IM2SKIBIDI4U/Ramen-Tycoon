@@ -826,6 +826,133 @@ h1 { font-weight: 900; margin: 0 0 20px 0; font-size: 2.5rem; text-shadow: 2px 2
     background: rgba(255,255,255,0.55);
 }
 
+/* --- FIRST-PERSON RESTAURANT MODE --- */
+body.first-person-open {
+    overflow: hidden;
+}
+
+#fps-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 20000;
+    overflow: hidden;
+    background: #111;
+}
+
+#fps-canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    cursor: crosshair;
+    image-rendering: auto;
+}
+
+.fps-topbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 24px;
+    color: #fff;
+    background: linear-gradient(180deg, rgba(5,10,20,0.88), rgba(5,10,20,0));
+    pointer-events: none;
+}
+
+.fps-topbar strong,
+.fps-topbar span {
+    display: block;
+}
+
+.fps-topbar strong {
+    color: #ffeaa7;
+    font-size: 1.25rem;
+    letter-spacing: 0.08em;
+}
+
+.fps-topbar span {
+    margin-top: 4px;
+    color: rgba(255,255,255,0.72);
+    font-size: 0.68rem;
+    font-weight: 900;
+    letter-spacing: 0.16em;
+}
+
+.fps-exit {
+    border: 1px solid rgba(255,255,255,0.42);
+    border-radius: 8px;
+    padding: 9px 13px;
+    color: #fff;
+    background: rgba(0,0,0,0.36);
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 900;
+    pointer-events: auto;
+}
+
+.fps-exit:hover {
+    background: rgba(214,48,49,0.8);
+}
+
+.fps-crosshair {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 34px;
+    height: 34px;
+    transform: translate(-50%, -50%);
+    color: rgba(255,255,255,0.92);
+    text-align: center;
+    text-shadow: 0 2px 4px #000;
+    font-size: 2rem;
+    line-height: 29px;
+    pointer-events: none;
+}
+
+.fps-hud {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    width: min(640px, calc(100% - 32px));
+    transform: translateX(-50%);
+    text-align: center;
+    pointer-events: none;
+}
+
+.fps-objective,
+.fps-status,
+.fps-controls {
+    display: inline-block;
+    margin: 4px;
+    border-radius: 999px;
+    padding: 9px 15px;
+    color: #fff;
+    background: rgba(7,12,24,0.78);
+    box-shadow: 0 5px 18px rgba(0,0,0,0.24);
+}
+
+.fps-objective {
+    color: #ffeaa7;
+    font-size: 1.05rem;
+    font-weight: 900;
+}
+
+.fps-status {
+    color: #55efc4;
+    font-size: 0.85rem;
+    font-weight: 900;
+}
+
+.fps-controls {
+    display: block;
+    color: rgba(255,255,255,0.68);
+    background: transparent;
+    box-shadow: none;
+    font-size: 0.7rem;
+}
+
 @media (max-width: 760px) {
     .restaurant-command-bar {
         grid-template-columns: 1fr;
@@ -839,5 +966,18 @@ h1 { font-weight: 900; margin: 0 0 20px 0; font-size: 2.5rem; text-shadow: 2px 2
     }
     .review-feed {
         grid-template-columns: 1fr;
+    }
+    .fps-topbar {
+        padding: 14px;
+    }
+    .fps-topbar strong {
+        font-size: 0.95rem;
+    }
+    .fps-topbar span {
+        font-size: 0.55rem;
+    }
+    .fps-exit {
+        padding: 7px 9px;
+        font-size: 0.72rem;
     }
 }

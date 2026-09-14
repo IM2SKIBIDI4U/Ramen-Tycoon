@@ -114,7 +114,7 @@ let game = {
     rivalsDefeated: 0, eventsTriggered: 0, missionCycle: 0, missions: [],
     missionStreak: 0, lastMissionReset: Date.now(),
     restaurantXp: 0, popularity: 50, dailySpecialIndex: 0,
-    specialEndsAt: Date.now() + 86400000, is3D: true, cameraAngle: 0,
+    specialEndsAt: Date.now() + 86400000,
     nightMode: false, deliveryActive: null, deliveriesCompleted: 0,
     staffTraining: { waiter: 0, ninja: 0, mascot: 0 }, reviews: []
 };
@@ -200,14 +200,13 @@ function normalizeGameState() {
         idxTable: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxAds: 0,
         currentMenuPrice: 50, autoChefSpeedMulti: 1, restaurantXp: 0,
         popularity: 50, dailySpecialIndex: 0, specialEndsAt: Date.now() + 86400000,
-        cameraAngle: 0, deliveriesCompleted: 0
+        deliveriesCompleted: 0
     };
     Object.entries(numericDefaults).forEach(([key, fallback]) => {
         if (!Number.isFinite(game[key])) game[key] = fallback;
     });
     game.activeDecor = typeof game.activeDecor === 'string' ? game.activeDecor : 'theme-default';
     game.autoRefill = Boolean(game.autoRefill);
-    game.is3D = game.is3D !== false;
     game.nightMode = Boolean(game.nightMode);
     game.popularity = Math.max(0, Math.min(100, game.popularity));
     game.staffTraining = { waiter: 0, ninja: 0, mascot: 0, ...(game.staffTraining || {}) };
@@ -294,14 +293,9 @@ function renderRestaurantControls() {
     const special = getDailySpecial();
     const specialLabel = document.getElementById('daily-special');
     const countdown = document.getElementById('special-countdown');
-    const modeButton = document.getElementById('btn-3d');
     const nightButton = document.getElementById('btn-night');
     if (specialLabel) specialLabel.innerText = `${special.icon} ${special.name} · ${special.multiplier}x`;
     if (countdown) countdown.innerText = `${special.description} · ${Math.max(1, Math.ceil((game.specialEndsAt - Date.now()) / 3600000))}h left`;
-    if (modeButton) {
-        modeButton.innerText = game.is3D ? '🏛️ 3D Mode' : '📐 Flat Mode';
-        modeButton.classList.toggle('active', game.is3D);
-    }
     if (nightButton) nightButton.innerText = game.nightMode ? '☀️ Day Shift' : '🌙 Night Shift';
     renderDeliveryPanel();
 }
@@ -581,7 +575,7 @@ function renderFpsScene(timestamp = 0) {
     const objective = document.querySelector('.fps-objective');
     const status = document.getElementById('fps-status');
     if (objective) objective.innerText = target ? `Press E: ${getFpsTableAction(target.index)}` : 'Walk close to a table and face it';
-    if (status) status.innerText = target ? getFpsTableStatus(target.index) : `Position ${fpsPlayer.x.toFixed(1)}, ${fpsPlayer.y.toFixed(1)} · ${game.is3D ? '3D restaurant' : 'service map'}`;
+    if (status) status.innerText = target ? getFpsTableStatus(target.index) : `Position ${fpsPlayer.x.toFixed(1)}, ${fpsPlayer.y.toFixed(1)} · service floor`;
     fpsAnimationFrame = requestAnimationFrame(renderFpsScene);
 }
 
@@ -1090,22 +1084,9 @@ function renderDecorPanel() { let container = document.getElementById('decor-con
 function applyTheme() {
     const mc = document.getElementById('main-container');
     if (!mc) return;
-    mc.className = `game-container ${game.activeDecor} ${game.is3D ? 'three-d-mode' : 'flat-mode'} ${game.nightMode ? 'night-mode' : ''}`;
+    mc.className = `game-container ${game.activeDecor} ${game.nightMode ? 'night-mode' : ''}`;
     const scene = document.getElementById('restaurant-scene');
     if (scene) scene.style.setProperty('--camera-angle', `${game.cameraAngle}deg`);
-}
-
-function toggle3DMode() {
-    game.is3D = !game.is3D;
-    applyTheme();
-    renderRestaurantControls();
-    saveGame();
-}
-
-function rotateCamera() {
-    game.cameraAngle = (game.cameraAngle + 15) % 360;
-    applyTheme();
-    saveGame();
 }
 
 function toggleNightMode() {

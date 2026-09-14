@@ -405,6 +405,14 @@ const FPS_TABLE_POSITIONS = [
     { x: 4.5, y: 3.5 }, { x: 8.5, y: 3.5 }, { x: 11.5, y: 3.5 },
     { x: 4.5, y: 6.5 }, { x: 8.5, y: 6.5 }, { x: 11.5, y: 6.5 }
 ];
+const FPS_DECOR = [
+    { x: 1.1, y: 1.7, kind: 'window' },
+    { x: 5.2, y: 1.05, kind: 'sign' },
+    { x: 9.7, y: 1.05, kind: 'shelf' },
+    { x: 14.5, y: 1.6, kind: 'plant' },
+    { x: 1.1, y: 5.2, kind: 'lantern' },
+    { x: 14.5, y: 5.2, kind: 'lantern' }
+];
 const FPS_FOV = Math.PI / 3;
 let fpsOpen = false;
 let fpsAnimationFrame = null;
@@ -485,7 +493,9 @@ function interactWithFpsTable() {
 
 function updateFpsMovement(delta) {
     const forward = (fpsKeys.w || fpsKeys.arrowup ? 1 : 0) - (fpsKeys.s || fpsKeys.arrowdown ? 1 : 0);
-    const strafe = (fpsKeys.d || fpsKeys.arrowright ? 1 : 0) - (fpsKeys.a || fpsKeys.arrowleft ? 1 : 0);
+    const strafe = (fpsKeys.d ? 1 : 0) - (fpsKeys.a ? 1 : 0);
+    const swivel = (fpsKeys.arrowright ? 1 : 0) - (fpsKeys.arrowleft ? 1 : 0);
+    if (swivel) fpsPlayer.angle += swivel * delta * 1.8;
     if (!forward && !strafe) return;
     const sprint = fpsKeys.shift ? 1.65 : 1;
     const speed = delta * 2.8 * sprint;
@@ -496,6 +506,74 @@ function updateFpsMovement(delta) {
     const nextY = fpsPlayer.y + dy;
     if (!isFpsWall(nextX, fpsPlayer.y)) fpsPlayer.x = nextX;
     if (!isFpsWall(fpsPlayer.x, nextY)) fpsPlayer.y = nextY;
+}
+
+function drawFpsDecor(context, decor, canvasWidth, canvasHeight) {
+    const dx = decor.x - fpsPlayer.x;
+    const dy = decor.y - fpsPlayer.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
+    if (Math.abs(relative) > FPS_FOV / 2 + 0.2) return;
+    const screenX = canvasWidth / 2 + (relative / FPS_FOV) * canvasWidth;
+    const size = Math.min(canvasHeight * 0.32, 130 / Math.max(0.5, distance));
+    const centerY = canvasHeight * 0.34;
+    context.save();
+    context.globalAlpha = Math.max(0.45, 1 - distance / 14);
+    if (decor.kind === 'window') {
+        const sky = context.createLinearGradient(0, centerY - size / 2, 0, centerY + size / 2);
+        sky.addColorStop(0, '#74b9ff');
+        sky.addColorStop(1, '#192a56');
+        context.fillStyle = '#202a36';
+        context.fillRect(screenX - size * 0.7, centerY - size * 0.48, size * 1.4, size);
+        context.fillStyle = sky;
+        context.fillRect(screenX - size * 0.58, centerY - size * 0.36, size * 1.16, size * 0.72);
+        context.fillStyle = '#ffeaa7';
+        context.fillRect(screenX - size * 0.08, centerY - size * 0.36, size * 0.06, size * 0.72);
+        context.fillRect(screenX - size * 0.58, centerY - size * 0.03, size * 1.16, size * 0.06);
+    } else if (decor.kind === 'sign') {
+        context.fillStyle = '#241b35';
+        context.shadowColor = '#e056fd';
+        context.shadowBlur = size * 0.18;
+        context.fillRect(screenX - size * 0.8, centerY - size * 0.34, size * 1.6, size * 0.68);
+        context.shadowBlur = 0;
+        context.strokeStyle = '#ff9ff3';
+        context.lineWidth = Math.max(2, size * 0.035);
+        context.strokeRect(screenX - size * 0.72, centerY - size * 0.26, size * 1.44, size * 0.52);
+        context.fillStyle = '#ffeaa7';
+        context.font = `900 ${Math.max(8, size * 0.17)}px sans-serif`;
+        context.textAlign = 'center';
+        context.fillText('RAMEN MONKEY', screenX, centerY + size * 0.06);
+    } else if (decor.kind === 'shelf') {
+        context.fillStyle = '#3d261c';
+        context.fillRect(screenX - size * 0.7, centerY - size * 0.26, size * 1.4, size * 0.52);
+        context.fillStyle = '#a66a3f';
+        context.fillRect(screenX - size * 0.78, centerY - size * 0.12, size * 1.56, size * 0.08);
+        context.fillRect(screenX - size * 0.78, centerY + size * 0.22, size * 1.56, size * 0.08);
+        context.font = `${Math.max(12, size * 0.25)}px serif`;
+        context.textAlign = 'center';
+        ['🍜', '🫙', '🥢'].forEach((icon, index) => context.fillText(icon, screenX - size * 0.48 + index * size * 0.48, centerY + size * 0.12));
+    } else if (decor.kind === 'plant') {
+        context.fillStyle = '#8e552e';
+        context.fillRect(screenX - size * 0.2, centerY + size * 0.02, size * 0.4, size * 0.43);
+        context.fillStyle = '#00b894';
+        [[-0.3, 0], [0.3, 0], [-0.05, -0.3], [0.15, -0.45]].forEach(([x, y]) => {
+            context.beginPath();
+            context.ellipse(screenX + size * x, centerY + size * y, size * 0.17, size * 0.35, x, 0, Math.PI * 2);
+            context.fill();
+        });
+    } else {
+        context.fillStyle = '#d63031';
+        context.shadowColor = '#ff7675';
+        context.shadowBlur = size * 0.2;
+        context.beginPath();
+        context.ellipse(screenX, centerY, size * 0.28, size * 0.38, 0, 0, Math.PI * 2);
+        context.fill();
+        context.shadowBlur = 0;
+        context.fillStyle = '#ffeaa7';
+        context.fillRect(screenX - size * 0.04, centerY - size * 0.62, size * 0.08, size * 0.24);
+        context.fillRect(screenX - size * 0.34, centerY + size * 0.4, size * 0.68, size * 0.05);
+    }
+    context.restore();
 }
 
 function drawFpsTable(context, table, canvasWidth, canvasHeight) {
@@ -512,20 +590,60 @@ function drawFpsTable(context, table, canvasWidth, canvasHeight) {
     const isTarget = getFpsTargetTable()?.index === table.index;
     context.save();
     context.globalAlpha = Math.max(0.45, 1 - distance / 14);
+    context.fillStyle = 'rgba(0,0,0,0.35)';
+    context.beginPath();
+    context.ellipse(screenX, floorY + tableHeight * 0.48, tableWidth * 0.68, tableHeight * 0.11, 0, 0, Math.PI * 2);
+    context.fill();
     context.fillStyle = '#3d261c';
     context.fillRect(screenX - tableWidth / 2, floorY - tableHeight * 0.2, tableWidth, tableHeight * 0.8);
-    context.fillStyle = seat && seat.occupied ? (seat.needsServing ? '#00b894' : seat.needsToPay ? '#ffeaa7' : '#d35400') : '#8e6e53';
+    const tabletop = context.createLinearGradient(screenX, floorY - tableHeight * 0.37, screenX, floorY - tableHeight * 0.17);
+    tabletop.addColorStop(0, seat && seat.occupied ? (seat.needsServing ? '#55efc4' : seat.needsToPay ? '#ffeaa7' : '#e17055') : '#c08a5b');
+    tabletop.addColorStop(1, '#6d3d25');
+    context.fillStyle = tabletop;
     context.fillRect(screenX - tableWidth / 2, floorY - tableHeight * 0.35, tableWidth, tableHeight * 0.18);
     context.fillStyle = '#21160f';
     context.fillRect(screenX - tableWidth * 0.38, floorY - tableHeight * 0.04, tableWidth * 0.12, tableHeight * 0.55);
     context.fillRect(screenX + tableWidth * 0.26, floorY - tableHeight * 0.04, tableWidth * 0.12, tableHeight * 0.55);
+    context.fillStyle = '#8e6e53';
+    context.fillRect(screenX - tableWidth * 0.51, floorY - tableHeight * 0.27, tableWidth * 0.04, tableHeight * 0.2);
+    context.fillRect(screenX + tableWidth * 0.47, floorY - tableHeight * 0.27, tableWidth * 0.04, tableHeight * 0.2);
     if (seat && seat.occupied && seat.charData) {
-        context.fillStyle = seat.charData.isVIP ? '#f1c40f' : seat.charData.shirt;
-        context.fillRect(screenX - tableWidth * 0.14, floorY - tableHeight * 0.95, tableWidth * 0.28, tableHeight * 0.4);
+        const body = context.createLinearGradient(screenX, floorY - tableHeight * 0.95, screenX, floorY - tableHeight * 0.55);
+        body.addColorStop(0, seat.charData.isVIP ? '#ffeaa7' : seat.charData.shirt);
+        body.addColorStop(1, seat.charData.isVIP ? '#d6a928' : '#2d3436');
+        context.fillStyle = body;
+        context.fillRect(screenX - tableWidth * 0.16, floorY - tableHeight * 0.78, tableWidth * 0.32, tableHeight * 0.42);
         context.fillStyle = seat.charData.skin;
+        context.beginPath();
+        context.ellipse(screenX - tableWidth * 0.22, floorY - tableHeight * 0.56, tableWidth * 0.09, tableHeight * 0.15, -0.25, 0, Math.PI * 2);
+        context.ellipse(screenX + tableWidth * 0.22, floorY - tableHeight * 0.56, tableWidth * 0.09, tableHeight * 0.15, 0.25, 0, Math.PI * 2);
+        context.fill();
         context.beginPath();
         context.arc(screenX, floorY - tableHeight * 1.05, Math.max(5, tableHeight * 0.16), 0, Math.PI * 2);
         context.fill();
+        context.fillStyle = seat.charData.hair || '#2d3436';
+        context.beginPath();
+        context.arc(screenX, floorY - tableHeight * 1.1, Math.max(5, tableHeight * 0.16), Math.PI, Math.PI * 2);
+        context.fill();
+        context.fillStyle = '#2d3436';
+        context.beginPath();
+        context.arc(screenX - tableWidth * 0.05, floorY - tableHeight * 1.06, 2, 0, Math.PI * 2);
+        context.arc(screenX + tableWidth * 0.05, floorY - tableHeight * 1.06, 2, 0, Math.PI * 2);
+        context.fill();
+        context.fillStyle = '#f5f6fa';
+        context.beginPath();
+        context.ellipse(screenX, floorY - tableHeight * 0.42, tableWidth * 0.18, tableHeight * 0.07, 0, 0, Math.PI * 2);
+        context.fill();
+        context.fillStyle = '#e17055';
+        context.beginPath();
+        context.ellipse(screenX, floorY - tableHeight * 0.44, tableWidth * 0.12, tableHeight * 0.04, 0, 0, Math.PI * 2);
+        context.fill();
+        context.strokeStyle = 'rgba(255,255,255,0.75)';
+        context.lineWidth = Math.max(1, tableHeight * 0.012);
+        context.beginPath();
+        context.moveTo(screenX - tableWidth * 0.08, floorY - tableHeight * 0.57);
+        context.quadraticCurveTo(screenX - tableWidth * 0.15, floorY - tableHeight * 0.75, screenX - tableWidth * 0.08, floorY - tableHeight * 0.86);
+        context.stroke();
     }
     if (isTarget) {
         context.strokeStyle = '#ffeaa7';
@@ -566,6 +684,7 @@ function renderFpsScene(timestamp = 0) {
         context.fillRect(column, height / 2 - wallHeight / 2, rayStep + 1, wallHeight);
     }
 
+    FPS_DECOR.forEach(decor => drawFpsDecor(context, decor, width, height));
     FPS_TABLE_POSITIONS
         .map((position, index) => ({ ...position, index, distance: Math.hypot(position.x - fpsPlayer.x, position.y - fpsPlayer.y) }))
         .sort((a, b) => b.distance - a.distance)
@@ -606,6 +725,12 @@ function bindFirstPersonControls() {
             fpsPlayer.angle += event.movementX * 0.0025;
         }
     });
+    if (fpsCanvas && !window.fpsCanvasClickBound) {
+        fpsCanvas.addEventListener('click', () => {
+            if (fpsOpen && document.pointerLockElement !== fpsCanvas) fpsCanvas.requestPointerLock?.();
+        });
+        window.fpsCanvasClickBound = true;
+    }
     window.addEventListener('resize', resizeFpsCanvas);
 }
 
@@ -623,6 +748,7 @@ function toggleFirstPerson() {
         fpsLastFrame = 0;
         fpsAnimationFrame = requestAnimationFrame(renderFpsScene);
         fpsCanvas.focus();
+        fpsCanvas.requestPointerLock?.();
     } else if (fpsAnimationFrame) {
         cancelAnimationFrame(fpsAnimationFrame);
     }

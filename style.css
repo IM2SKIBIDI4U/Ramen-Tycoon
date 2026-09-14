@@ -818,13 +818,14 @@ body.first-person-open {
     z-index: 20000;
     overflow: hidden;
     background: #111;
+    cursor: none;
 }
 
 #fps-canvas {
     display: block;
     width: 100vw;
     height: 100vh;
-    cursor: crosshair;
+    cursor: none;
     image-rendering: auto;
 }
 

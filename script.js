@@ -402,23 +402,27 @@ const FPS_MAP = [
     '################'
 ];
 const FPS_TABLE_POSITIONS = [
-    { x: 4.5, y: 3.5 }, { x: 8.5, y: 3.5 }, { x: 11.5, y: 3.5 },
-    { x: 4.5, y: 6.5 }, { x: 8.5, y: 6.5 }, { x: 11.5, y: 6.5 }
+    { x: 4.5, y: 3.5, design: 'round' }, { x: 8.5, y: 3.5, design: 'square' }, { x: 11.5, y: 3.5, design: 'booth' },
+    { x: 4.5, y: 6.5, design: 'barrel' }, { x: 8.5, y: 6.5, design: 'low' }, { x: 11.5, y: 6.5, design: 'square' }
 ];
+const FPS_TABLE_GROUPS = [[0, 1], [3, 4]];
 const FPS_DECOR = [
     { x: 1.1, y: 1.7, kind: 'window' },
     { x: 5.2, y: 1.05, kind: 'sign' },
     { x: 9.7, y: 1.05, kind: 'shelf' },
     { x: 14.5, y: 1.6, kind: 'plant' },
     { x: 1.1, y: 5.2, kind: 'lantern' },
-    { x: 14.5, y: 5.2, kind: 'lantern' }
+    { x: 14.5, y: 5.2, kind: 'lantern' },
+    { x: 3.1, y: 4.8, kind: 'floorplant', surface: 'floor' },
+    { x: 7.1, y: 5.2, kind: 'rug', surface: 'floor' },
+    { x: 13.2, y: 7.1, kind: 'divider', surface: 'floor' }
 ];
 const FPS_FOV = Math.PI / 3;
 let fpsOpen = false;
 let fpsAnimationFrame = null;
 let fpsLastFrame = 0;
 let fpsKeys = {};
-let fpsPlayer = { x: 2.5, y: 8, angle: -Math.PI / 2 };
+let fpsPlayer = { x: 2.5, y: 8, angle: -Math.PI / 2, pitch: 0 };
 let fpsCanvas = null;
 let fpsContext = null;
 
@@ -462,6 +466,8 @@ function getFpsTableStatus(index) {
     const seat = seats[index];
     if (!seat || !seat.occupied) return 'Empty table';
     if (!seat.charData) return 'Customer arriving';
+    const group = getFpsOrderGroup(index);
+    if (group.length > 1 && seat.needsMenu) return `${group.length} guests are ready to order`;
     if (seat.needsMenu) return 'Customer is ready to order';
     if (seat.isCooking) return `Cooking step ${seat.cookStep + 1}`;
     if (seat.needsServing) return 'Ramen is ready to serve';
@@ -472,6 +478,8 @@ function getFpsTableStatus(index) {
 function getFpsTableAction(index) {
     const seat = seats[index];
     if (!seat || !seat.occupied || !seat.charData) return 'Wait for a customer';
+    const group = getFpsOrderGroup(index);
+    if (group.length > 1) return `Take ${group.length} orders together`;
     if (seat.needsMenu) return 'Take order';
     if (seat.isCooking) return 'Cook next step';
     if (seat.needsServing) return 'Serve ramen';
@@ -479,12 +487,28 @@ function getFpsTableAction(index) {
     return 'Check table';
 }
 
+function getFpsOrderGroup(index) {
+    for (const group of FPS_TABLE_GROUPS) {
+        if (!group.includes(index)) continue;
+        const ready = group.filter(groupIndex => {
+            const seat = seats[groupIndex];
+            return seat && seat.occupied && seat.charData && seat.needsMenu;
+        });
+        const seated = group.filter(groupIndex => seats[groupIndex]?.occupied && seats[groupIndex]?.charData);
+        if (seated.length > 1 && ready.length > 1) return ready;
+    }
+    return seats[index]?.needsMenu ? [index] : [];
+}
+
 function interactWithFpsTable() {
     const target = getFpsTargetTable();
     if (!target) return;
     const seat = seats[target.index];
     if (!seat || !seat.occupied || !seat.charData) return;
-    if (seat.isCooking) {
+    const group = getFpsOrderGroup(target.index);
+    if (group.length > 1) {
+        group.forEach(groupIndex => handleTableClick(groupIndex));
+    } else if (seat.isCooking) {
         clickStove(target.index);
     } else {
         handleTableClick(target.index);
@@ -492,10 +516,12 @@ function interactWithFpsTable() {
 }
 
 function updateFpsMovement(delta) {
-    const forward = (fpsKeys.w || fpsKeys.arrowup ? 1 : 0) - (fpsKeys.s || fpsKeys.arrowdown ? 1 : 0);
+    const forward = (fpsKeys.w ? 1 : 0) - (fpsKeys.s ? 1 : 0);
     const strafe = (fpsKeys.d ? 1 : 0) - (fpsKeys.a ? 1 : 0);
     const swivel = (fpsKeys.arrowright ? 1 : 0) - (fpsKeys.arrowleft ? 1 : 0);
+    const verticalLook = (fpsKeys.arrowdown ? 1 : 0) - (fpsKeys.arrowup ? 1 : 0);
     if (swivel) fpsPlayer.angle += swivel * delta * 1.8;
+    if (verticalLook) fpsPlayer.pitch = Math.max(-0.38, Math.min(0.38, fpsPlayer.pitch + verticalLook * delta * 1.5));
     if (!forward && !strafe) return;
     const sprint = fpsKeys.shift ? 1.65 : 1;
     const speed = delta * 2.8 * sprint;
@@ -516,10 +542,42 @@ function drawFpsDecor(context, decor, canvasWidth, canvasHeight) {
     if (Math.abs(relative) > FPS_FOV / 2 + 0.2) return;
     const screenX = canvasWidth / 2 + (relative / FPS_FOV) * canvasWidth;
     const size = Math.min(canvasHeight * 0.32, 130 / Math.max(0.5, distance));
-    const centerY = canvasHeight * 0.34;
+    const horizon = canvasHeight / 2 + fpsPlayer.pitch * canvasHeight * 0.8;
+    const centerY = horizon - canvasHeight * 0.16;
     context.save();
     context.globalAlpha = Math.max(0.45, 1 - distance / 14);
-    if (decor.kind === 'window') {
+    if (decor.surface === 'floor') {
+        const floorY = horizon + canvasHeight * 0.27 + Math.min(55, distance * 3);
+        if (decor.kind === 'rug') {
+            context.fillStyle = '#8e44ad';
+            context.shadowColor = 'rgba(0,0,0,0.4)';
+            context.shadowBlur = size * 0.12;
+            context.beginPath();
+            context.ellipse(screenX, floorY, size * 0.9, size * 0.22, 0, 0, Math.PI * 2);
+            context.fill();
+            context.shadowBlur = 0;
+            context.strokeStyle = '#ffeaa7';
+            context.lineWidth = Math.max(2, size * 0.035);
+            context.stroke();
+        } else if (decor.kind === 'floorplant') {
+            context.fillStyle = '#8e552e';
+            context.fillRect(screenX - size * 0.22, floorY - size * 0.18, size * 0.44, size * 0.32);
+            context.fillStyle = '#00b894';
+            [[-0.3, -0.15], [0.3, -0.12], [-0.05, -0.48], [0.18, -0.55]].forEach(([x, y]) => {
+                context.beginPath();
+                context.ellipse(screenX + size * x, floorY + size * y, size * 0.16, size * 0.36, x, 0, Math.PI * 2);
+                context.fill();
+            });
+        } else {
+            context.fillStyle = '#6d3d25';
+            context.fillRect(screenX - size * 0.65, floorY - size * 0.95, size * 1.3, size * 0.12);
+            context.fillRect(screenX - size * 0.58, floorY - size * 0.83, size * 0.09, size * 0.83);
+            context.fillRect(screenX + size * 0.49, floorY - size * 0.83, size * 0.09, size * 0.83);
+            context.fillStyle = '#d35400';
+            context.fillRect(screenX - size * 0.42, floorY - size * 0.73, size * 0.18, size * 0.28);
+            context.fillRect(screenX + size * 0.24, floorY - size * 0.73, size * 0.18, size * 0.28);
+        }
+    } else if (decor.kind === 'window') {
         const sky = context.createLinearGradient(0, centerY - size / 2, 0, centerY + size / 2);
         sky.addColorStop(0, '#74b9ff');
         sky.addColorStop(1, '#192a56');
@@ -583,9 +641,11 @@ function drawFpsTable(context, table, canvasWidth, canvasHeight) {
     const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
     if (Math.abs(relative) > FPS_FOV / 2 + 0.15) return;
     const screenX = canvasWidth / 2 + (relative / FPS_FOV) * canvasWidth;
-    const tableHeight = Math.min(canvasHeight * 0.55, 175 / Math.max(0.4, distance));
-    const tableWidth = tableHeight * 1.25;
-    const floorY = canvasHeight * 0.73 + Math.min(40, distance * 3);
+    let tableHeight = Math.min(canvasHeight * 0.55, 175 / Math.max(0.4, distance));
+    if (table.design === 'low') tableHeight *= 0.72;
+    const tableWidth = tableHeight * (table.design === 'booth' ? 1.7 : table.design === 'barrel' ? 0.95 : 1.25);
+    const horizon = canvasHeight / 2 + fpsPlayer.pitch * canvasHeight * 0.8;
+    const floorY = horizon + canvasHeight * 0.23 + Math.min(40, distance * 3);
     const seat = seats[table.index];
     const isTarget = getFpsTargetTable()?.index === table.index;
     context.save();
@@ -600,7 +660,19 @@ function drawFpsTable(context, table, canvasWidth, canvasHeight) {
     tabletop.addColorStop(0, seat && seat.occupied ? (seat.needsServing ? '#55efc4' : seat.needsToPay ? '#ffeaa7' : '#e17055') : '#c08a5b');
     tabletop.addColorStop(1, '#6d3d25');
     context.fillStyle = tabletop;
-    context.fillRect(screenX - tableWidth / 2, floorY - tableHeight * 0.35, tableWidth, tableHeight * 0.18);
+    if (table.design === 'round' || table.design === 'barrel') {
+        context.beginPath();
+        context.ellipse(screenX, floorY - tableHeight * 0.26, tableWidth * 0.52, tableHeight * 0.14, 0, 0, Math.PI * 2);
+        context.fill();
+    } else {
+        context.fillRect(screenX - tableWidth / 2, floorY - tableHeight * 0.35, tableWidth, tableHeight * 0.18);
+    }
+    if (table.design === 'booth') {
+        context.fillStyle = '#7f4f35';
+        context.fillRect(screenX - tableWidth * 0.53, floorY - tableHeight * 1.05, tableWidth * 1.06, tableHeight * 0.16);
+        context.fillStyle = '#c08a5b';
+        context.fillRect(screenX - tableWidth * 0.5, floorY - tableHeight * 0.91, tableWidth, tableHeight * 0.08);
+    }
     context.fillStyle = '#21160f';
     context.fillRect(screenX - tableWidth * 0.38, floorY - tableHeight * 0.04, tableWidth * 0.12, tableHeight * 0.55);
     context.fillRect(screenX + tableWidth * 0.26, floorY - tableHeight * 0.04, tableWidth * 0.12, tableHeight * 0.55);
@@ -662,12 +734,13 @@ function renderFpsScene(timestamp = 0) {
     const height = window.innerHeight;
     const context = fpsContext;
     const night = game.nightMode;
+    const horizon = height / 2 + fpsPlayer.pitch * height * 0.8;
     context.fillStyle = night ? '#080d24' : '#80c7e8';
-    context.fillRect(0, 0, width, height / 2);
+    context.fillRect(0, 0, width, horizon);
     context.fillStyle = night ? '#15131b' : '#5d4037';
-    context.fillRect(0, height / 2, width, height / 2);
+    context.fillRect(0, horizon, width, height - horizon);
     context.fillStyle = night ? 'rgba(108,92,231,0.13)' : 'rgba(255,234,167,0.15)';
-    context.fillRect(0, height / 2, width, height / 2);
+    context.fillRect(0, horizon, width, height - horizon);
 
     const rayStep = 2;
     for (let column = 0; column < width; column += rayStep) {
@@ -681,7 +754,7 @@ function renderFpsScene(timestamp = 0) {
         const wallHeight = Math.min(height, height / corrected * 0.82);
         const shade = Math.max(35, Math.min(190, 185 - corrected * 10));
         context.fillStyle = night ? `rgb(${shade * 0.35},${shade * 0.38},${shade})` : `rgb(${shade},${shade * 0.78},${shade * 0.52})`;
-        context.fillRect(column, height / 2 - wallHeight / 2, rayStep + 1, wallHeight);
+        context.fillRect(column, horizon - wallHeight / 2, rayStep + 1, wallHeight);
     }
 
     FPS_DECOR.forEach(decor => drawFpsDecor(context, decor, width, height));
@@ -723,6 +796,7 @@ function bindFirstPersonControls() {
     document.addEventListener('mousemove', event => {
         if (fpsOpen && document.pointerLockElement === fpsCanvas) {
             fpsPlayer.angle += event.movementX * 0.0025;
+            fpsPlayer.pitch = Math.max(-0.38, Math.min(0.38, fpsPlayer.pitch + event.movementY * 0.002));
         }
     });
     if (fpsCanvas && !window.fpsCanvasClickBound) {
@@ -792,7 +866,20 @@ function renderWaitList() {
 
 function checkEmptySeats() {
     if (waitList.length === 0) return;
-    for (let i = 0; i < game.tablesOwned; i++) { if (!seats[i].occupied) { const char = waitList.shift(); renderWaitList(); spawnWalkingCustomer(i, char); break; } }
+    for (let i = 0; i < game.tablesOwned; i++) {
+        if (!seats[i].occupied) {
+            const char = waitList.shift();
+            renderWaitList();
+            spawnWalkingCustomer(i, char);
+            // Some guests arrive as a two-person party and take neighboring tables.
+            if (Math.random() < 0.28 && i % 3 === 0 && i + 1 < game.tablesOwned && !seats[i + 1].occupied && waitList.length) {
+                const companion = waitList.shift();
+                renderWaitList();
+                spawnWalkingCustomer(i + 1, companion);
+            }
+            break;
+        }
+    }
 }
 
 function spawnWalkingCustomer(seatIdx, char) {

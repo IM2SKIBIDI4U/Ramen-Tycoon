@@ -116,7 +116,11 @@ let game = {
     restaurantXp: 0, popularity: 50, dailySpecialIndex: 0,
     specialEndsAt: Date.now() + 86400000,
     nightMode: false, deliveryActive: null, deliveriesCompleted: 0,
-    staffTraining: { waiter: 0, ninja: 0, mascot: 0 }, reviews: []
+    staffTraining: { waiter: 0, ninja: 0, mascot: 0 }, reviews: [],
+    physical: {
+        capacity: 1, speedLevel: 0, cookingLevel: 0, interactionLevel: 0,
+        ingredientsReadyFor: null, activeOrder: null, carriedFood: []
+    }
 };
 
 window.vipPartyActive = 0; 
@@ -211,6 +215,20 @@ function normalizeGameState() {
     game.popularity = Math.max(0, Math.min(100, game.popularity));
     game.staffTraining = { waiter: 0, ninja: 0, mascot: 0, ...(game.staffTraining || {}) };
     game.reviews = Array.isArray(game.reviews) ? game.reviews.slice(0, 6) : [];
+    game.physical = {
+        capacity: 1, speedLevel: 0, cookingLevel: 0, interactionLevel: 0,
+        ingredientsReadyFor: null, activeOrder: null, carriedFood: [],
+        ...(game.physical || {})
+    };
+    game.physical.capacity = Math.max(1, Math.min(4, Number(game.physical.capacity) || 1));
+    game.physical.speedLevel = Math.max(0, Number(game.physical.speedLevel) || 0);
+    game.physical.cookingLevel = Math.max(0, Number(game.physical.cookingLevel) || 0);
+    game.physical.interactionLevel = Math.max(0, Number(game.physical.interactionLevel) || 0);
+    game.physical.carriedFood = Array.isArray(game.physical.carriedFood) ? game.physical.carriedFood : [];
+    // Seats and active orders are runtime-only; never restore a half-finished shift.
+    game.physical.activeOrder = null;
+    game.physical.ingredientsReadyFor = null;
+    game.physical.carriedFood = [];
     if (!game.deliveryActive || !Number.isFinite(game.deliveryActive.endsAt) || game.deliveryActive.endsAt <= Date.now()) {
         game.deliveryActive = null;
     }
@@ -417,14 +435,26 @@ const FPS_DECOR = [
     { x: 7.1, y: 5.2, kind: 'rug', surface: 'floor' },
     { x: 13.2, y: 7.1, kind: 'divider', surface: 'floor' }
 ];
+const FPS_WORLD_OBJECTS = [
+    { x: 2.3, y: 1.45, kind: 'menu-board', label: 'MENU' },
+    { x: 13.2, y: 1.55, kind: 'fridge', label: 'INGREDIENTS' },
+    { x: 13.2, y: 3.25, kind: 'stove', label: 'RAMEN STATION' },
+    { x: 13.1, y: 4.65, kind: 'pickup', label: 'PASS' },
+    { x: 2.2, y: 4.45, kind: 'takeout', label: 'TAKEOUT' },
+    { x: 2.2, y: 6.35, kind: 'terminal', label: 'UPGRADES' },
+    { x: 7.5, y: 8.35, kind: 'door', label: 'ENTRANCE' }
+];
 const FPS_FOV = Math.PI / 3;
 let fpsOpen = false;
 let fpsAnimationFrame = null;
 let fpsLastFrame = 0;
 let fpsKeys = {};
-let fpsPlayer = { x: 2.5, y: 8, angle: -Math.PI / 2, pitch: 0 };
+let fpsPlayer = { x: 2.5, y: 7.6, angle: -Math.PI / 2, pitch: 0 };
 let fpsCanvas = null;
 let fpsContext = null;
+let fpsCookingTimer = null;
+let takeoutQueue = [];
+let takeoutSequence = 0;
 
 function normalizeFpsAngle(angle) {
     while (angle > Math.PI) angle -= Math.PI * 2;
@@ -433,6 +463,7 @@ function normalizeFpsAngle(angle) {
 }
 
 function isFpsWall(x, y) {
+    if (Math.floor(y) === 9 && x > 6.5 && x < 8.5) return false;
     const row = FPS_MAP[Math.floor(y)];
     return !row || row[Math.floor(x)] === '#';
 }
@@ -462,6 +493,32 @@ function getFpsTargetTable() {
     return closest;
 }
 
+function getFpsTargetObject() {
+    let closest = null;
+    FPS_WORLD_OBJECTS.forEach(object => {
+        const dx = object.x - fpsPlayer.x;
+        const dy = object.y - fpsPlayer.y;
+        const distance = Math.hypot(dx, dy);
+        const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
+        const reach = 2.15 + (game.physical?.interactionLevel || 0) * 0.18;
+        if (distance < reach && Math.abs(relative) < 0.82 && (!closest || distance < closest.distance)) {
+            closest = { ...object, distance };
+        }
+    });
+    return closest;
+}
+
+function getFpsCarryingCount() {
+    return (game.physical.carriedFood || []).length + (game.physical.ingredientsReadyFor !== null ? 1 : 0);
+}
+
+function getFpsActiveOrderLabel() {
+    if (game.physical.activeOrder === null || game.physical.activeOrder === undefined) return 'No active order';
+    return typeof game.physical.activeOrder === 'number'
+        ? `Table ${game.physical.activeOrder + 1} order`
+        : 'Takeout order';
+}
+
 function getFpsTableStatus(index) {
     const seat = seats[index];
     if (!seat || !seat.occupied) return 'Empty table';
@@ -469,7 +526,7 @@ function getFpsTableStatus(index) {
     const group = getFpsOrderGroup(index);
     if (group.length > 1 && seat.needsMenu) return `${group.length} guests are ready to order`;
     if (seat.needsMenu) return 'Customer is ready to order';
-    if (seat.isCooking) return `Cooking step ${seat.cookStep + 1}`;
+    if (game.physical.activeOrder === index) return `Order in progress · ${getFpsActiveOrderLabel()}`;
     if (seat.needsServing) return 'Ramen is ready to serve';
     if (seat.needsToPay) return 'Payment is waiting';
     return 'Table in service';
@@ -481,7 +538,7 @@ function getFpsTableAction(index) {
     const group = getFpsOrderGroup(index);
     if (group.length > 1) return `Take ${group.length} orders together`;
     if (seat.needsMenu) return 'Take order';
-    if (seat.isCooking) return 'Cook next step';
+    if (game.physical.activeOrder === index) return 'Continue order in kitchen';
     if (seat.needsServing) return 'Serve ramen';
     if (seat.needsToPay) return 'Collect payment';
     return 'Check table';
@@ -505,13 +562,223 @@ function interactWithFpsTable() {
     if (!target) return;
     const seat = seats[target.index];
     if (!seat || !seat.occupied || !seat.charData) return;
+    if (seat.needsMenu) {
+        if (game.physical.activeOrder !== null) {
+            playSound('error');
+            return;
+        }
+        seat.needsMenu = false;
+        seat.patience = 100;
+        game.physical.activeOrder = target.index;
+        game.physical.ingredientsReadyFor = null;
+        playSound('serve');
+        updateFpsHud();
+        updateUI();
+        saveGame();
+        return;
+    }
     const group = getFpsOrderGroup(target.index);
-    if (group.length > 1) {
-        group.forEach(groupIndex => handleTableClick(groupIndex));
-    } else if (seat.isCooking) {
-        clickStove(target.index);
+    if (group.length > 1 && seat.needsMenu) group.forEach(groupIndex => interactWithFpsTableAtIndex(groupIndex));
+    else interactWithFpsTableAtIndex(target.index);
+}
+
+function interactWithFpsTableAtIndex(index) {
+    const seat = seats[index];
+    if (!seat || !seat.occupied || !seat.charData) return;
+    if (seat.needsServing) {
+        const carryingIndex = (game.physical.carriedFood || []).indexOf(index);
+        if (carryingIndex === -1) {
+            playSound('error');
+            return;
+        }
+        if (seat.charData.wantsBoba) {
+            if (game.inv.boba < 1) {
+                document.getElementById('out-of-stock-msg')?.classList.remove('hidden');
+                playSound('error');
+                return;
+            }
+            game.inv.boba--;
+        }
+        game.physical.carriedFood.splice(carryingIndex, 1);
+        seat.needsServing = false;
+        seat.needsToPay = true;
+        seat.patience = 100;
+        playSound('serve');
+        updateUI();
+        updateFpsHud();
+        saveGame();
+    } else if (seat.needsToPay) {
+        collectPayment(index);
+        updateFpsHud();
+    }
+}
+
+function interactWithFpsStation(kind) {
+    const physical = game.physical;
+    if (kind === 'terminal') {
+        renderFpsUpgradePanel();
+        return;
+    }
+    if (kind === 'fridge') {
+        if (physical.activeOrder === null || physical.ingredientsReadyFor !== null) {
+            playSound('error');
+            return;
+        }
+        if (getFpsCarryingCount() >= physical.capacity) {
+            playSound('error');
+            return;
+        }
+        const needs = { noodle: 1, broth: 1, spice: 1, egg: 1 };
+        if (Object.keys(needs).some(key => game.inv[key] < needs[key])) {
+            document.getElementById('out-of-stock-msg')?.classList.remove('hidden');
+            playSound('error');
+            return;
+        }
+        Object.entries(needs).forEach(([key, amount]) => game.inv[key] -= amount);
+        physical.ingredientsReadyFor = physical.activeOrder;
+        playSound('cook');
+        updateUI();
+        updateFpsHud();
+        saveGame();
+        return;
+    }
+    if (kind === 'stove') {
+        if (physical.ingredientsReadyFor === null || fpsCookingTimer) {
+            playSound('error');
+            return;
+        }
+        const order = physical.ingredientsReadyFor;
+        const duration = Math.max(800, 2600 - physical.cookingLevel * 350 - game.idxAuto * 80);
+        physical.ingredientsReadyFor = null;
+        fpsCookingTimer = setTimeout(() => finishFpsCooking(order), duration);
+        playSound('cook');
+        updateFpsHud();
+        return;
+    }
+    if (kind === 'takeout' || kind === 'pickup') {
+        if (kind === 'takeout') {
+            const waiting = takeoutQueue.find(customer => customer.phase === 'waiting' || customer.phase === 'ready');
+            if (waiting && waiting.phase === 'waiting' && physical.activeOrder === null) {
+                physical.activeOrder = `takeout:${waiting.id}`;
+                waiting.phase = 'ordered';
+                playSound('serve');
+                updateFpsHud();
+                return;
+            }
+            if (waiting && waiting.phase === 'ready' && physical.carriedFood.includes(`takeout:${waiting.id}`)) {
+                physical.carriedFood = physical.carriedFood.filter(id => id !== `takeout:${waiting.id}`);
+                completeTakeoutOrder(waiting);
+                updateFpsHud();
+                return;
+            }
+        }
+        if (kind === 'pickup' && physical.carriedFood.length) {
+            playSound('serve');
+            return;
+        }
+        if (physical.activeOrder !== null) {
+            playSound('error');
+        }
+    }
+}
+
+function finishFpsCooking(order) {
+    fpsCookingTimer = null;
+    if (typeof order === 'number') {
+        const seat = seats[order];
+        if (seat && seat.occupied) seat.needsServing = true;
     } else {
-        handleTableClick(target.index);
+        const customer = takeoutQueue.find(item => `takeout:${item.id}` === order);
+        if (customer) customer.phase = 'ready';
+    }
+    game.physical.carriedFood = [...(game.physical.carriedFood || []), order];
+    game.physical.activeOrder = null;
+    playSound('serve');
+    updateUI();
+    updateFpsHud();
+    saveGame();
+}
+
+function completeTakeoutOrder(customer) {
+    if (!customer) return;
+    const mult = customer.char.isVIP ? 2.5 : 1;
+    const reward = Math.ceil(game.currentMenuPrice * mult * getPrestigeMultiplier() * getDailySpecial().multiplier);
+    game.wallet += reward;
+    game.totalEarned += reward;
+    game.servedCount++;
+    game.popularity = Math.min(100, game.popularity + 0.25);
+    gainRestaurantXp(Math.max(1, Math.ceil(reward / 100)));
+    addReview('A takeout guest left with a perfectly packed bowl.');
+    spawnFloatingMoney(reward, 'money');
+    playSound('cash');
+    takeoutQueue = takeoutQueue.filter(item => item.id !== customer.id);
+    checkAchievements();
+    updateUI();
+    saveGame();
+}
+
+function updateFpsHud() {
+    const economy = document.getElementById('fps-economy');
+    if (!economy) return;
+    const physical = game.physical;
+    economy.innerText = `Cash $${formatMoney(game.wallet)} · Orders ${physical.activeOrder === null ? 0 : 1}/${physical.capacity} · Carrying ${getFpsCarryingCount()}/${physical.capacity}`;
+}
+
+function getFpsUpgradeDefinitions() {
+    const physical = game.physical;
+    return [
+        { type: 'capacity', title: 'Carry capacity', detail: `${physical.capacity}/4 bowls · carry more orders`, level: physical.capacity, max: 4, cost: 450 * Math.pow(2.2, physical.capacity - 1) },
+        { type: 'speed', title: 'Walking speed', detail: `Level ${physical.speedLevel} · move faster between stations`, level: physical.speedLevel, max: 5, cost: 700 * Math.pow(2, physical.speedLevel) },
+        { type: 'cooking', title: 'Cooking speed', detail: `Level ${physical.cookingLevel} · reduce station time`, level: physical.cookingLevel, max: 5, cost: 900 * Math.pow(2, physical.cookingLevel) },
+        { type: 'interaction', title: 'Service training', detail: `Level ${physical.interactionLevel} · wider interaction range`, level: physical.interactionLevel, max: 5, cost: 600 * Math.pow(2, physical.interactionLevel) }
+    ];
+}
+
+function renderFpsUpgradePanel() {
+    const panel = document.getElementById('fps-upgrade-panel');
+    const container = document.getElementById('fps-upgrade-options');
+    if (!panel || !container) return;
+    container.innerHTML = getFpsUpgradeDefinitions().map(upgrade => {
+        const maxed = upgrade.level >= upgrade.max;
+        const cost = Math.ceil(upgrade.cost);
+        return `<div class="fps-upgrade-option">
+            <div><strong>${upgrade.title}</strong><small>${upgrade.detail}</small></div>
+            <button onclick="buyFpsUpgrade('${upgrade.type}')" ${maxed || game.wallet < cost ? 'disabled' : ''}>${maxed ? 'MAX' : `$${formatMoney(cost)}`}</button>
+        </div>`;
+    }).join('');
+    panel.classList.remove('hidden');
+}
+
+function closeFpsUpgradePanel() {
+    document.getElementById('fps-upgrade-panel')?.classList.add('hidden');
+}
+
+function buyFpsUpgrade(type) {
+    const upgrade = getFpsUpgradeDefinitions().find(item => item.type === type);
+    if (!upgrade || upgrade.level >= upgrade.max || game.wallet < upgrade.cost) {
+        playSound('error');
+        return;
+    }
+    game.wallet -= Math.ceil(upgrade.cost);
+    if (type === 'capacity') game.physical.capacity++;
+    if (type === 'speed') game.physical.speedLevel++;
+    if (type === 'cooking') game.physical.cookingLevel++;
+    if (type === 'interaction') game.physical.interactionLevel++;
+    gainRestaurantXp(8);
+    playSound('cash');
+    renderFpsUpgradePanel();
+    updateFpsHud();
+    updateUI();
+    saveGame();
+}
+
+function interactWithFpsScene() {
+    const table = getFpsTargetTable();
+    const object = getFpsTargetObject();
+    if (table && (!object || table.distance <= object.distance + 0.15)) {
+        interactWithFpsTable();
+    } else if (object) {
+        interactWithFpsStation(object.kind);
     }
 }
 
@@ -519,12 +786,12 @@ function updateFpsMovement(delta) {
     const forward = (fpsKeys.w ? 1 : 0) - (fpsKeys.s ? 1 : 0);
     const strafe = (fpsKeys.d ? 1 : 0) - (fpsKeys.a ? 1 : 0);
     const swivel = (fpsKeys.arrowright ? 1 : 0) - (fpsKeys.arrowleft ? 1 : 0);
-    const verticalLook = (fpsKeys.arrowdown ? 1 : 0) - (fpsKeys.arrowup ? 1 : 0);
+    const verticalLook = (fpsKeys.arrowup ? 1 : 0) - (fpsKeys.arrowdown ? 1 : 0);
     if (swivel) fpsPlayer.angle += swivel * delta * 1.8;
-    if (verticalLook) fpsPlayer.pitch = Math.max(-0.38, Math.min(0.38, fpsPlayer.pitch + verticalLook * delta * 1.5));
+    if (verticalLook) fpsPlayer.pitch = Math.max(-0.62, Math.min(0.62, fpsPlayer.pitch + verticalLook * delta * 1.5));
     if (!forward && !strafe) return;
     const sprint = fpsKeys.shift ? 1.65 : 1;
-    const speed = delta * 2.8 * sprint;
+    const speed = delta * (2.8 + game.physical.speedLevel * 0.3) * sprint;
     const length = Math.sqrt(forward * forward + strafe * strafe) || 1;
     const dx = ((Math.cos(fpsPlayer.angle) * forward) + (Math.cos(fpsPlayer.angle + Math.PI / 2) * strafe)) / length * speed;
     const dy = ((Math.sin(fpsPlayer.angle) * forward) + (Math.sin(fpsPlayer.angle + Math.PI / 2) * strafe)) / length * speed;
@@ -545,7 +812,7 @@ function drawFpsDecor(context, decor, canvasWidth, canvasHeight) {
     const horizon = canvasHeight / 2 + fpsPlayer.pitch * canvasHeight * 0.8;
     const centerY = horizon - canvasHeight * 0.16;
     context.save();
-    context.globalAlpha = Math.max(0.45, 1 - distance / 14);
+     context.globalAlpha = Math.max(0.78, 1 - distance / 28);
     if (decor.surface === 'floor') {
         const floorY = horizon + canvasHeight * 0.27 + Math.min(55, distance * 3);
         if (decor.kind === 'rug') {
@@ -630,6 +897,93 @@ function drawFpsDecor(context, decor, canvasWidth, canvasHeight) {
         context.fillStyle = '#ffeaa7';
         context.fillRect(screenX - size * 0.04, centerY - size * 0.62, size * 0.08, size * 0.24);
         context.fillRect(screenX - size * 0.34, centerY + size * 0.4, size * 0.68, size * 0.05);
+    }
+    context.restore();
+}
+
+function getFpsProjection(point, canvasWidth, canvasHeight) {
+    const dx = point.x - fpsPlayer.x;
+    const dy = point.y - fpsPlayer.y;
+    const distance = Math.max(0.35, Math.hypot(dx, dy));
+    const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
+    if (Math.abs(relative) > FPS_FOV / 2 + 0.2) return null;
+    const horizon = canvasHeight / 2 + fpsPlayer.pitch * canvasHeight * 0.8;
+    return {
+        distance,
+        relative,
+        screenX: canvasWidth / 2 + (relative / FPS_FOV) * canvasWidth,
+        horizon,
+        floorY: horizon + canvasHeight * 0.23 + Math.min(45, distance * 3),
+        size: Math.min(canvasHeight * 0.5, 180 / distance)
+    };
+}
+
+function drawFpsWorldObject(context, object, canvasWidth, canvasHeight) {
+    const projection = getFpsProjection(object, canvasWidth, canvasHeight);
+    if (!projection) return;
+    const { screenX, horizon, floorY, size, distance } = projection;
+    const target = getFpsTargetObject();
+    const isTarget = target && target.kind === object.kind;
+    context.save();
+    context.globalAlpha = Math.max(0.82, 1 - distance / 32);
+    context.shadowColor = 'rgba(0,0,0,0.5)';
+    context.shadowBlur = Math.max(2, size * 0.06);
+    if (object.kind === 'fridge') {
+        context.fillStyle = '#dfe6e9';
+        context.fillRect(screenX - size * 0.42, floorY - size * 1.18, size * 0.84, size * 1.18);
+        context.fillStyle = '#b2bec3';
+        context.fillRect(screenX - size * 0.04, floorY - size * 1.05, size * 0.06, size * 0.92);
+        context.fillStyle = '#00b894';
+        context.fillRect(screenX - size * 0.3, floorY - size * 0.92, size * 0.18, size * 0.08);
+    } else if (object.kind === 'stove') {
+        context.fillStyle = '#636e72';
+        context.fillRect(screenX - size * 0.62, floorY - size * 0.58, size * 1.24, size * 0.58);
+        context.fillStyle = '#2d3436';
+        [-0.32, 0.32].forEach(x => {
+            context.beginPath();
+            context.arc(screenX + size * x, floorY - size * 0.42, size * 0.14, 0, Math.PI * 2);
+            context.fill();
+        });
+        context.fillStyle = '#e17055';
+        context.fillRect(screenX - size * 0.08, floorY - size * 0.7, size * 0.16, size * 0.12);
+    } else if (object.kind === 'pickup' || object.kind === 'takeout') {
+        context.fillStyle = object.kind === 'takeout' ? '#6c5ce7' : '#00b894';
+        context.fillRect(screenX - size * 0.65, floorY - size * 0.48, size * 1.3, size * 0.48);
+        context.fillStyle = '#ffeaa7';
+        context.fillRect(screenX - size * 0.55, floorY - size * 0.74, size * 1.1, size * 0.12);
+        context.fillStyle = '#fff';
+        context.font = `900 ${Math.max(9, size * 0.16)}px sans-serif`;
+        context.textAlign = 'center';
+        context.fillText(object.kind === 'takeout' ? 'TO-GO' : 'PASS', screenX, floorY - size * 0.52);
+    } else if (object.kind === 'terminal') {
+        context.fillStyle = '#2d3436';
+        context.fillRect(screenX - size * 0.45, floorY - size * 0.92, size * 0.9, size * 0.92);
+        context.fillStyle = '#74b9ff';
+        context.fillRect(screenX - size * 0.32, floorY - size * 0.76, size * 0.64, size * 0.38);
+        context.fillStyle = '#55efc4';
+        context.fillRect(screenX - size * 0.28, floorY - size * 0.23, size * 0.56, size * 0.08);
+    } else if (object.kind === 'door') {
+        context.fillStyle = '#6d3d25';
+        context.fillRect(screenX - size * 0.48, floorY - size * 1.7, size * 0.96, size * 1.7);
+        context.fillStyle = '#74b9ff';
+        context.fillRect(screenX - size * 0.35, floorY - size * 1.5, size * 0.7, size * 0.88);
+        context.fillStyle = '#ffeaa7';
+        context.beginPath();
+        context.arc(screenX + size * 0.28, floorY - size * 0.85, size * 0.05, 0, Math.PI * 2);
+        context.fill();
+    } else {
+        context.fillStyle = '#241b35';
+        context.fillRect(screenX - size * 0.75, horizon - size * 0.45, size * 1.5, size * 0.65);
+        context.fillStyle = '#ffeaa7';
+        context.font = `900 ${Math.max(9, size * 0.16)}px sans-serif`;
+        context.textAlign = 'center';
+        context.fillText(object.label, screenX, horizon - size * 0.05);
+    }
+    context.shadowBlur = 0;
+    if (isTarget) {
+        context.strokeStyle = '#ffeaa7';
+        context.lineWidth = 4;
+        context.strokeRect(screenX - size * 0.75, floorY - size * 1.75, size * 1.5, size * 1.75);
     }
     context.restore();
 }
@@ -758,16 +1112,30 @@ function renderFpsScene(timestamp = 0) {
     }
 
     FPS_DECOR.forEach(decor => drawFpsDecor(context, decor, width, height));
+    FPS_WORLD_OBJECTS
+        .map(object => ({ ...object, distance: Math.hypot(object.x - fpsPlayer.x, object.y - fpsPlayer.y) }))
+        .sort((a, b) => b.distance - a.distance)
+        .forEach(object => drawFpsWorldObject(context, object, width, height));
     FPS_TABLE_POSITIONS
         .map((position, index) => ({ ...position, index, distance: Math.hypot(position.x - fpsPlayer.x, position.y - fpsPlayer.y) }))
         .sort((a, b) => b.distance - a.distance)
         .forEach(table => drawFpsTable(context, table, width, height));
 
     const target = getFpsTargetTable();
+    const objectTarget = getFpsTargetObject();
     const objective = document.querySelector('.fps-objective');
     const status = document.getElementById('fps-status');
-    if (objective) objective.innerText = target ? `Press E: ${getFpsTableAction(target.index)}` : 'Walk close to a table and face it';
-    if (status) status.innerText = target ? getFpsTableStatus(target.index) : `Position ${fpsPlayer.x.toFixed(1)}, ${fpsPlayer.y.toFixed(1)} · service floor`;
+    if (target && (!objectTarget || target.distance <= objectTarget.distance + 0.15)) {
+        if (objective) objective.innerText = `E · ${getFpsTableAction(target.index)}`;
+        if (status) status.innerText = getFpsTableStatus(target.index);
+    } else if (objectTarget) {
+        if (objective) objective.innerText = `E · ${objectTarget.label}`;
+        if (status) status.innerText = `${objectTarget.label} · ${getFpsActiveOrderLabel()}`;
+    } else {
+        if (objective) objective.innerText = 'Walk close to a guest or station';
+        if (status) status.innerText = `Service floor · ${fpsPlayer.x.toFixed(1)}, ${fpsPlayer.y.toFixed(1)}`;
+    }
+    updateFpsHud();
     fpsAnimationFrame = requestAnimationFrame(renderFpsScene);
 }
 
@@ -786,7 +1154,8 @@ function bindFirstPersonControls() {
             event.preventDefault();
         }
         if (key === 'e' && !event.repeat) {
-            interactWithFpsTable();
+            if (document.getElementById('fps-upgrade-panel')?.classList.contains('hidden') === false) return;
+            interactWithFpsScene();
             event.preventDefault();
         }
     });
@@ -796,7 +1165,8 @@ function bindFirstPersonControls() {
     document.addEventListener('mousemove', event => {
         if (fpsOpen && document.pointerLockElement === fpsCanvas) {
             fpsPlayer.angle += event.movementX * 0.0025;
-            fpsPlayer.pitch = Math.max(-0.38, Math.min(0.38, fpsPlayer.pitch + event.movementY * 0.002));
+            // Pointer movement follows the usual FPS convention: moving up looks up.
+            fpsPlayer.pitch = Math.max(-0.62, Math.min(0.62, fpsPlayer.pitch - event.movementY * 0.002));
         }
     });
     if (fpsCanvas && !window.fpsCanvasClickBound) {
@@ -847,10 +1217,13 @@ function getPrestigeMultiplier() {
 }
 
 function customerArrives() { 
-    if (waitList.length < 10) { 
-        waitList.push(generateRandomChar()); 
-        renderWaitList(); 
+    const char = generateRandomChar();
+    if (Math.random() < 0.3 && takeoutQueue.length < 5) {
+        takeoutQueue.push({ id: ++takeoutSequence, char, phase: 'approach', progress: 0 });
+    } else if (waitList.length < 10) {
+        waitList.push(char);
     } 
+    renderWaitList();
     checkEmptySeats(); 
     
     let baseDelay = 4000 * Math.pow(0.92, game.idxAds || 0);
@@ -862,6 +1235,10 @@ function customerArrives() {
 function renderWaitList() { 
     let el = document.getElementById('wait-list');
     if (el) el.innerHTML = waitList.map(char => `<div style="margin-bottom: 5px;">${renderCharHTML(char)}</div>`).join(''); 
+    const takeout = document.getElementById('takeout-line');
+    if (takeout) {
+        takeout.innerHTML = takeoutQueue.map(customer => `<div class="takeout-guest"><span>🚶</span>${customer.phase === 'ready' ? '🍜 READY' : 'TAKEOUT'}</div>`).join('');
+    }
 }
 
 function checkEmptySeats() {
@@ -1004,6 +1381,13 @@ setInterval(() => {
     }
     rotateDailySpecialIfNeeded();
     renderRestaurantControls();
+    takeoutQueue.forEach(customer => {
+        if (customer.phase === 'approach') {
+            customer.progress = Math.min(1, customer.progress + 0.28);
+            if (customer.progress >= 1) customer.phase = 'waiting';
+        }
+    });
+    renderWaitList();
 }, 1000);
 
 // --- PATIENCE DRAIN SYSTEM ---

@@ -60,6 +60,8 @@ h1 { font-weight: 900; margin: 0 0 20px 0; font-size: 2.5rem; text-shadow: 2px 2
 
 .outside-queue { display: flex; flex-direction: column; align-items: center; margin-bottom: 20px; }
 .queue-line { display: flex; gap: 5px; height: 50px; align-items: flex-end; justify-content: center; margin-bottom: 5px; }
+.takeout-line { min-height: 28px; height: auto; color: #6c5ce7; font-size: 0.7rem; font-weight: 900; }
+.takeout-guest { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 48px; }
 .door-frame { width: 120px; background: #6c5ce7; color: white; padding: 10px; border-radius: 8px 8px 0 0; font-weight: bold; margin: 0 auto; text-align: center;}
 #dining-area { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; }
 .seat { width: 70px; height: 100px; background: #f1f2f6; border-radius: 10px; position: relative; display: flex; flex-direction: column; justify-content: flex-end; cursor: pointer; box-shadow: inset 0 -10px 0 rgba(0,0,0,0.05); transition: transform 0.1s;}
@@ -927,12 +929,116 @@ body.first-person-open {
     font-weight: 900;
 }
 
+.fps-economy {
+    display: inline-block;
+    margin: 4px;
+    border-radius: 999px;
+    padding: 8px 13px;
+    color: #ffeaa7;
+    background: rgba(7,12,24,0.78);
+    font-size: 0.82rem;
+    font-weight: 900;
+}
+
 .fps-controls {
     display: block;
     color: rgba(255,255,255,0.68);
     background: transparent;
     box-shadow: none;
     font-size: 0.7rem;
+}
+
+.fps-upgrade-panel {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgba(3,7,18,0.58);
+    pointer-events: auto;
+}
+
+.fps-upgrade-panel.hidden {
+    display: none;
+}
+
+.fps-panel-card {
+    position: relative;
+    width: min(560px, 100%);
+    padding: 28px;
+    color: #fff;
+    border: 1px solid rgba(255,234,167,0.34);
+    border-radius: 20px;
+    background: linear-gradient(145deg, rgba(25,36,62,0.98), rgba(8,14,29,0.98));
+    box-shadow: 0 24px 80px rgba(0,0,0,0.48);
+}
+
+.fps-panel-card h2 {
+    margin: 4px 0 5px;
+}
+
+.fps-panel-card p {
+    margin: 0 0 18px;
+    color: rgba(255,255,255,0.68);
+}
+
+.fps-panel-kicker {
+    color: #ffeaa7;
+    font-size: 0.7rem;
+    font-weight: 900;
+    letter-spacing: 0.16em;
+}
+
+.fps-panel-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    border: 0;
+    border-radius: 8px;
+    padding: 7px 10px;
+    color: #fff;
+    background: rgba(255,255,255,0.12);
+    cursor: pointer;
+}
+
+.fps-upgrade-option {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-top: 10px;
+    padding: 13px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.06);
+}
+
+.fps-upgrade-option strong,
+.fps-upgrade-option small {
+    display: block;
+}
+
+.fps-upgrade-option small {
+    margin-top: 3px;
+    color: rgba(255,255,255,0.62);
+}
+
+.fps-upgrade-option button {
+    flex: 0 0 auto;
+    border: 0;
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: #08111f;
+    background: #55efc4;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 900;
+}
+
+.fps-upgrade-option button:disabled {
+    color: rgba(255,255,255,0.5);
+    background: rgba(255,255,255,0.12);
+    cursor: not-allowed;
 }
 
 @media (max-width: 760px) {

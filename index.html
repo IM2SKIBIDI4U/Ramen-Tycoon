@@ -77,7 +77,7 @@
                     <div class="scene-plant plant-left">🌿</div>
                     <div class="scene-plant plant-right">🌿</div>
                     <div class="scene-floor">
-                        <div class="outside-queue"><div id="wait-list" class="queue-line"></div><div class="door-frame">🚪 ENTRANCE</div></div>
+                        <div class="outside-queue"><div id="wait-list" class="queue-line"></div><div id="takeout-line" class="queue-line takeout-line"></div><div class="door-frame">🚪 ENTRANCE</div></div>
                         <div id="dining-area"></div>
                     </div>
                     <div class="scene-light-pool"></div>
@@ -184,11 +184,21 @@
         <div class="fps-hud">
             <div class="fps-objective">Walk to a table and press <b>E</b></div>
             <div class="fps-status" id="fps-status">Loading restaurant...</div>
+            <div class="fps-economy" id="fps-economy">Cash $150 · Orders 0/1 · Carrying 0/1</div>
             <div class="fps-controls">Click the scene to capture mouse · WASD to move · Mouse to look up/down/left/right · ↑ ↓ ← → to look · E to interact · Shift to sprint · Esc to exit</div>
+        </div>
+        <div id="fps-upgrade-panel" class="fps-upgrade-panel hidden">
+            <div class="fps-panel-card">
+                <button class="fps-panel-close" onclick="closeFpsUpgradePanel()">✕</button>
+                <span class="fps-panel-kicker">UPGRADE TERMINAL</span>
+                <h2>Restaurant operations</h2>
+                <p>Buy improvements without leaving the service floor.</p>
+                <div id="fps-upgrade-options"></div>
+            </div>
         </div>
     </div>
 
-    <script src="script.js?v=6"></script>
+    <script src="script.js?v=7"></script>
     <div id="achieve-toast" class="hidden-toast">
     🏆 <b id="achieve-name">Achievement Unlocked!</b>
     </div>

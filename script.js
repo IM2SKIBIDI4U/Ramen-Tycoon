@@ -412,7 +412,7 @@ const FPS_MAP = [
     '#..............#',
     '#..#.....#.....#',
     '#..............#',
-    '#.....##.......#',
+    '#.....##..####.#',
     '#..............#',
     '#..#........#..#',
     '#..............#',
@@ -441,10 +441,10 @@ const FPS_WORLD_OBJECTS = [
     { x: 13.2, y: 3.25, kind: 'stove', label: 'RAMEN STATION' },
     { x: 13.1, y: 4.65, kind: 'pickup', label: 'PASS' },
     { x: 2.2, y: 4.45, kind: 'takeout', label: 'TAKEOUT' },
-    { x: 2.2, y: 6.35, kind: 'terminal', label: 'UPGRADES' },
-    { x: 7.5, y: 8.35, kind: 'door', label: 'ENTRANCE' }
+    { x: 7.5, y: 8.78, kind: 'door', label: 'ENTRANCE' }
 ];
 const FPS_FOV = Math.PI / 3;
+const FPS_RENDER_DISTANCE = 9.5;
 let fpsOpen = false;
 let fpsAnimationFrame = null;
 let fpsLastFrame = 0;
@@ -468,6 +468,20 @@ function isFpsWall(x, y) {
     return !row || row[Math.floor(x)] === '#';
 }
 
+function hasFpsLineOfSight(point) {
+    const distance = Math.hypot(point.x - fpsPlayer.x, point.y - fpsPlayer.y);
+    if (distance > FPS_RENDER_DISTANCE) return false;
+    const steps = Math.max(2, Math.ceil(distance / 0.12));
+    for (let step = 1; step < steps; step++) {
+        const progress = step / steps;
+        if (isFpsWall(
+            fpsPlayer.x + (point.x - fpsPlayer.x) * progress,
+            fpsPlayer.y + (point.y - fpsPlayer.y) * progress
+        )) return false;
+    }
+    return true;
+}
+
 function resizeFpsCanvas() {
     if (!fpsCanvas) return;
     const scale = Math.min(window.devicePixelRatio || 1, 2);
@@ -486,7 +500,7 @@ function getFpsTargetTable() {
         const dy = position.y - fpsPlayer.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
-        if (distance < 2.1 && Math.abs(relative) < 0.8 && (!closest || distance < closest.distance)) {
+        if (distance < 2.1 && Math.abs(relative) < 0.8 && hasFpsLineOfSight(position) && (!closest || distance < closest.distance)) {
             closest = { index, distance };
         }
     });
@@ -501,7 +515,7 @@ function getFpsTargetObject() {
         const distance = Math.hypot(dx, dy);
         const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
         const reach = 2.15 + (game.physical?.interactionLevel || 0) * 0.18;
-        if (distance < reach && Math.abs(relative) < 0.82 && (!closest || distance < closest.distance)) {
+        if (distance < reach && Math.abs(relative) < 0.82 && hasFpsLineOfSight(object) && (!closest || distance < closest.distance)) {
             closest = { ...object, distance };
         }
     });
@@ -517,6 +531,18 @@ function getFpsActiveOrderLabel() {
     return typeof game.physical.activeOrder === 'number'
         ? `Table ${game.physical.activeOrder + 1} order`
         : 'Takeout order';
+}
+
+function isFpsObjectBlocked(x, y) {
+    const tableBlocked = FPS_TABLE_POSITIONS.some((table, index) => {
+        return index < game.tablesOwned && Math.hypot(table.x - x, table.y - y) < 0.62;
+    });
+    if (tableBlocked) return true;
+    return FPS_WORLD_OBJECTS.some(object => {
+        if (object.kind === 'door') return false;
+        const solid = ['fridge', 'stove', 'pickup', 'takeout'].includes(object.kind);
+        return solid && Math.hypot(object.x - x, object.y - y) < 0.58;
+    });
 }
 
 function getFpsTableStatus(index) {
@@ -797,8 +823,8 @@ function updateFpsMovement(delta) {
     const dy = ((Math.sin(fpsPlayer.angle) * forward) + (Math.sin(fpsPlayer.angle + Math.PI / 2) * strafe)) / length * speed;
     const nextX = fpsPlayer.x + dx;
     const nextY = fpsPlayer.y + dy;
-    if (!isFpsWall(nextX, fpsPlayer.y)) fpsPlayer.x = nextX;
-    if (!isFpsWall(fpsPlayer.x, nextY)) fpsPlayer.y = nextY;
+    if (!isFpsWall(nextX, fpsPlayer.y) && !isFpsObjectBlocked(nextX, fpsPlayer.y)) fpsPlayer.x = nextX;
+    if (!isFpsWall(fpsPlayer.x, nextY) && !isFpsObjectBlocked(fpsPlayer.x, nextY)) fpsPlayer.y = nextY;
 }
 
 function drawFpsDecor(context, decor, canvasWidth, canvasHeight) {
@@ -806,7 +832,7 @@ function drawFpsDecor(context, decor, canvasWidth, canvasHeight) {
     const dy = decor.y - fpsPlayer.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
-    if (Math.abs(relative) > FPS_FOV / 2 + 0.2) return;
+    if (distance > FPS_RENDER_DISTANCE || Math.abs(relative) > FPS_FOV / 2 + 0.2 || !hasFpsLineOfSight(decor)) return;
     const screenX = canvasWidth / 2 + (relative / FPS_FOV) * canvasWidth;
     const size = Math.min(canvasHeight * 0.32, 130 / Math.max(0.5, distance));
     const horizon = canvasHeight / 2 + fpsPlayer.pitch * canvasHeight * 0.8;
@@ -906,7 +932,7 @@ function getFpsProjection(point, canvasWidth, canvasHeight) {
     const dy = point.y - fpsPlayer.y;
     const distance = Math.max(0.35, Math.hypot(dx, dy));
     const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
-    if (Math.abs(relative) > FPS_FOV / 2 + 0.2) return null;
+    if (distance > FPS_RENDER_DISTANCE || Math.abs(relative) > FPS_FOV / 2 + 0.2 || !hasFpsLineOfSight(point)) return null;
     const horizon = canvasHeight / 2 + fpsPlayer.pitch * canvasHeight * 0.8;
     return {
         distance,
@@ -993,7 +1019,7 @@ function drawFpsTable(context, table, canvasWidth, canvasHeight) {
     const dy = table.y - fpsPlayer.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
-    if (Math.abs(relative) > FPS_FOV / 2 + 0.15) return;
+    if (distance > FPS_RENDER_DISTANCE || Math.abs(relative) > FPS_FOV / 2 + 0.15 || !hasFpsLineOfSight(table)) return;
     const screenX = canvasWidth / 2 + (relative / FPS_FOV) * canvasWidth;
     let tableHeight = Math.min(canvasHeight * 0.55, 175 / Math.max(0.4, distance));
     if (table.design === 'low') tableHeight *= 0.72;
@@ -1106,9 +1132,21 @@ function renderFpsScene(timestamp = 0) {
         }
         const corrected = Math.max(0.1, distance * Math.cos(rayAngle - fpsPlayer.angle));
         const wallHeight = Math.min(height, height / corrected * 0.82);
+        const hitX = fpsPlayer.x + Math.cos(rayAngle) * distance;
+        const hitY = fpsPlayer.y + Math.sin(rayAngle) * distance;
+        const wallTile = FPS_MAP[Math.floor(hitY)]?.[Math.floor(hitX)] || '#';
         const shade = Math.max(35, Math.min(190, 185 - corrected * 10));
-        context.fillStyle = night ? `rgb(${shade * 0.35},${shade * 0.38},${shade})` : `rgb(${shade},${shade * 0.78},${shade * 0.52})`;
+        const wallPalette = wallTile === '#' && Math.floor(hitY) === 0
+            ? [shade * 0.72, shade * 0.58, shade * 0.42]
+            : [shade, shade * 0.78, shade * 0.52];
+        context.fillStyle = night
+            ? `rgb(${wallPalette[0] * 0.32},${wallPalette[1] * 0.36},${Math.min(190, wallPalette[2] * 1.25)})`
+            : `rgb(${wallPalette[0]},${wallPalette[1]},${wallPalette[2]})`;
         context.fillRect(column, horizon - wallHeight / 2, rayStep + 1, wallHeight);
+        if (Math.floor(hitX * 2) % 2 === 0 && corrected < 9) {
+            context.fillStyle = night ? 'rgba(255,255,255,0.035)' : 'rgba(255,245,220,0.08)';
+            context.fillRect(column, horizon - wallHeight / 2, 1, wallHeight);
+        }
     }
 
     FPS_DECOR.forEach(decor => drawFpsDecor(context, decor, width, height));
@@ -1151,6 +1189,12 @@ function bindFirstPersonControls() {
         }
         if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(key)) {
             fpsKeys[key] = true;
+            event.preventDefault();
+        }
+        if (key === 'u' && !event.repeat) {
+            const panel = document.getElementById('fps-upgrade-panel');
+            if (panel?.classList.contains('hidden')) renderFpsUpgradePanel();
+            else closeFpsUpgradePanel();
             event.preventDefault();
         }
         if (key === 'e' && !event.repeat) {

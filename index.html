@@ -178,7 +178,10 @@
         <canvas id="fps-canvas"></canvas>
         <div class="fps-topbar">
             <div><strong>🍜 RAMEN MONKEY</strong><span>FIRST-PERSON SERVICE SHIFT</span></div>
-            <button class="fps-exit" onclick="closeFirstPerson()">✕ Exit Restaurant</button>
+            <div class="fps-actions">
+                <button class="fps-menu-button" onclick="renderFpsUpgradePanel()">⚙ Upgrades <span>U</span></button>
+                <button class="fps-exit" onclick="closeFirstPerson()">✕ Exit Restaurant</button>
+            </div>
         </div>
         <div class="fps-crosshair">+</div>
         <div class="fps-hud">

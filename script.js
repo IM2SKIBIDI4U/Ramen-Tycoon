@@ -54,35 +54,38 @@ if (!document.getElementById('floating-money-style')) {
     document.head.appendChild(style);
 }
 
-// --- ARRAYS & DATA ---
+// --- REBALANCED ARRAYS & DATA FOR 24-HOUR AUTO-CLICKER PROGRESSION ---
 const TRACK_TABLES = Array.from({length: 1000}, (_, i) => ({ 
     name: `Table ${i+2}`, 
-    cost: Math.floor(200 * Math.pow(1.12, i)) 
+    cost: Math.floor(500 * Math.pow(1.18, i)) 
 }));
 
 const TRACK_WOK = Array.from({length: 1000}, (_, i) => ({ 
     name: `Wok Lvl ${i+2}`, 
-    cost: Math.floor(75000 * Math.pow(1.13, i)) 
+    cost: Math.floor(100000 * Math.pow(1.19, i)) 
 }));
 
 const TRACK_AUTO = Array.from({length: 1000}, (_, i) => ({ 
     name: `Chef Speed Lvl ${i+1}`, 
-    cost: Math.floor(1200 * Math.pow(1.11, i)) 
+    cost: Math.floor(2500 * Math.pow(1.16, i)) 
 }));
+
 const TRACK_ADS = Array.from({length: 1000}, (_, i) => ({ 
     name: `Marketing Lvl ${i+1}`, 
-    cost: Math.floor(1000 * Math.pow(1.15, i)) 
+    cost: Math.floor(2000 * Math.pow(1.20, i)) 
 }));
 
 const R_PRE = ["Basic", "Spicy", "Crispy", "Golden", "Mega", "Ultra", "Hyper", "Quantum", "Galactic", "Cosmic", "Mystic", "Atomic", "Neon", "Shadow", "Celestial", "Divine", "Infernal", "Supreme", "Ethereal", "Infinity"];
 const R_BASE = ["Shoyu", "Miso", "Tonkotsu", "Udon", "Soba", "Truffle", "Wagyu", "Dragon", "Phoenix", "Nova", "Kelp", "Katsu", "Kimchi", "Kitsune", "Bison", "Kraken", "Leviathan", "Titan", "Emperor", "Godzilla"];
 const RAMEN_NAMES = ["Basic Shoyu", "Miso Pork", "Spicy Tonkotsu", "Chicken Paitan", "Seafood Ramen", "Veggie Udon", "Truffle Ramen"];
+
 const TRACK_RECIPES = Array.from({length: 1000}, (_, i) => {
     let name = i < RAMEN_NAMES.length ? RAMEN_NAMES[i] : `${R_PRE[i % R_PRE.length]} ${R_BASE[Math.floor(i / R_PRE.length) % R_BASE.length]} Ramen`;
     if (i === 999) name = "The Universal Ramen";
     
-    let cost = Math.floor(500 * Math.pow(1.072, i)); 
-    let value = Math.floor(65 * Math.pow(1.1345, i)); 
+    // Increased cost growth (1.14) relative to recipe income growth (1.11)
+    let cost = Math.floor(1000 * Math.pow(1.14, i)); 
+    let value = Math.floor(50 * Math.pow(1.11, i)); 
     
     return { name, cost, value };
 });

@@ -1101,3 +1101,8 @@ body.first-person-open {
         display: none;
     }
 }
+
+#dining-area {
+    max-height: 500px; /* Or whatever height fits your game layout */
+    overflow-y: auto;  /* Allows scrolling down when you have many tables */
+}

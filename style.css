@@ -954,18 +954,6 @@ body.first-person-open {
     font-weight: 900;
 }
 
-.fps-event-status {
-    display: inline-block;
-    margin: 4px;
-    border: 1px solid rgba(255,234,167,0.24);
-    border-radius: 999px;
-    padding: 7px 12px;
-    color: rgba(255,255,255,0.72);
-    background: rgba(7,12,24,0.68);
-    font-size: 0.76rem;
-    font-weight: 800;
-}
-
 .fps-economy {
     display: inline-block;
     margin: 4px;

@@ -2,7 +2,7 @@
   "name": "my-static-project",
   "version": "1.0.0",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
-    "build": "vite build"
+    "dev": "echo 'No dev server configured'",
+    "build": "echo 'No build step required for static files'"
   }
 }

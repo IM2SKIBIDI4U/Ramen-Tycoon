@@ -750,7 +750,10 @@ function updateFpsHud() {
     const economy = document.getElementById('fps-economy');
     if (!economy) return;
     const physical = game.physical;
-    economy.innerText = `Cash $${formatMoney(game.wallet)} · Orders ${physical.activeOrder === null ? 0 : 1}/${physical.capacity} · Carrying ${getFpsCarryingCount()}/${physical.capacity}`;
+    const eventLabel = isRushHour ? ' · RUSH HOUR x2' : '';
+    economy.innerText = `Cash $${formatMoney(game.wallet)} · Orders ${physical.activeOrder === null ? 0 : 1}/${physical.capacity} · Carrying ${getFpsCarryingCount()}/${physical.capacity}${eventLabel}`;
+    const eventStatus = document.getElementById('fps-event-status');
+    if (eventStatus) eventStatus.innerText = isRushHour ? '🚨 Rush Hour is active' : 'No event active · Admin events are manual only';
 }
 
 function getFpsUpgradeDefinitions() {

@@ -1954,3 +1954,25 @@ window.onload = () => {
     runMonkeyLoop(); 
     scheduleGoldenMonkey();
 };
+
+const CURRENT_SAVE_VERSION = '1.0.1'; // Change this number whenever you want a forced reset
+
+function checkOneTimeReset() {
+  const savedVersion = localStorage.getItem('game_version');
+
+  if (savedVersion !== CURRENT_SAVE_VERSION) {
+    // 1. Clear old save data once
+    localStorage.clear();
+    
+    // 2. Stamp the new version so it doesn't reset them again
+    localStorage.setItem('game_version', CURRENT_SAVE_VERSION);
+    
+    console.log("Game updated! Progress was reset once for version " + CURRENT_SAVE_VERSION);
+  } else {
+    // Version matches! Load saved data as normal
+    loadSavedGameData();
+  }
+}
+
+// Run this as soon as your game boots up
+checkOneTimeReset();

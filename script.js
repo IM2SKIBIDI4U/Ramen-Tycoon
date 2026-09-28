@@ -107,6 +107,11 @@ const INITIAL_RIVALS = [
 ];
 
 const defaultInv = { noodle: 10, broth: 10, spice: 10, egg: 10, boba: 10 };
+const SAVE_KEY = 'RamenUltimateData';
+const SAVE_BACKUP_KEY = 'RamenUltimateBackup';
+const SAVE_VERSION = 2;
+const SAVE_SALT = 'rm-fair-kitchen-2026';
+const MAX_OFFLINE_MS = 12 * 60 * 60 * 1000;
 let game = {
     wallet: 150, monkeyMoney: 0, turfMult: 1, lastSaveTime: Date.now(),
     tablesOwned: 1, idxTable: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxSpecial: 0, currentMenuPrice: 50,
@@ -247,6 +252,19 @@ function normalizeGameState() {
         game[key] = Number.isFinite(game[key]) ? game[key] : 0;
     });
     if (!Array.isArray(game.missions) || game.missions.length !== 3) game.missions = createMissionSet();
+    game.wallet = Math.max(0, Math.min(1e100, game.wallet));
+    game.monkeyMoney = Math.max(0, Math.min(50000, Math.floor(game.monkeyMoney)));
+    game.turfMult = Math.max(1, Math.min(100, game.turfMult));
+    game.tablesOwned = Math.max(1, Math.min(1000, Math.floor(game.tablesOwned)));
+    ['idxTable', 'idxRecipe', 'idxWok', 'idxAuto', 'idxAds'].forEach((key) => {
+        game[key] = Math.max(0, Math.min(999, Math.floor(game[key])));
+    });
+    Object.keys(game.inv).forEach((key) => {
+        game.inv[key] = Math.max(0, Math.min(1e12, Math.floor(Number(game.inv[key]) || 0)));
+    });
+    Object.keys(game.staff).forEach((key) => {
+        game.staff[key] = Math.max(0, Math.min(1000, Math.floor(Number(game.staff[key]) || 0)));
+    });
 }
 
 function getRestaurantLevel() {
@@ -452,12 +470,23 @@ let fpsOpen = false;
 let fpsAnimationFrame = null;
 let fpsLastFrame = 0;
 let fpsKeys = {};
-let fpsPlayer = { x: 2.5, y: 7.6, angle: -Math.PI / 2, pitch: 0 };
+let fpsPlayer = { x: 7.5, y: 8.25, angle: -1.05, pitch: -0.05 };
 let fpsCanvas = null;
 let fpsContext = null;
 let fpsCookingTimer = null;
 let takeoutQueue = [];
 let takeoutSequence = 0;
+let fpsStamina = 100;
+let fpsCrouched = false;
+let fpsFlashlight = false;
+let fpsMapVisible = true;
+let fpsBob = 0;
+let fpsMoveBlend = 0;
+let fpsCameraOffset = 0;
+
+function getFpsHorizon(canvasHeight) {
+    return canvasHeight / 2 + fpsPlayer.pitch * canvasHeight * 0.8 + fpsCameraOffset;
+}
 
 function normalizeFpsAngle(angle) {
     while (angle > Math.PI) angle -= Math.PI * 2;
@@ -591,6 +620,24 @@ function interactWithFpsTable() {
     if (!target) return;
     const seat = seats[target.index];
     if (!seat || !seat.occupied || !seat.charData) return;
+    const group = getFpsOrderGroup(target.index);
+    if (seat.needsMenu && group.length > 1) {
+        if (game.physical.activeOrder !== null) {
+            playSound('error');
+            return;
+        }
+        group.forEach(groupIndex => {
+            seats[groupIndex].needsMenu = false;
+            seats[groupIndex].patience = 100;
+        });
+        game.physical.activeOrder = target.index;
+        game.physical.ingredientsReadyFor = null;
+        playSound('serve');
+        updateFpsHud();
+        updateUI();
+        saveGame();
+        return;
+    }
     if (seat.needsMenu) {
         if (game.physical.activeOrder !== null) {
             playSound('error');
@@ -606,9 +653,7 @@ function interactWithFpsTable() {
         saveGame();
         return;
     }
-    const group = getFpsOrderGroup(target.index);
-    if (group.length > 1 && seat.needsMenu) group.forEach(groupIndex => interactWithFpsTableAtIndex(groupIndex));
-    else interactWithFpsTableAtIndex(target.index);
+    interactWithFpsTableAtIndex(target.index);
 }
 
 function interactWithFpsTableAtIndex(index) {
@@ -751,6 +796,10 @@ function updateFpsHud() {
     if (!economy) return;
     const physical = game.physical;
     economy.innerText = `Cash $${formatMoney(game.wallet)} · Orders ${physical.activeOrder === null ? 0 : 1}/${physical.capacity} · Carrying ${getFpsCarryingCount()}/${physical.capacity}`;
+    const staminaBar = document.getElementById('fps-stamina-bar');
+    if (staminaBar) staminaBar.style.width = `${fpsStamina}%`;
+    const stance = document.getElementById('fps-stance');
+    if (stance) stance.innerText = fpsCrouched ? 'CROUCHED' : (fpsKeys.shift && fpsStamina > 0 ? 'SPRINTING' : 'STANDING');
 }
 
 function getFpsUpgradeDefinitions() {
@@ -818,8 +867,13 @@ function updateFpsMovement(delta) {
     const verticalLook = (fpsKeys.arrowup ? 1 : 0) - (fpsKeys.arrowdown ? 1 : 0);
     if (swivel) fpsPlayer.angle += swivel * delta * 1.8;
     if (verticalLook) fpsPlayer.pitch = Math.max(-0.62, Math.min(0.62, fpsPlayer.pitch + verticalLook * delta * 1.5));
-    if (!forward && !strafe) return;
-    const sprint = fpsKeys.shift ? 1.65 : 1;
+    const moving = Boolean(forward || strafe);
+    const sprinting = moving && fpsKeys.shift && !fpsCrouched && fpsStamina > 0;
+    fpsStamina = Math.max(0, Math.min(100, fpsStamina + (sprinting ? -30 : 18) * delta));
+    fpsMoveBlend += ((moving ? 1 : 0) - fpsMoveBlend) * Math.min(1, delta * 9);
+    if (!moving) return;
+    const sprint = sprinting ? 1.65 : (fpsCrouched ? 0.55 : 1);
+    fpsBob += delta * (sprinting ? 13 : fpsCrouched ? 4 : 8);
     const speed = delta * (2.8 + game.physical.speedLevel * 0.3) * sprint;
     const length = Math.sqrt(forward * forward + strafe * strafe) || 1;
     const dx = ((Math.cos(fpsPlayer.angle) * forward) + (Math.cos(fpsPlayer.angle + Math.PI / 2) * strafe)) / length * speed;
@@ -830,6 +884,122 @@ function updateFpsMovement(delta) {
     if (!isFpsWall(fpsPlayer.x, nextY) && !isFpsObjectBlocked(fpsPlayer.x, nextY)) fpsPlayer.y = nextY;
 }
 
+function drawFpsAtmosphere(context, width, height, horizon, timestamp) {
+    const ceiling = context.createLinearGradient(0, 0, 0, horizon);
+    ceiling.addColorStop(0, game.nightMode ? '#08090d' : '#17120e');
+    ceiling.addColorStop(1, game.nightMode ? '#171323' : '#4a3424');
+    context.fillStyle = ceiling;
+    context.fillRect(0, 0, width, horizon);
+    const floor = context.createLinearGradient(0, horizon, 0, height);
+    floor.addColorStop(0, game.nightMode ? '#17131c' : '#443029');
+    floor.addColorStop(1, game.nightMode ? '#070709' : '#17100d');
+    context.fillStyle = floor;
+    context.fillRect(0, horizon, width, height - horizon);
+    context.save();
+    const ceilingDepth = Math.max(24, horizon * 0.14);
+    context.fillStyle = game.nightMode ? 'rgba(90,73,117,.16)' : 'rgba(119,72,38,.22)';
+    for (let beam = -1; beam <= 5; beam++) {
+        const x = beam * width * 0.24 + ((fpsPlayer.angle / (Math.PI * 2)) * width * 0.2);
+        context.beginPath();
+        context.moveTo(width / 2 + (x - width / 2) * 0.2, horizon * 0.07);
+        context.lineTo(width / 2 + (x - width / 2) * 0.5, ceilingDepth);
+        context.lineTo(width / 2 + (x + width * 0.08 - width / 2) * 0.5, ceilingDepth);
+        context.lineTo(width / 2 + (x + width * 0.08 - width / 2) * 0.2, horizon * 0.07);
+        context.closePath();
+        context.fill();
+    }
+    const lampY = Math.max(42, horizon * 0.19);
+    [0.24, 0.5, 0.76].forEach((position, index) => {
+        const sway = Math.sin(timestamp / 1800 + index) * 2;
+        const lampX = width * position + sway;
+        const pool = context.createRadialGradient(lampX, lampY + 22, 2, lampX, lampY + 22, width * 0.17);
+        pool.addColorStop(0, game.nightMode ? 'rgba(179,151,255,.2)' : 'rgba(255,219,159,.3)');
+        pool.addColorStop(1, 'rgba(0,0,0,0)');
+        context.fillStyle = pool;
+        context.fillRect(lampX - width * .18, lampY, width * .36, horizon * .8);
+        context.strokeStyle = 'rgba(35,22,14,.85)';
+        context.lineWidth = 3;
+        context.beginPath(); context.moveTo(lampX, 0); context.lineTo(lampX, lampY); context.stroke();
+        context.fillStyle = game.nightMode ? '#9d85d8' : '#f2b75d';
+        context.beginPath(); context.ellipse(lampX, lampY, 17, 8, 0, 0, Math.PI * 2); context.fill();
+    });
+    context.restore();
+    context.save();
+    context.globalAlpha = game.nightMode ? 0.13 : 0.2;
+    context.strokeStyle = game.nightMode ? '#6c5ce7' : '#d7ad74';
+    context.lineWidth = 1;
+    const drift = ((fpsPlayer.x + fpsPlayer.y) * 18) % 46;
+    for (let y = horizon + 18; y < height; y += Math.max(18, (y - horizon) * 0.22)) {
+        context.beginPath(); context.moveTo(0, y); context.lineTo(width, y); context.stroke();
+    }
+    for (let x = -width; x < width * 2; x += 90) {
+        context.beginPath(); context.moveTo(width / 2, horizon); context.lineTo(x + drift, height); context.stroke();
+    }
+    context.restore();
+    context.save();
+    context.globalAlpha = game.nightMode ? 0.09 : 0.13;
+    context.fillStyle = '#0e0805';
+    for (let row = 0, y = horizon + 22; y < height; row++, y += Math.max(22, (y - horizon) * .2)) {
+        const tileHeight = Math.max(1, (y - horizon) * .025);
+        context.fillRect(0, y, width, tileHeight);
+        const spacing = Math.max(42, (y - horizon) * .42);
+        const offset = row % 2 ? spacing / 2 : 0;
+        for (let x = -spacing + offset; x < width + spacing; x += spacing) context.fillRect(x, y, 1, Math.max(4, tileHeight * 5));
+    }
+    context.restore();
+    const glow = context.createRadialGradient(width * 0.5, horizon * 0.24, 10, width * 0.5, horizon * 0.24, width * 0.48);
+    glow.addColorStop(0, game.nightMode ? 'rgba(224,86,253,.13)' : 'rgba(255,214,151,.16)');
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    context.fillStyle = glow;
+    context.fillRect(0, 0, width, height);
+    context.fillStyle = `rgba(255,255,255,${0.012 + Math.sin(timestamp / 900) * 0.004})`;
+    for (let i = 0; i < 18; i++) {
+        const x = (i * 173 + timestamp * 0.006) % width;
+        const y = (i * 97) % Math.max(1, horizon);
+        context.fillRect(x, y, 1.5, 1.5);
+    }
+}
+
+function drawFpsFinish(context, width, height, horizon, timestamp) {
+    const lowerLight = context.createRadialGradient(width * .5, horizon + height * .12, 8, width * .5, horizon + height * .12, width * .62);
+    lowerLight.addColorStop(0, game.nightMode ? 'rgba(99,82,145,.055)' : 'rgba(255,202,126,.075)');
+    lowerLight.addColorStop(1, 'rgba(0,0,0,0)');
+    context.fillStyle = lowerLight;
+    context.fillRect(0, horizon, width, height - horizon);
+    context.save();
+    context.globalAlpha = .035;
+    context.fillStyle = '#fff4da';
+    const seed = Math.floor(timestamp / 90);
+    for (let i = 0; i < 90; i++) {
+        const x = (i * 137 + seed * 29) % width;
+        const y = (i * 83 + seed * 17) % height;
+        context.fillRect(x, y, 1, 1);
+    }
+    context.restore();
+}
+
+function drawFpsMinimap() {
+    const map = document.getElementById('fps-minimap');
+    if (!map) return;
+    map.style.display = fpsMapVisible ? 'block' : 'none';
+    if (!fpsMapVisible) return;
+    const ctx = map.getContext('2d');
+    if (!ctx) return;
+    const cell = Math.min(map.width / FPS_MAP[0].length, map.height / FPS_MAP.length);
+    ctx.clearRect(0, 0, map.width, map.height);
+    ctx.fillStyle = '#090b0e'; ctx.fillRect(0, 0, map.width, map.height);
+    FPS_MAP.forEach((row, y) => [...row].forEach((tile, x) => {
+        ctx.fillStyle = tile === '#' ? '#6d4a31' : '#211a16';
+        ctx.fillRect(x * cell, y * cell, cell - .5, cell - .5);
+    }));
+    FPS_TABLE_POSITIONS.slice(0, game.tablesOwned).forEach(table => {
+        ctx.fillStyle = '#d69e5e'; ctx.beginPath(); ctx.arc(table.x * cell, table.y * cell, 2.8, 0, Math.PI * 2); ctx.fill();
+    });
+    ctx.fillStyle = '#55efc4'; ctx.beginPath(); ctx.arc(fpsPlayer.x * cell, fpsPlayer.y * cell, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#55efc4'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(fpsPlayer.x * cell, fpsPlayer.y * cell); ctx.lineTo((fpsPlayer.x + Math.cos(fpsPlayer.angle)) * cell, (fpsPlayer.y + Math.sin(fpsPlayer.angle)) * cell); ctx.stroke();
+    ctx.fillStyle = '#ffeaa7'; ctx.font = 'bold 9px sans-serif'; ctx.fillText('DINING FLOOR', 8, map.height - 8);
+}
+
 function drawFpsDecor(context, decor, canvasWidth, canvasHeight) {
     const dx = decor.x - fpsPlayer.x;
     const dy = decor.y - fpsPlayer.y;
@@ -838,7 +1008,7 @@ function drawFpsDecor(context, decor, canvasWidth, canvasHeight) {
     if (distance > FPS_RENDER_DISTANCE || Math.abs(relative) > FPS_FOV / 2 + 0.2 || !hasFpsLineOfSight(decor)) return;
     const screenX = canvasWidth / 2 + (relative / FPS_FOV) * canvasWidth;
     const size = Math.min(canvasHeight * 0.32, 130 / Math.max(0.5, distance));
-    const horizon = canvasHeight / 2 + fpsPlayer.pitch * canvasHeight * 0.8;
+    const horizon = getFpsHorizon(canvasHeight);
     const centerY = horizon - canvasHeight * 0.16;
     context.save();
      context.globalAlpha = Math.max(0.78, 1 - distance / 28);
@@ -936,14 +1106,14 @@ function getFpsProjection(point, canvasWidth, canvasHeight) {
     const distance = Math.max(0.35, Math.hypot(dx, dy));
     const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
     if (distance > FPS_RENDER_DISTANCE || Math.abs(relative) > FPS_FOV / 2 + 0.2 || !hasFpsLineOfSight(point)) return null;
-    const horizon = canvasHeight / 2 + fpsPlayer.pitch * canvasHeight * 0.8;
+    const horizon = getFpsHorizon(canvasHeight);
     return {
         distance,
         relative,
         screenX: canvasWidth / 2 + (relative / FPS_FOV) * canvasWidth,
         horizon,
         floorY: horizon + canvasHeight * 0.23 + Math.min(45, distance * 3),
-        size: Math.min(canvasHeight * 0.5, 180 / distance)
+        size: Math.min(canvasHeight * 0.38, 140 / distance)
     };
 }
 
@@ -1024,10 +1194,10 @@ function drawFpsTable(context, table, canvasWidth, canvasHeight) {
     const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
     if (distance > FPS_RENDER_DISTANCE || Math.abs(relative) > FPS_FOV / 2 + 0.15 || !hasFpsLineOfSight(table)) return;
     const screenX = canvasWidth / 2 + (relative / FPS_FOV) * canvasWidth;
-    let tableHeight = Math.min(canvasHeight * 0.55, 175 / Math.max(0.4, distance));
+    let tableHeight = Math.min(canvasHeight * 0.42, 132 / Math.max(0.4, distance));
     if (table.design === 'low') tableHeight *= 0.72;
     const tableWidth = tableHeight * (table.design === 'booth' ? 1.7 : table.design === 'barrel' ? 0.95 : 1.25);
-    const horizon = canvasHeight / 2 + fpsPlayer.pitch * canvasHeight * 0.8;
+    const horizon = getFpsHorizon(canvasHeight);
     const floorY = horizon + canvasHeight * 0.23 + Math.min(40, distance * 3);
     const seat = seats[table.index];
     const isTarget = getFpsTargetTable()?.index === table.index;
@@ -1117,13 +1287,12 @@ function renderFpsScene(timestamp = 0) {
     const height = window.innerHeight;
     const context = fpsContext;
     const night = game.nightMode;
-    const horizon = height / 2 + fpsPlayer.pitch * height * 0.8;
-    context.fillStyle = night ? '#080d24' : '#80c7e8';
-    context.fillRect(0, 0, width, horizon);
-    context.fillStyle = night ? '#15131b' : '#5d4037';
-    context.fillRect(0, horizon, width, height - horizon);
-    context.fillStyle = night ? 'rgba(108,92,231,0.13)' : 'rgba(255,234,167,0.15)';
-    context.fillRect(0, horizon, width, height - horizon);
+    const cameraBob = Math.sin(fpsBob) * 5 * fpsMoveBlend;
+    const crouchOffset = fpsCrouched ? height * 0.09 : 0;
+    fpsCameraOffset = -crouchOffset + cameraBob;
+    const horizon = getFpsHorizon(height);
+    document.getElementById('fps-overlay')?.classList.toggle('fps-running', Boolean((fpsKeys.w || fpsKeys.a || fpsKeys.s || fpsKeys.d) && fpsKeys.shift && fpsStamina > 0));
+    drawFpsAtmosphere(context, width, height, horizon, timestamp);
 
     const rayStep = 2;
     for (let column = 0; column < width; column += rayStep) {
@@ -1138,7 +1307,7 @@ function renderFpsScene(timestamp = 0) {
         const hitX = fpsPlayer.x + Math.cos(rayAngle) * distance;
         const hitY = fpsPlayer.y + Math.sin(rayAngle) * distance;
         const wallTile = FPS_MAP[Math.floor(hitY)]?.[Math.floor(hitX)] || '#';
-        const shade = Math.max(35, Math.min(190, 185 - corrected * 10));
+        const shade = Math.max(30, Math.min(205, 195 - corrected * 11));
         const wallPalette = wallTile === '#' && Math.floor(hitY) === 0
             ? [shade * 0.72, shade * 0.58, shade * 0.42]
             : [shade, shade * 0.78, shade * 0.52];
@@ -1146,6 +1315,11 @@ function renderFpsScene(timestamp = 0) {
             ? `rgb(${wallPalette[0] * 0.32},${wallPalette[1] * 0.36},${Math.min(190, wallPalette[2] * 1.25)})`
             : `rgb(${wallPalette[0]},${wallPalette[1]},${wallPalette[2]})`;
         context.fillRect(column, horizon - wallHeight / 2, rayStep + 1, wallHeight);
+        const mortar = (Math.floor(hitX * 4) + Math.floor(hitY * 4)) % 5 === 0;
+        if (mortar) {
+            context.fillStyle = night ? 'rgba(0,0,0,.13)' : 'rgba(55,31,18,.11)';
+            context.fillRect(column, horizon - wallHeight / 2, rayStep + 1, wallHeight);
+        }
         if (Math.floor(hitX * 2) % 2 === 0 && corrected < 9) {
             context.fillStyle = night ? 'rgba(255,255,255,0.035)' : 'rgba(255,245,220,0.08)';
             context.fillRect(column, horizon - wallHeight / 2, 1, wallHeight);
@@ -1161,6 +1335,18 @@ function renderFpsScene(timestamp = 0) {
         .map((position, index) => ({ ...position, index, distance: Math.hypot(position.x - fpsPlayer.x, position.y - fpsPlayer.y) }))
         .sort((a, b) => b.distance - a.distance)
         .forEach(table => drawFpsTable(context, table, width, height));
+    drawFpsFinish(context, width, height, horizon, timestamp);
+    const carried = getFpsCarryingCount();
+    if (carried) {
+        context.save();
+        context.translate(width * .72, height * .83 + Math.sin(fpsBob) * 4 * fpsMoveBlend);
+        context.fillStyle = '#f5f1e8'; context.beginPath(); context.ellipse(0, 0, 72, 25, -.08, 0, Math.PI * 2); context.fill();
+        context.fillStyle = '#8f3c26'; context.beginPath(); context.ellipse(0, -5, 58, 17, -.08, 0, Math.PI * 2); context.fill();
+        context.strokeStyle = '#e8d38a'; context.lineWidth = 3;
+        for (let i = -3; i <= 3; i++) { context.beginPath(); context.moveTo(-45, -8 + i * 3); context.quadraticCurveTo(0, -18 + i * 2, 45, -6 + i * 3); context.stroke(); }
+        context.restore();
+    }
+    drawFpsMinimap();
 
     const target = getFpsTargetTable();
     const objectTarget = getFpsTargetObject();
@@ -1187,7 +1373,8 @@ function bindFirstPersonControls() {
         if (!fpsOpen) return;
         const key = event.key.toLowerCase();
         if (key === 'escape') {
-            closeFirstPerson();
+            if (document.pointerLockElement === fpsCanvas) document.exitPointerLock();
+            else closeFirstPerson();
             return;
         }
         if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(key)) {
@@ -1200,6 +1387,20 @@ function bindFirstPersonControls() {
             else closeFpsUpgradePanel();
             event.preventDefault();
         }
+        if (key === 'c' && !event.repeat) {
+            fpsCrouched = !fpsCrouched;
+            document.getElementById('fps-overlay')?.classList.toggle('fps-crouched', fpsCrouched);
+            event.preventDefault();
+        }
+        if (key === 'f' && !event.repeat) {
+            fpsFlashlight = !fpsFlashlight;
+            document.getElementById('fps-flashlight-beam')?.classList.toggle('hidden', !fpsFlashlight);
+            event.preventDefault();
+        }
+        if (key === 'm' && !event.repeat) {
+            fpsMapVisible = !fpsMapVisible;
+            event.preventDefault();
+        }
         if (key === 'e' && !event.repeat) {
             if (document.getElementById('fps-upgrade-panel')?.classList.contains('hidden') === false) return;
             interactWithFpsScene();
@@ -1209,6 +1410,7 @@ function bindFirstPersonControls() {
     document.addEventListener('keyup', event => {
         if (fpsOpen) fpsKeys[event.key.toLowerCase()] = false;
     });
+    window.addEventListener('blur', () => { fpsKeys = {}; });
     document.addEventListener('mousemove', event => {
         if (fpsOpen && document.pointerLockElement === fpsCanvas) {
             fpsPlayer.angle += event.movementX * 0.0025;
@@ -1251,6 +1453,8 @@ function closeFirstPerson() {
     document.getElementById('fps-overlay')?.classList.add('hidden');
     document.body.classList.remove('first-person-open');
     fpsKeys = {};
+    fpsCrouched = false;
+    document.getElementById('fps-overlay')?.classList.remove('fps-crouched', 'fps-running');
     if (document.pointerLockElement === fpsCanvas) document.exitPointerLock();
     if (fpsAnimationFrame) cancelAnimationFrame(fpsAnimationFrame);
 }
@@ -1824,35 +2028,13 @@ function triggerEvent(type) {
     }
 }
 
-function nukeRivals() {
-    if (!confirm('Defeat every rival and claim all remaining turf bonuses?')) return;
-
-    let bonus = 0;
-    game.rivals.forEach(rival => {
-        if (rival.hp > 0) {
-            rival.hp = 0;
-            bonus += rival.multReward;
-        }
-    });
-    game.turfMult += bonus;
-    playSound('cash');
-    saveGame();
-    updateUI();
-    renderTurfPanel();
-}
-
-function closeAdmin() {
-    const adminPanel = document.getElementById('admin-panel');
-    if (adminPanel) adminPanel.classList.add('hidden');
-}
-
 let goldenMonkeyTimer;
 function scheduleGoldenMonkey() {
     clearTimeout(goldenMonkeyTimer);
     goldenMonkeyTimer = setTimeout(() => {
         spawnGoldenMonkey();
         scheduleGoldenMonkey();
-    }, 25000 + Math.random() * 25000);
+    }, 90000 + Math.random() * 90000);
 }
 
 function spawnGoldenMonkey() {
@@ -1865,74 +2047,113 @@ function spawnGoldenMonkey() {
     monkey.setAttribute('aria-label', 'Collect the golden monkey bonus');
     monkey.onclick = () => claimGoldenMonkey(monkey);
     document.body.appendChild(monkey);
-    setTimeout(() => monkey.remove(), 12000);
+    setTimeout(() => monkey.remove(), 6500);
 }
 
 function claimGoldenMonkey(monkey) {
     if (!monkey || !monkey.isConnected) return;
-    const reward = Math.max(250, game.currentMenuPrice * 20) * getPrestigeMultiplier();
+    const reward = Math.max(75, game.currentMenuPrice * 3) * Math.min(3, getPrestigeMultiplier());
     game.wallet += reward;
-    game.monkeyMoney++;
     game.eventsTriggered++;
-    window.vipPartyActive += 5;
+    window.vipPartyActive += 1;
     monkey.remove();
     showAchievementToast({ icon: '🌟', title: 'Golden Monkey Found!' });
-    spawnFloatingMoney(`+$${formatMoney(reward)} +1 MM`, 'money', '#f1c40f');
+    spawnFloatingMoney(`+$${formatMoney(reward)}`, 'money', '#f1c40f');
     checkAchievements();
     updateUI();
     saveGame();
 }
 
-let typed = ""; document.addEventListener('keydown', (e) => { typed += e.key.toLowerCase(); if (typed.endsWith("123")) { let ap = document.getElementById('admin-panel'); if(ap) ap.classList.remove('hidden'); typed = ""; } if (typed.length > 20) typed = typed.slice(-20); });
-function cheatMoney(amt) { game.wallet += amt; saveGame(); updateUI(); }
-function setCustomMoney() { let val = parseFloat(document.getElementById('custom-money').value); if(!isNaN(val)) { game.wallet = val; saveGame(); updateUI(); } }
-function adminMaxIngredients() { game.inv.noodle=1e15; game.inv.broth=1e15; game.inv.spice=1e15; game.inv.egg=1e15; game.inv.boba=1e15; if(document.getElementById('out-of-stock-msg')) document.getElementById('out-of-stock-msg').classList.add('hidden'); saveGame(); updateUI(); }
-function cheatStars() { game.monkeyMoney++; saveGame(); updateUI(); }
+function hashSavePayload(payload) {
+    let hash = 2166136261;
+    const source = `${SAVE_SALT}|${payload}|${SAVE_VERSION}`;
+    for (let index = 0; index < source.length; index++) {
+        hash ^= source.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(36);
+}
 
-function adminMaxEverything() {
-    game.wallet = 1e50; 
-    game.monkeyMoney = 1e9;
-    game.tablesOwned = 1000; 
-    game.idxTable = 999;
-    game.idxRecipe = 999; 
-    game.idxWok = 999;
-    game.idxAuto = 999;
-    game.idxAds = 999;
-    adminMaxIngredients();
-    saveGame();
-    updateUI();
-    location.reload();
+function createSaveEnvelope() {
+    const payload = JSON.stringify(game);
+    return JSON.stringify({ version: SAVE_VERSION, payload, checksum: hashSavePayload(payload) });
+}
+
+function readSaveEnvelope(raw) {
+    if (!raw) return null;
+    const envelope = JSON.parse(raw);
+    if (envelope && envelope.version === SAVE_VERSION && typeof envelope.payload === 'string') {
+        if (envelope.checksum !== hashSavePayload(envelope.payload)) throw new Error('Save checksum mismatch');
+        return JSON.parse(envelope.payload);
+    }
+    // Import older saves once, then immediately rewrite them in protected form.
+    if (envelope && typeof envelope === 'object' && Number.isFinite(envelope.wallet)) return envelope;
+    throw new Error('Unsupported save format');
+}
+
+function isPlausibleSave(candidate) {
+    if (!candidate || typeof candidate !== 'object') return false;
+    const finiteKeys = ['wallet', 'monkeyMoney', 'turfMult', 'tablesOwned', 'idxTable', 'idxRecipe', 'idxWok', 'idxAuto', 'idxAds', 'lastSaveTime'];
+    if (!finiteKeys.every(key => Number.isFinite(candidate[key]))) return false;
+    if (candidate.wallet < 0 || candidate.wallet > 1e100) return false;
+    if (candidate.monkeyMoney < 0 || candidate.monkeyMoney > 50000) return false;
+    if (candidate.tablesOwned < 1 || candidate.tablesOwned > 1000) return false;
+    if (candidate.idxTable < 0 || candidate.idxTable > 999 || candidate.tablesOwned > candidate.idxTable + 1) return false;
+    if ([candidate.idxRecipe, candidate.idxWok, candidate.idxAuto, candidate.idxAds].some(value => value < 0 || value > 999)) return false;
+    if (candidate.lastSaveTime > Date.now() + 5 * 60 * 1000) return false;
+    return true;
 }
 
 function saveGame() {
+    normalizeGameState();
     game.lastSaveTime = Date.now();
-    localStorage.setItem('RamenUltimateData', JSON.stringify(game));
+    const current = localStorage.getItem(SAVE_KEY);
+    if (current) {
+        try {
+            const previous = readSaveEnvelope(current);
+            if (isPlausibleSave(previous)) localStorage.setItem(SAVE_BACKUP_KEY, current);
+        } catch (_) {
+            // Never preserve a modified save as the trusted backup.
+        }
+    }
+    localStorage.setItem(SAVE_KEY, createSaveEnvelope());
 }
 
 function loadGame() {
-    let saved = localStorage.getItem('RamenUltimateData');
-    if (saved) {
+    const primary = localStorage.getItem(SAVE_KEY);
+    const backup = localStorage.getItem(SAVE_BACKUP_KEY);
+    let loaded = null;
+    let recovered = false;
+    for (const raw of [primary, backup]) {
+        if (!raw || loaded) continue;
         try {
-            let parsed = JSON.parse(saved);
-            game = Object.assign(game, parsed);
+            const candidate = readSaveEnvelope(raw);
+            if (!isPlausibleSave(candidate)) throw new Error('Impossible progress values');
+            loaded = candidate;
+            recovered = raw === backup;
         } catch (error) {
-            localStorage.removeItem('RamenUltimateData');
-            console.warn('Saved game was invalid. Starting a fresh restaurant.', error);
+            console.warn('Rejected modified or invalid restaurant progress.', error.message);
         }
-
-        let now = Date.now();
-        let timeDiff = now - (game.lastSaveTime || now);
-        let secondsAway = Math.floor(timeDiff / 1000);
-
+    }
+    if (loaded) {
+        game = Object.assign(game, loaded);
+        const now = Date.now();
+        const timeDiff = Math.max(0, Math.min(MAX_OFFLINE_MS, now - (game.lastSaveTime || now)));
+        const secondsAway = Math.floor(timeDiff / 1000);
         if (secondsAway > 60) {
             if(document.getElementById('offline-earned')) document.getElementById('offline-earned').innerText = "0";
             if(document.getElementById('offline-time')) document.getElementById('offline-time').innerText = `${Math.floor(secondsAway/60)} Minutes`;
             if(document.getElementById('offline-modal')) document.getElementById('offline-modal').classList.remove('hidden');
         }
         game.lastSaveTime = now;
+    } else if (primary || backup) {
+        localStorage.removeItem(SAVE_KEY);
+        localStorage.removeItem(SAVE_BACKUP_KEY);
+        setTimeout(() => showAchievementToast({ icon: '🛡️', title: 'Modified save rejected' }), 300);
     }
     normalizeGameState();
     resetMissionsIfNeeded();
+    if (loaded && (recovered || !primary?.includes(`\"version\":${SAVE_VERSION}`))) saveGame();
 }
 
 function closeOfflineModal() {
@@ -1954,25 +2175,3 @@ window.onload = () => {
     runMonkeyLoop(); 
     scheduleGoldenMonkey();
 };
-
-const CURRENT_SAVE_VERSION = '1.0.1'; // Change this number whenever you want a forced reset
-
-function checkOneTimeReset() {
-  const savedVersion = localStorage.getItem('game_version');
-
-  if (savedVersion !== CURRENT_SAVE_VERSION) {
-    // 1. Clear old save data once
-    localStorage.clear();
-    
-    // 2. Stamp the new version so it doesn't reset them again
-    localStorage.setItem('game_version', CURRENT_SAVE_VERSION);
-    
-    console.log("Game updated! Progress was reset once for version " + CURRENT_SAVE_VERSION);
-  } else {
-    // Version matches! Load saved data as normal
-    loadSavedGameData();
-  }
-}
-
-// Run this as soon as your game boots up
-checkOneTimeReset();

@@ -389,19 +389,16 @@ function renderMissionsPanel() {
 let seats = Array.from({length: 1000}, () => ({ occupied: false, needsMenu: false, isCooking: false, cookStep: 0, needsServing: false, needsToPay: false, patience: 100, charData: null }));
 let waitList = []; let isRushHour = false; let rushMultiplier = 1;
 
-const FPS_MAP = [
-    '################',
-    '#..............#',
-    '#..#.....#.....#',
-    '#..............#',
-    '#.....##.......#',
-    '#..............#',
-    '#..#........#..#',
-    '#..............#',
-    '#..............#',
-    '################'
-];
-const FPS_TABLE_POSITIONS = [
+const FPS_MAP = (() => {
+    const width = 84;
+    const height = 126;
+    return Array.from({ length: height }, (_, y) =>
+        Array.from({ length: width }, (_, x) =>
+            x === 0 || y === 0 || x === width - 1 || y === height - 1 ? '#' : '.'
+        ).join('')
+    );
+})();
+const FPS_BASE_TABLE_POSITIONS = [
     { x: 4.5, y: 3.5, design: 'round' }, { x: 8.5, y: 3.5, design: 'square' }, { x: 11.5, y: 3.5, design: 'booth' },
     { x: 4.5, y: 6.5, design: 'barrel' }, { x: 8.5, y: 6.5, design: 'low' }, { x: 11.5, y: 6.5, design: 'square' }
 ];
@@ -417,6 +414,43 @@ const FPS_DECOR = [
     { x: 7.1, y: 5.2, kind: 'rug', surface: 'floor' },
     { x: 13.2, y: 7.1, kind: 'divider', surface: 'floor' }
 ];
+let fpsTableCache = { count: 0, positions: FPS_BASE_TABLE_POSITIONS };
+
+function getFpsTablePositions() {
+    const count = Math.max(1, Math.min(1000, Math.floor(Number(game.tablesOwned) || 1)));
+    if (fpsTableCache.count === count) return fpsTableCache.positions;
+    const positions = FPS_BASE_TABLE_POSITIONS.slice(0, Math.min(count, FPS_BASE_TABLE_POSITIONS.length));
+    const designs = ['round', 'square', 'booth', 'barrel', 'low'];
+    for (let row = 0; positions.length < count && row < 42; row++) {
+        for (let column = 0; positions.length < count && column < 24; column++) {
+            const x = 4.5 + column * 3.25;
+            const y = 11.5 + row * 2.7;
+            if (positions.some(table => Math.abs(table.x - x) < 0.7 && Math.abs(table.y - y) < 0.7)) continue;
+            positions.push({ x, y, design: designs[positions.length % designs.length] });
+        }
+    }
+    fpsTableCache = { count, positions };
+    return positions;
+}
+const FPS_WORLD_OBJECTS = [
+    { x: 2.4, y: 1.8, kind: 'menu', label: 'MENU' },
+    { x: 8.5, y: 1.3, kind: 'sign', label: 'RAMEN MONKEY' },
+    { x: 15.5, y: 1.8, kind: 'kitchen', label: 'OPEN KITCHEN' },
+    { x: 2.5, y: 6.8, kind: 'host', label: 'HOST' }
+];
+
+function getFpsStaffPositions() {
+    const positions = [];
+    const waiters = Math.min(24, Math.max(0, Number(game.staff?.waiter) || 0));
+    const chefs = Math.min(12, Math.max(0, Number(game.idxAuto) || 0));
+    for (let i = 0; i < waiters; i++) {
+        positions.push({ x: 2.4 + (i % 6) * 3.1, y: 9.3 + Math.floor(i / 6) * 2.8, kind: 'waiter', index: i });
+    }
+    for (let i = 0; i < chefs; i++) {
+        positions.push({ x: 14.2 + (i % 4) * 2.5, y: 2.9 + Math.floor(i / 4) * 2.5, kind: 'chef', index: i });
+    }
+    return positions;
+}
 const FPS_FOV = Math.PI / 3;
 let fpsOpen = false;
 let fpsAnimationFrame = null;
@@ -437,6 +471,20 @@ function isFpsWall(x, y) {
     return !row || row[Math.floor(x)] === '#';
 }
 
+function hasFpsLineOfSight(point) {
+    const distance = Math.hypot(point.x - fpsPlayer.x, point.y - fpsPlayer.y);
+    if (distance > 28) return false;
+    const steps = Math.max(2, Math.ceil(distance / 0.12));
+    for (let step = 1; step < steps; step++) {
+        const progress = step / steps;
+        if (isFpsWall(
+            fpsPlayer.x + (point.x - fpsPlayer.x) * progress,
+            fpsPlayer.y + (point.y - fpsPlayer.y) * progress
+        )) return false;
+    }
+    return true;
+}
+
 function resizeFpsCanvas() {
     if (!fpsCanvas) return;
     const scale = Math.min(window.devicePixelRatio || 1, 2);
@@ -449,7 +497,7 @@ function resizeFpsCanvas() {
 
 function getFpsTargetTable() {
     let closest = null;
-    FPS_TABLE_POSITIONS.forEach((position, index) => {
+    getFpsTablePositions().forEach((position, index) => {
         if (index >= game.tablesOwned) return;
         const dx = position.x - fpsPlayer.x;
         const dy = position.y - fpsPlayer.y;
@@ -519,7 +567,7 @@ function updateFpsMovement(delta) {
     const forward = (fpsKeys.w ? 1 : 0) - (fpsKeys.s ? 1 : 0);
     const strafe = (fpsKeys.d ? 1 : 0) - (fpsKeys.a ? 1 : 0);
     const swivel = (fpsKeys.arrowright ? 1 : 0) - (fpsKeys.arrowleft ? 1 : 0);
-    const verticalLook = (fpsKeys.arrowdown ? 1 : 0) - (fpsKeys.arrowup ? 1 : 0);
+    const verticalLook = (fpsKeys.arrowup ? 1 : 0) - (fpsKeys.arrowdown ? 1 : 0);
     if (swivel) fpsPlayer.angle += swivel * delta * 1.8;
     if (verticalLook) fpsPlayer.pitch = Math.max(-0.38, Math.min(0.38, fpsPlayer.pitch + verticalLook * delta * 1.5));
     if (!forward && !strafe) return;
@@ -539,7 +587,7 @@ function drawFpsDecor(context, decor, canvasWidth, canvasHeight) {
     const dy = decor.y - fpsPlayer.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
-    if (Math.abs(relative) > FPS_FOV / 2 + 0.2) return;
+    if (distance > 28 || Math.abs(relative) > FPS_FOV / 2 + 0.2 || !hasFpsLineOfSight(decor)) return;
     const screenX = canvasWidth / 2 + (relative / FPS_FOV) * canvasWidth;
     const size = Math.min(canvasHeight * 0.32, 130 / Math.max(0.5, distance));
     const horizon = canvasHeight / 2 + fpsPlayer.pitch * canvasHeight * 0.8;
@@ -634,12 +682,95 @@ function drawFpsDecor(context, decor, canvasWidth, canvasHeight) {
     context.restore();
 }
 
+function drawFpsWorldObject(context, object, canvasWidth, canvasHeight) {
+    const dx = object.x - fpsPlayer.x;
+    const dy = object.y - fpsPlayer.y;
+    const distance = Math.hypot(dx, dy);
+    const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
+    if (distance > 28 || Math.abs(relative) > FPS_FOV / 2 + 0.18 || !hasFpsLineOfSight(object)) return;
+    const screenX = canvasWidth / 2 + (relative / FPS_FOV) * canvasWidth;
+    const size = Math.min(canvasHeight * 0.34, 170 / Math.max(0.6, distance));
+    const horizon = getFpsHorizon(canvasHeight);
+    const floorY = horizon + canvasHeight * 0.27 + Math.min(65, distance * 3);
+    const centerY = horizon - canvasHeight * 0.15;
+    context.save();
+    context.globalAlpha = Math.max(0.72, 1 - distance / 30);
+    if (object.kind === 'kitchen') {
+        context.fillStyle = '#241b18';
+        context.fillRect(screenX - size * 0.8, floorY - size * 0.95, size * 1.6, size * 0.85);
+        context.fillStyle = '#8e552e';
+        context.fillRect(screenX - size * 0.88, floorY - size * 0.98, size * 1.76, size * 0.14);
+        context.fillStyle = '#2d3436';
+        context.fillRect(screenX - size * 0.62, floorY - size * 0.65, size * 0.35, size * 0.18);
+        context.fillRect(screenX - size * 0.16, floorY - size * 0.65, size * 0.35, size * 0.18);
+        context.fillStyle = '#e17055';
+        context.beginPath();
+        context.arc(screenX + size * 0.48, floorY - size * 0.52, size * 0.13, 0, Math.PI * 2);
+        context.fill();
+    } else if (object.kind === 'host') {
+        context.fillStyle = '#5b3827';
+        context.fillRect(screenX - size * 0.48, floorY - size * 0.62, size * 0.96, size * 0.62);
+        context.fillStyle = '#d69e5e';
+        context.fillRect(screenX - size * 0.4, floorY - size * 0.69, size * 0.8, size * 0.13);
+        context.fillStyle = '#ffeaa7';
+        context.font = `900 ${Math.max(8, size * 0.15)}px sans-serif`;
+        context.textAlign = 'center';
+        context.fillText(object.label, screenX, floorY - size * 0.42);
+    } else {
+        context.fillStyle = object.kind === 'sign' ? '#241b35' : '#38251d';
+        context.shadowColor = object.kind === 'sign' ? '#e056fd' : '#000';
+        context.shadowBlur = object.kind === 'sign' ? size * 0.16 : size * 0.04;
+        context.fillRect(screenX - size * 0.85, centerY - size * 0.32, size * 1.7, size * 0.64);
+        context.shadowBlur = 0;
+        context.strokeStyle = object.kind === 'sign' ? '#ff9ff3' : '#c08a5b';
+        context.lineWidth = Math.max(2, size * 0.035);
+        context.strokeRect(screenX - size * 0.75, centerY - size * 0.24, size * 1.5, size * 0.48);
+        context.fillStyle = '#ffeaa7';
+        context.font = `900 ${Math.max(8, size * 0.13)}px sans-serif`;
+        context.textAlign = 'center';
+        context.fillText(object.label, screenX, centerY + size * 0.05);
+    }
+    context.restore();
+}
+
+function drawFpsStaff(context, staff, canvasWidth, canvasHeight) {
+    const dx = staff.x - fpsPlayer.x;
+    const dy = staff.y - fpsPlayer.y;
+    const distance = Math.hypot(dx, dy);
+    const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
+    if (distance > 22 || Math.abs(relative) > FPS_FOV / 2 + 0.15 || !hasFpsLineOfSight(staff)) return;
+    const screenX = canvasWidth / 2 + (relative / FPS_FOV) * canvasWidth;
+    const size = Math.min(canvasHeight * 0.24, 82 / Math.max(0.7, distance));
+    const horizon = getFpsHorizon(canvasHeight);
+    const floorY = horizon + canvasHeight * 0.27 + Math.min(55, distance * 3);
+    context.save();
+    context.globalAlpha = Math.max(0.75, 1 - distance / 24);
+    context.fillStyle = '#1d1512';
+    context.fillRect(screenX - size * 0.2, floorY - size * 0.42, size * 0.14, size * 0.42);
+    context.fillRect(screenX + size * 0.06, floorY - size * 0.42, size * 0.14, size * 0.42);
+    context.fillStyle = staff.kind === 'chef' ? '#f5f6fa' : '#0984e3';
+    context.fillRect(screenX - size * 0.3, floorY - size * 0.92, size * 0.6, size * 0.52);
+    context.fillStyle = '#ffe0bd';
+    context.beginPath();
+    context.arc(screenX, floorY - size * 1.08, size * 0.22, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = staff.kind === 'chef' ? '#ffffff' : '#6c5ce7';
+    context.beginPath();
+    context.arc(screenX, floorY - size * 1.15, size * 0.25, Math.PI, Math.PI * 2);
+    context.fill();
+    context.fillStyle = '#ffeaa7';
+    context.font = `bold ${Math.max(7, size * 0.13)}px sans-serif`;
+    context.textAlign = 'center';
+    context.fillText(staff.kind === 'chef' ? 'CHEF' : 'SERVER', screenX, floorY - size * 1.38);
+    context.restore();
+}
+
 function drawFpsTable(context, table, canvasWidth, canvasHeight) {
     const dx = table.x - fpsPlayer.x;
     const dy = table.y - fpsPlayer.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
-    if (Math.abs(relative) > FPS_FOV / 2 + 0.15) return;
+    if (Math.abs(relative) > FPS_FOV / 2 + 0.15 || !hasFpsLineOfSight(table)) return;
     const screenX = canvasWidth / 2 + (relative / FPS_FOV) * canvasWidth;
     let tableHeight = Math.min(canvasHeight * 0.55, 175 / Math.max(0.4, distance));
     if (table.design === 'low') tableHeight *= 0.72;
@@ -676,6 +807,13 @@ function drawFpsTable(context, table, canvasWidth, canvasHeight) {
     context.fillStyle = '#21160f';
     context.fillRect(screenX - tableWidth * 0.38, floorY - tableHeight * 0.04, tableWidth * 0.12, tableHeight * 0.55);
     context.fillRect(screenX + tableWidth * 0.26, floorY - tableHeight * 0.04, tableWidth * 0.12, tableHeight * 0.55);
+    // Two visible dining chairs make the first-person furniture read as a restaurant,
+    // even when no customer is seated.
+    context.fillStyle = table.design === 'booth' ? '#7f4f35' : '#4e3024';
+    [-0.72, 0.72].forEach(offset => {
+        context.fillRect(screenX + tableWidth * offset - tableWidth * 0.08, floorY - tableHeight * 0.68, tableWidth * 0.16, tableHeight * 0.42);
+        context.fillRect(screenX + tableWidth * offset - tableWidth * 0.14, floorY - tableHeight * 0.3, tableWidth * 0.28, tableHeight * 0.08);
+    });
     context.fillStyle = '#8e6e53';
     context.fillRect(screenX - tableWidth * 0.51, floorY - tableHeight * 0.27, tableWidth * 0.04, tableHeight * 0.2);
     context.fillRect(screenX + tableWidth * 0.47, floorY - tableHeight * 0.27, tableWidth * 0.04, tableHeight * 0.2);
@@ -735,12 +873,54 @@ function renderFpsScene(timestamp = 0) {
     const context = fpsContext;
     const night = game.nightMode;
     const horizon = height / 2 + fpsPlayer.pitch * height * 0.8;
-    context.fillStyle = night ? '#080d24' : '#80c7e8';
+    const ceiling = context.createLinearGradient(0, 0, 0, Math.max(1, horizon));
+    ceiling.addColorStop(0, night ? '#080d24' : '#21140e');
+    ceiling.addColorStop(1, night ? '#15131b' : '#704b32');
+    context.fillStyle = ceiling;
     context.fillRect(0, 0, width, horizon);
-    context.fillStyle = night ? '#15131b' : '#5d4037';
+    const floor = context.createLinearGradient(0, horizon, 0, height);
+    floor.addColorStop(0, night ? '#15131b' : '#5b3c2d');
+    floor.addColorStop(1, night ? '#09070a' : '#20130f');
+    context.fillStyle = floor;
     context.fillRect(0, horizon, width, height - horizon);
-    context.fillStyle = night ? 'rgba(108,92,231,0.13)' : 'rgba(255,234,167,0.15)';
-    context.fillRect(0, horizon, width, height - horizon);
+    context.save();
+    context.globalAlpha = night ? 0.12 : 0.22;
+    context.strokeStyle = night ? '#6c5ce7' : '#d7ad74';
+    context.lineWidth = 1;
+    for (let row = 0, y = horizon + 20; y < height; row++, y += Math.max(18, (y - horizon) * 0.2)) {
+        context.beginPath();
+        context.moveTo(0, y);
+        context.lineTo(width, y);
+        context.stroke();
+        const spacing = Math.max(40, (y - horizon) * 0.42);
+        const offset = row % 2 ? spacing / 2 : 0;
+        for (let x = -spacing + offset; x < width + spacing; x += spacing) {
+            context.beginPath();
+            context.moveTo(width / 2, horizon);
+            context.lineTo(x, height);
+            context.stroke();
+        }
+    }
+    context.restore();
+    context.save();
+    for (let i = 0; i < 4; i++) {
+        const lampX = width * (0.15 + i * 0.24);
+        const lampY = Math.max(34, horizon * 0.18);
+        context.strokeStyle = 'rgba(40,24,15,.8)';
+        context.lineWidth = 3;
+        context.beginPath();
+        context.moveTo(lampX, 0);
+        context.lineTo(lampX, lampY);
+        context.stroke();
+        context.fillStyle = night ? '#9d85d8' : '#f2b75d';
+        context.shadowColor = night ? '#8d70ff' : '#ffcf70';
+        context.shadowBlur = 18;
+        context.beginPath();
+        context.ellipse(lampX, lampY, 18, 8, 0, 0, Math.PI * 2);
+        context.fill();
+        context.shadowBlur = 0;
+    }
+    context.restore();
 
     const rayStep = 2;
     for (let column = 0; column < width; column += rayStep) {
@@ -758,8 +938,17 @@ function renderFpsScene(timestamp = 0) {
     }
 
     FPS_DECOR.forEach(decor => drawFpsDecor(context, decor, width, height));
-    FPS_TABLE_POSITIONS
+    FPS_WORLD_OBJECTS
+        .map(object => ({ ...object, distance: Math.hypot(object.x - fpsPlayer.x, object.y - fpsPlayer.y) }))
+        .sort((a, b) => b.distance - a.distance)
+        .forEach(object => drawFpsWorldObject(context, object, width, height));
+    getFpsStaffPositions()
+        .map(staff => ({ ...staff, distance: Math.hypot(staff.x - fpsPlayer.x, staff.y - fpsPlayer.y) }))
+        .sort((a, b) => b.distance - a.distance)
+        .forEach(staff => drawFpsStaff(context, staff, width, height));
+    getFpsTablePositions()
         .map((position, index) => ({ ...position, index, distance: Math.hypot(position.x - fpsPlayer.x, position.y - fpsPlayer.y) }))
+        .filter(table => table.distance < 22)
         .sort((a, b) => b.distance - a.distance)
         .forEach(table => drawFpsTable(context, table, width, height));
 
@@ -767,7 +956,9 @@ function renderFpsScene(timestamp = 0) {
     const objective = document.querySelector('.fps-objective');
     const status = document.getElementById('fps-status');
     if (objective) objective.innerText = target ? `Press E: ${getFpsTableAction(target.index)}` : 'Walk close to a table and face it';
-    if (status) status.innerText = target ? getFpsTableStatus(target.index) : `Position ${fpsPlayer.x.toFixed(1)}, ${fpsPlayer.y.toFixed(1)} · service floor`;
+    if (status) status.innerText = target
+        ? `${getFpsTableStatus(target.index)} · ${game.tablesOwned} tables · ${game.staff?.waiter || 0} servers`
+        : `Position ${fpsPlayer.x.toFixed(1)}, ${fpsPlayer.y.toFixed(1)} · ${game.tablesOwned} tables · ${game.staff?.waiter || 0} servers · ${game.idxAuto || 0} chefs`;
     fpsAnimationFrame = requestAnimationFrame(renderFpsScene);
 }
 
@@ -795,8 +986,8 @@ function bindFirstPersonControls() {
     });
     document.addEventListener('mousemove', event => {
         if (fpsOpen && document.pointerLockElement === fpsCanvas) {
-            fpsPlayer.angle += event.movementX * 0.0025;
-            fpsPlayer.pitch = Math.max(-0.38, Math.min(0.38, fpsPlayer.pitch + event.movementY * 0.002));
+            fpsPlayer.angle = normalizeFpsAngle(fpsPlayer.angle + event.movementX * 0.0025);
+            fpsPlayer.pitch = Math.max(-0.38, Math.min(0.38, fpsPlayer.pitch - event.movementY * 0.002));
         }
     });
     if (fpsCanvas && !window.fpsCanvasClickBound) {

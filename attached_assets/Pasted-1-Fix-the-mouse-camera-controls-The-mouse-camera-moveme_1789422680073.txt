@@ -1,0 +1,271 @@
+1. Fix the mouse/camera controls
+The mouse camera movement is currently inverted. Fix it so moving the mouse up makes the camera look up and moving the mouse down makes the camera look down.
+Make the camera able to swivel freely in every direction.
+The player should be able to look left, right, up, and down smoothly.
+Do not limit the horizontal camera rotation unnecessarily.
+Make the camera movement feel smooth and natural rather than extremely sensitive.
+Keep the player's body/player movement separate from the camera rotation so the controls don't feel broken.
+Make sure the camera does not randomly flip, jitter, or become stuck.
+Make the controls work consistently when entering and leaving first-person mode.
+2. Improve first-person mode
+
+Make first-person mode feel like an actual restaurant environment instead of a basic/simple 3D test area.
+
+The player should be able to walk around inside the restaurant and clearly see:
+
+Restaurant walls
+Floor
+Ceiling
+Tables
+Chairs
+Counter
+Cash register/POS area
+Kitchen area
+Food preparation areas
+Menu boards
+Restaurant decorations
+Windows
+Lighting
+Doors
+Entrance area
+Takeout area
+Other small restaurant details that make the environment feel complete
+
+The environment should look like a real functioning restaurant. Use believable proportions and placement so the furniture doesn't look randomly placed or float.
+
+3. Rendering and visual quality
+
+Improve the rendering so objects look better when the player gets close to them.
+
+Currently, objects should not suddenly look extremely low-quality or appear only when the player is far away. Add/improve:
+
+Proper 3D rendering
+Better lighting
+Shadows where supported
+Ambient lighting
+Distance/level-of-detail handling
+Texture filtering
+Anti-aliasing if supported
+Proper depth rendering
+Smooth object transitions
+Good draw distance
+
+When the player walks close to a chair, table, wall, character, counter, sign, or other object, it should remain clearly visible and detailed instead of disappearing or looking unfinished.
+
+Optimize the rendering so the game still runs smoothly. Do not add extremely expensive effects that cause major lag.
+
+4. Make the restaurant building feel complete
+
+Create/improve the actual restaurant building instead of having a basic empty building.
+
+The exterior should have:
+
+A recognizable restaurant entrance
+Restaurant signage
+Windows
+Walls
+Roof
+Proper entrance area
+A visible door
+Exterior details/decorations
+
+The interior should connect naturally to the exterior. The building should not feel like a box with an empty room inside.
+
+5. Add a working entrance door
+
+Add a proper entrance door that characters and the player can use.
+
+The door should:
+
+Be visible from outside
+Lead into the actual restaurant
+Open when a character enters
+Allow characters to walk through without getting stuck
+Allow the player to walk through
+Close after characters pass through if appropriate
+Have proper collision detection
+
+Make sure the door opening does not cause characters to walk through walls or get stuck in the doorway.
+
+6. Make NPC/customer characters actually enter the restaurant
+
+Customers should no longer just stand outside or appear inside randomly.
+
+Create a believable customer path:
+
+Customer spawns/approaches the restaurant.
+Customer walks toward the entrance.
+Customer reaches the door.
+Door opens.
+Customer walks through the door.
+Customer enters the restaurant.
+Customer walks to the appropriate location.
+Customer joins the ordering/takeout system.
+Customer receives their order.
+Customer eventually leaves through the entrance.
+
+Use proper pathfinding/navigation so customers avoid walls, furniture, counters, and other characters.
+
+Customers should not:
+
+Walk through walls
+Walk through tables/chairs
+Get permanently stuck
+Walk in circles
+Walk through the wrong side of the building
+Spawn directly inside the restaurant unless the existing game specifically requires it
+7. Add a realistic takeout line
+
+Add a dedicated takeout/customer line inside the restaurant.
+
+Create a clear takeout area with:
+
+A takeout counter
+A queue/line location
+Queue positions
+Space between customers
+A pickup/order area
+Restaurant signs showing where takeout customers should go
+
+Customers who want takeout should:
+
+Enter through the restaurant door.
+Walk to the takeout line.
+Find the next available queue position.
+Stand there while waiting.
+Move forward when the customer ahead leaves.
+Reach the counter when it is their turn.
+Place/receive their order using the existing ordering system.
+Leave the restaurant through the entrance after getting their food.
+
+Make sure multiple customers can wait in the line without overlapping each other.
+
+8. Improve restaurant furniture and decoration
+
+Make the interior look like a real restaurant rather than a game prototype.
+
+Add believable:
+
+Dining tables
+Chairs
+Countertops
+Booths if appropriate
+Menu boards
+Lights
+Wall decorations
+Restaurant signs
+Food-related decorations
+Trash bins
+Counters
+Shelves
+Kitchen equipment
+Windows
+Doors
+Small environmental details
+
+Everything should have proper collision where needed.
+
+9. Keep the existing gameplay systems
+
+IMPORTANT: Do not delete or replace existing gameplay systems just to implement these changes.
+
+Keep the existing:
+
+Ordering system
+Customer system
+Server/employee system
+Restaurant gameplay
+Money/cash system
+Player movement
+UI
+Existing interactions
+Existing game progression
+
+Only modify systems when necessary to make the new restaurant, NPC movement, camera, rendering, and takeout features work correctly.
+
+If an existing system conflicts with the new features, modify it carefully instead of deleting it.
+
+10. Make interactions reliable
+
+Interactions should feel consistent.
+
+For example, if the player interacts with an NPC/customer, it should require the intended number of clicks and should not randomly require extra clicks.
+
+Make sure:
+
+NPC interaction works reliably
+Doors work reliably
+Ordering works reliably
+Takeout works reliably
+Customers don't become permanently stuck
+Camera controls don't interfere with clicking
+First-person mode doesn't break interaction detection
+11. Performance
+
+Keep the game optimized.
+
+Do not simply add huge numbers of high-poly objects or extremely expensive effects.
+
+Use:
+
+Efficient models
+Appropriate level of detail
+Culling where useful
+Efficient NPC pathfinding
+Efficient collision detection
+Reasonable lighting
+Optimized rendering
+
+The goal is for the game to look significantly better while still running smoothly in the browser.
+
+12. Important implementation rule
+
+Before changing anything, inspect the existing code and understand how the current systems work.
+
+Do not blindly rewrite the project.
+
+Make the changes incrementally and test after each major change. If something breaks, fix the underlying problem instead of removing the feature.
+
+After implementing everything, test the complete gameplay loop:
+
+PLAYER:
+
+Enter first-person mode
+Move around
+Look in every direction
+Walk inside/outside
+Interact with NPCs
+Use the restaurant normally
+
+NPC:
+
+Approach restaurant
+Open/use entrance
+Walk inside
+Navigate around furniture
+Join takeout line
+Move through queue
+Order
+Receive food
+Leave through the door
+
+CAMERA:
+
+Mouse up = look up
+Mouse down = look down
+Mouse left/right = rotate normally
+Full 360° horizontal movement
+Smooth vertical movement
+No inversion
+No jitter
+No camera locking
+
+VISUALS:
+
+Restaurant looks complete
+Objects render properly up close
+Furniture has proper placement
+Lighting looks natural
+Exterior and interior connect correctly
+
+Most importantly, do not give me a simplified prototype. Improve the existing game so the restaurant actually feels like a functioning 3D restaurant with a believable interior, working entrance, NPCs that physically enter the building, and a real takeout queue.

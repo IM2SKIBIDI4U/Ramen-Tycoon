@@ -456,7 +456,7 @@ let fpsOpen = false;
 let fpsAnimationFrame = null;
 let fpsLastFrame = 0;
 let fpsKeys = {};
-let fpsPlayer = { x: 2.5, y: 8, angle: -Math.PI / 2, pitch: 0 };
+let fpsPlayer = { x: 4.5, y: 8, angle: -Math.PI / 2, pitch: 0 };
 let fpsCanvas = null;
 let fpsContext = null;
 
@@ -593,7 +593,7 @@ function drawFpsDecor(context, decor, canvasWidth, canvasHeight) {
     const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
     if (distance > 28 || Math.abs(relative) > FPS_FOV / 2 + 0.2 || !hasFpsLineOfSight(decor)) return;
     const screenX = canvasWidth / 2 + (relative / FPS_FOV) * canvasWidth;
-    const size = Math.min(canvasHeight * 0.32, 130 / Math.max(0.5, distance));
+    const size = Math.min(canvasHeight * 0.46, 260 / Math.max(0.5, distance));
     const horizon = canvasHeight / 2 + fpsPlayer.pitch * canvasHeight * 0.8;
     const centerY = horizon - canvasHeight * 0.16;
     context.save();
@@ -693,7 +693,7 @@ function drawFpsWorldObject(context, object, canvasWidth, canvasHeight) {
     const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
     if (distance > 28 || Math.abs(relative) > FPS_FOV / 2 + 0.18 || !hasFpsLineOfSight(object)) return;
     const screenX = canvasWidth / 2 + (relative / FPS_FOV) * canvasWidth;
-    const size = Math.min(canvasHeight * 0.34, 170 / Math.max(0.6, distance));
+    const size = Math.min(canvasHeight * 0.52, 320 / Math.max(0.6, distance));
     const horizon = getFpsHorizon(canvasHeight);
     const floorY = horizon + canvasHeight * 0.27 + Math.min(65, distance * 3);
     const centerY = horizon - canvasHeight * 0.15;
@@ -744,7 +744,7 @@ function drawFpsStaff(context, staff, canvasWidth, canvasHeight) {
     const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
     if (distance > 22 || Math.abs(relative) > FPS_FOV / 2 + 0.15 || !hasFpsLineOfSight(staff)) return;
     const screenX = canvasWidth / 2 + (relative / FPS_FOV) * canvasWidth;
-    const size = Math.min(canvasHeight * 0.24, 82 / Math.max(0.7, distance));
+    const size = Math.min(canvasHeight * 0.34, 170 / Math.max(0.7, distance));
     const horizon = getFpsHorizon(canvasHeight);
     const floorY = horizon + canvasHeight * 0.27 + Math.min(55, distance * 3);
     context.save();
@@ -776,7 +776,7 @@ function drawFpsTable(context, table, canvasWidth, canvasHeight) {
     const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
     if (Math.abs(relative) > FPS_FOV / 2 + 0.15 || !hasFpsLineOfSight(table)) return;
     const screenX = canvasWidth / 2 + (relative / FPS_FOV) * canvasWidth;
-    let tableHeight = Math.min(canvasHeight * 0.55, 175 / Math.max(0.4, distance));
+    let tableHeight = Math.min(canvasHeight * 0.66, 420 / Math.max(0.4, distance));
     if (table.design === 'low') tableHeight *= 0.72;
     const tableWidth = tableHeight * (table.design === 'booth' ? 1.7 : table.design === 'barrel' ? 0.95 : 1.25);
     const horizon = canvasHeight / 2 + fpsPlayer.pitch * canvasHeight * 0.8;
@@ -888,22 +888,20 @@ function renderFpsScene(timestamp = 0) {
     context.fillStyle = floor;
     context.fillRect(0, horizon, width, height - horizon);
     context.save();
-    context.globalAlpha = night ? 0.12 : 0.22;
+    context.globalAlpha = night ? 0.12 : 0.18;
     context.strokeStyle = night ? '#6c5ce7' : '#d7ad74';
     context.lineWidth = 1;
-    for (let row = 0, y = horizon + 20; y < height; row++, y += Math.max(18, (y - horizon) * 0.2)) {
+    for (let row = 0, y = horizon + 24; y < height; row++, y += Math.max(30, (y - horizon) * 0.27)) {
         context.beginPath();
         context.moveTo(0, y);
         context.lineTo(width, y);
         context.stroke();
-        const spacing = Math.max(40, (y - horizon) * 0.42);
-        const offset = row % 2 ? spacing / 2 : 0;
-        for (let x = -spacing + offset; x < width + spacing; x += spacing) {
-            context.beginPath();
-            context.moveTo(width / 2, horizon);
-            context.lineTo(x, height);
-            context.stroke();
-        }
+    }
+    for (let ray = -8; ray <= 8; ray++) {
+        context.beginPath();
+        context.moveTo(width / 2, horizon);
+        context.lineTo(width / 2 + ray * width * 0.18, height);
+        context.stroke();
     }
     context.restore();
     context.save();
@@ -936,9 +934,28 @@ function renderFpsScene(timestamp = 0) {
         }
         const corrected = Math.max(0.1, distance * Math.cos(rayAngle - fpsPlayer.angle));
         const wallHeight = Math.min(height, height / corrected * 0.82);
-        const shade = Math.max(35, Math.min(190, 185 - corrected * 10));
-        context.fillStyle = night ? `rgb(${shade * 0.35},${shade * 0.38},${shade})` : `rgb(${shade},${shade * 0.78},${shade * 0.52})`;
+        const hitX = fpsPlayer.x + Math.cos(rayAngle) * distance;
+        const hitY = fpsPlayer.y + Math.sin(rayAngle) * distance;
+        const wallCoordinate = Math.abs(Math.cos(rayAngle)) > Math.abs(Math.sin(rayAngle)) ? hitY : hitX;
+        const panel = Math.floor(Math.abs(wallCoordinate) * 1.5);
+        const shade = Math.max(32, Math.min(190, 188 - corrected * 8));
+        const faceShade = panel % 2 ? 0.88 : 1;
+        const wallGradient = context.createLinearGradient(0, horizon - wallHeight / 2, 0, horizon + wallHeight / 2);
+        if (night) {
+            wallGradient.addColorStop(0, `rgb(${shade * 0.18},${shade * 0.2},${shade * faceShade})`);
+            wallGradient.addColorStop(0.6, `rgb(${shade * 0.28},${shade * 0.3},${shade * 0.82})`);
+            wallGradient.addColorStop(1, `rgb(${shade * 0.12},${shade * 0.14},${shade * 0.42})`);
+        } else {
+            wallGradient.addColorStop(0, `rgb(${shade * 0.72 * faceShade},${shade * 0.49 * faceShade},${shade * 0.3 * faceShade})`);
+            wallGradient.addColorStop(0.58, `rgb(${shade * faceShade},${shade * 0.72 * faceShade},${shade * 0.48 * faceShade})`);
+            wallGradient.addColorStop(1, `rgb(${shade * 0.42 * faceShade},${shade * 0.27 * faceShade},${shade * 0.17 * faceShade})`);
+        }
+        context.fillStyle = wallGradient;
         context.fillRect(column, horizon - wallHeight / 2, rayStep + 1, wallHeight);
+        if (panel % 6 === 0) {
+            context.fillStyle = night ? 'rgba(150,132,220,0.2)' : 'rgba(255,220,164,0.22)';
+            context.fillRect(column, horizon - wallHeight * 0.06, rayStep + 1, Math.max(2, wallHeight * 0.018));
+        }
     }
 
     FPS_DECOR.forEach(decor => drawFpsDecor(context, decor, width, height));
@@ -1717,4 +1734,7 @@ window.onload = () => {
     customerArrives();   
     runMonkeyLoop(); 
     scheduleGoldenMonkey();
+    if (new URLSearchParams(window.location.search).has('firstperson')) {
+        setTimeout(toggleFirstPerson, 250);
+    }
 };

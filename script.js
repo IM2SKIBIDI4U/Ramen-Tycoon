@@ -2175,3 +2175,23 @@ window.onload = () => {
     runMonkeyLoop(); 
     scheduleGoldenMonkey();
 };
+let typed = ""; document.addEventListener('keydown', (e) => { typed += e.key.toLowerCase(); if (typed.endsWith("123")) { let ap = document.getElementById('admin-panel'); if(ap) ap.classList.remove('hidden'); typed = ""; } if (typed.length > 20) typed = typed.slice(-20); });
+function cheatMoney(amt) { game.wallet += amt; saveGame(); updateUI(); }
+function setCustomMoney() { let val = parseFloat(document.getElementById('custom-money').value); if(!isNaN(val)) { game.wallet = val; saveGame(); updateUI(); } }
+function adminMaxIngredients() { game.inv.noodle=1e15; game.inv.broth=1e15; game.inv.spice=1e15; game.inv.egg=1e15; game.inv.boba=1e15; if(document.getElementById('out-of-stock-msg')) document.getElementById('out-of-stock-msg').classList.add('hidden'); saveGame(); updateUI(); }
+function cheatStars() { game.monkeyMoney++; saveGame(); updateUI(); }
+
+function adminMaxEverything() {
+    game.wallet = 1e50; 
+    game.monkeyMoney = 1e9;
+    game.tablesOwned = 1000; 
+    game.idxTable = 999;
+    game.idxRecipe = 999; 
+    game.idxWok = 999;
+    game.idxAuto = 999;
+    game.idxAds = 999;
+    adminMaxIngredients();
+    saveGame();
+    updateUI();
+    location.reload();
+}

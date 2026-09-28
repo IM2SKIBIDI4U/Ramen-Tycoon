@@ -1,0 +1,8 @@
+{
+  "name": "my-static-project",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "echo 'No dev server configured'",
+    "build": "echo 'No build step required for static files'"
+  }
+}

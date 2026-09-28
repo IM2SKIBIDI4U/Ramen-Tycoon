@@ -466,6 +466,10 @@ function normalizeFpsAngle(angle) {
     return angle;
 }
 
+function getFpsHorizon(canvasHeight) {
+    return canvasHeight / 2 + fpsPlayer.pitch * canvasHeight * 0.8;
+}
+
 function isFpsWall(x, y) {
     const row = FPS_MAP[Math.floor(y)];
     return !row || row[Math.floor(x)] === '#';

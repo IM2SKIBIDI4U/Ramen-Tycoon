@@ -57,17 +57,21 @@ if (!document.getElementById('floating-money-style')) {
 // --- ARRAYS & DATA ---
 const TRACK_TABLES = Array.from({length: 1000}, (_, i) => ({ 
     name: `Table ${i+2}`, 
-    cost: Math.floor(200 * Math.pow(1.12, i)) 
+    cost: Math.floor(1600 * Math.pow(1.12, i)) 
 }));
 
 const TRACK_WOK = Array.from({length: 1000}, (_, i) => ({ 
     name: `Wok Lvl ${i+2}`, 
-    cost: Math.floor(75000 * Math.pow(1.13, i)) 
+    cost: Math.floor(750000 * Math.pow(1.13, i)) 
 }));
 
 const TRACK_AUTO = Array.from({length: 1000}, (_, i) => ({ 
     name: `Chef Speed Lvl ${i+1}`, 
-    cost: Math.floor(1200 * Math.pow(1.11, i)) 
+    cost: Math.floor(9600 * Math.pow(1.11, i)) 
+}));
+const TRACK_BOWLS = Array.from({ length: 100 }, (_, i) => ({
+    name: `Reinforced Bowl Set ${i + 1}`,
+    cost: Math.floor(25000 * Math.pow(1.16, i))
 }));
 const TRACK_ADS = Array.from({length: 1000}, (_, i) => ({ 
     name: `Marketing Lvl ${i+1}`, 
@@ -81,7 +85,7 @@ const TRACK_RECIPES = Array.from({length: 1000}, (_, i) => {
     let name = i < RAMEN_NAMES.length ? RAMEN_NAMES[i] : `${R_PRE[i % R_PRE.length]} ${R_BASE[Math.floor(i / R_PRE.length) % R_BASE.length]} Ramen`;
     if (i === 999) name = "The Universal Ramen";
     
-    let cost = Math.floor(500 * Math.pow(1.072, i)); 
+    let cost = Math.floor(4000 * Math.pow(1.072, i)); 
     let value = Math.floor(65 * Math.pow(1.1345, i)); 
     
     return { name, cost, value };
@@ -90,9 +94,9 @@ const TRACK_RECIPES = Array.from({length: 1000}, (_, i) => {
 const TRACK_DECOR = [ { id: 'theme-default', name: 'Standard Store', cost: 0 }, { id: 'theme-neon', name: 'Cyberpunk Neon', cost: 500000 }, { id: 'theme-zen', name: 'Zen Garden', cost: 10000000 }, { id: 'theme-gold', name: 'Solid Gold Palace', cost: 1000000000 } ];
 
 const TRACK_STAFF = [
-    { id: 'waiter', name: 'Waiter Chimp (Auto Serve/Pay)', baseCost: 50000, mult: 5 },
-    { id: 'ninja', name: 'Ninja Macaque (Insta-Cook Chance)', baseCost: 250000, mult: 10 },
-    { id: 'mascot', name: 'Capuchin Mascot (+Patience/Tips)', baseCost: 1000000, mult: 15 }
+    { id: 'waiter', name: 'Waiter Chimp (Auto Serve/Pay)', baseCost: 500000, mult: 5 },
+    { id: 'ninja', name: 'Ninja Macaque (Insta-Cook Chance)', baseCost: 2500000, mult: 10 },
+    { id: 'mascot', name: 'Capuchin Mascot (+Patience/Tips)', baseCost: 10000000, mult: 15 }
 ];
 
 const INITIAL_RIVALS = [
@@ -103,10 +107,21 @@ const INITIAL_RIVALS = [
     { id: 'boss', name: '🦍 The Silverback Syndicate', hp: 1e15, maxHp: 1e15, cost: 1e12, multReward: 20.0 }
 ];
 
-const defaultInv = { noodle: 10, broth: 10, spice: 10, egg: 10, boba: 10 };
+const defaultInv = { noodle: 10, broth: 10, spice: 10, egg: 10, boba: 10, chashu: 10, nori: 10, bamboo: 10 };
+const INGREDIENT_BATCH_COSTS = { noodle: 50, broth: 50, spice: 20, egg: 80, boba: 150, chashu: 120, nori: 70, bamboo: 60 };
+const INGREDIENT_COST_PER_UNIT = Object.fromEntries(Object.entries(INGREDIENT_BATCH_COSTS).map(([key, cost]) => [key, cost / 10]));
+const RAMEN_ASSEMBLY = [
+    { key: 'broth', label: 'Choose broth', emoji: '🥣', options: ['Shoyu', 'Miso', 'Tonkotsu', 'Spicy miso'] },
+    { key: 'noodle', label: 'Set noodle firmness', emoji: '🍜', options: ['Soft', 'Medium', 'Firm'] },
+    { key: 'egg', label: 'Add egg', emoji: '🥚' },
+    { key: 'chashu', label: 'Add chashu', emoji: '🥩' },
+    { key: 'nori', label: 'Add nori', emoji: '🌿' },
+    { key: 'bamboo', label: 'Add bamboo shoots', emoji: '🎋' }
+];
+const EXTREME_SHIFT_MS = 180000;
 let game = {
     wallet: 150, monkeyMoney: 0, turfMult: 1, lastSaveTime: Date.now(),
-    tablesOwned: 1, idxTable: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxSpecial: 0, currentMenuPrice: 50,
+    tablesOwned: 5, idxTable: 4, idxBowl: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxSpecial: 0, currentMenuPrice: 50,
     activeDecor: 'theme-default', decorOwned: ['theme-default'], autoRefill: false,
     staff: { waiter: 0, ninja: 0, mascot: 0 }, rivals: JSON.parse(JSON.stringify(INITIAL_RIVALS)),
     inv: { ...defaultInv }, upgrades: {}, achievements: [], autoChefSpeedMulti: 1, idxAds: 0,
@@ -116,6 +131,7 @@ let game = {
     restaurantXp: 0, popularity: 50, dailySpecialIndex: 0,
     specialEndsAt: Date.now() + 86400000,
     nightMode: false, deliveryActive: null, deliveriesCompleted: 0,
+    shiftNumber: 1, shiftEndsAt: Date.now() + EXTREME_SHIFT_MS, strikes: 0, gameOver: false, gameOverReason: '',
     staffTraining: { waiter: 0, ninja: 0, mascot: 0 }, reviews: []
 };
 
@@ -182,7 +198,11 @@ function generateRandomChar() {
         pants: charColors.pants[Math.floor(Math.random()*3)], 
         isVIP: isVipRoll, 
         isCritic: Math.random() < 0.02, 
-        wantsBoba: Math.random() < 0.2 
+        wantsBoba: Math.random() < 0.2,
+        ramenOrder: {
+            broth: RAMEN_ASSEMBLY[0].options[Math.floor(Math.random() * RAMEN_ASSEMBLY[0].options.length)],
+            firmness: RAMEN_ASSEMBLY[1].options[Math.floor(Math.random() * RAMEN_ASSEMBLY[1].options.length)]
+        }
     }; 
 }
 
@@ -196,8 +216,9 @@ function renderCharHTML(c) {
 
 function normalizeGameState() {
     const numericDefaults = {
-        wallet: 150, monkeyMoney: 0, turfMult: 1, tablesOwned: 1,
+        wallet: 150, monkeyMoney: 0, turfMult: 1, tablesOwned: 5,
         idxTable: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxAds: 0,
+        idxBowl: 0, shiftNumber: 1, strikes: 0,
         currentMenuPrice: 50, autoChefSpeedMulti: 1, restaurantXp: 0,
         popularity: 50, dailySpecialIndex: 0, specialEndsAt: Date.now() + 86400000,
         deliveriesCompleted: 0
@@ -205,6 +226,13 @@ function normalizeGameState() {
     Object.entries(numericDefaults).forEach(([key, fallback]) => {
         if (!Number.isFinite(game[key])) game[key] = fallback;
     });
+    game.tablesOwned = Math.max(5, Math.min(1000, Math.floor(game.tablesOwned)));
+    game.idxTable = Math.max(game.idxTable, game.tablesOwned - 1);
+    game.idxBowl = Math.max(0, Math.min(TRACK_BOWLS.length, Math.floor(game.idxBowl)));
+    game.strikes = Math.max(0, Math.floor(game.strikes));
+    game.gameOver = Boolean(game.gameOver);
+    game.gameOverReason = typeof game.gameOverReason === 'string' ? game.gameOverReason : '';
+    if (!Number.isFinite(game.shiftEndsAt)) game.shiftEndsAt = Date.now() + EXTREME_SHIFT_MS;
     game.activeDecor = typeof game.activeDecor === 'string' ? game.activeDecor : 'theme-default';
     game.autoRefill = Boolean(game.autoRefill);
     game.nightMode = Boolean(game.nightMode);
@@ -226,6 +254,105 @@ function normalizeGameState() {
         game[key] = Number.isFinite(game[key]) ? game[key] : 0;
     });
     if (!Array.isArray(game.missions) || game.missions.length !== 3) game.missions = createMissionSet();
+}
+
+function getShiftRent() {
+    return 250 + game.tablesOwned * 35 + game.idxWok * 100 + game.idxAuto * 75
+        + ((game.staff.waiter + game.staff.ninja + game.staff.mascot) * 125)
+        + (game.idxBowl * 250);
+}
+
+function formatShiftTimer(milliseconds) {
+    const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
+    return `${String(Math.floor(totalSeconds / 60)).padStart(2, '0')}:${String(totalSeconds % 60).padStart(2, '0')}`;
+}
+
+function updateExtremeShiftHud() {
+    const remaining = Math.max(0, game.shiftEndsAt - Date.now());
+    const number = document.getElementById('shift-number');
+    const timer = document.getElementById('shift-timer');
+    const rent = document.getElementById('shift-rent');
+    if (number) number.innerText = game.shiftNumber;
+    if (timer) {
+        timer.innerText = formatShiftTimer(remaining);
+        timer.classList.toggle('urgent', remaining < 30000);
+    }
+    if (rent) rent.innerText = `$${formatMoney(getShiftRent())}`;
+}
+
+function triggerExtremeGameOver(reason) {
+    if (game.gameOver) return;
+    game.gameOver = true;
+    game.gameOverReason = reason;
+    const overlay = document.getElementById('extreme-gameover');
+    const reasonElement = document.getElementById('extreme-gameover-reason');
+    if (reasonElement) reasonElement.innerText = reason;
+    overlay?.classList.remove('hidden');
+    document.body.classList.add('extreme-mode-over');
+    if (fpsOpen) closeFirstPerson();
+    saveGame();
+}
+
+function recordExtremeStrike(reason) {
+    if (game.gameOver) return;
+    game.strikes = 1;
+    triggerExtremeGameOver(reason);
+}
+
+function chargeExtremeCash(amount, allowBankruptcy = true) {
+    const cost = Math.max(0, Math.ceil(amount));
+    if (game.gameOver || game.wallet < cost) return false;
+    game.wallet -= cost;
+    if (allowBankruptcy && game.wallet <= 0) {
+        triggerExtremeGameOver('The restaurant ran out of cash. Bankruptcy is immediate in Extreme Mode.');
+    }
+    return !game.gameOver;
+}
+
+function endExtremeShift() {
+    if (game.gameOver) return;
+    const rent = getShiftRent();
+    if (game.wallet < rent) {
+        game.wallet = 0;
+        updateUI();
+        triggerExtremeGameOver(`Shift ${game.shiftNumber} rent was $${formatMoney(rent)}, but the restaurant could not cover it. Bankruptcy.`);
+        return;
+    }
+    game.wallet -= rent;
+    game.shiftNumber++;
+    game.shiftEndsAt = Date.now() + EXTREME_SHIFT_MS;
+    playSound('error');
+    updateUI();
+    saveGame();
+}
+
+function startNewExtremeRun() {
+    if (!confirm('Start a new run? This resets cash, ingredients, tables, upgrades, and staff. Monkey Money and achievements will be kept.')) return;
+    const monkeyMoney = game.monkeyMoney || 0;
+    const achievements = Array.isArray(game.achievements) ? [...game.achievements] : [];
+    localStorage.removeItem('RamenUltimateData');
+    game = {
+        wallet: 150, monkeyMoney, turfMult: 1, lastSaveTime: Date.now(),
+        tablesOwned: 5, idxTable: 4, idxBowl: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxAds: 0, idxSpecial: 0, currentMenuPrice: 50,
+        activeDecor: 'theme-default', decorOwned: ['theme-default'], autoRefill: false,
+        staff: { waiter: 0, ninja: 0, mascot: 0 }, rivals: JSON.parse(JSON.stringify(INITIAL_RIVALS)),
+        inv: { ...defaultInv }, upgrades: {}, achievements, autoChefSpeedMulti: 1, idxAds: 0,
+        servedCount: 0, totalEarned: 0, vipServed: 0, combo: 0, bestCombo: 0,
+        rivalsDefeated: 0, eventsTriggered: 0, missionCycle: 0, missions: [],
+        missionStreak: 0, lastMissionReset: Date.now(),
+        restaurantXp: 0, popularity: 50, dailySpecialIndex: 0,
+        specialEndsAt: Date.now() + 86400000, nightMode: false, deliveryActive: null, deliveriesCompleted: 0,
+        staffTraining: { waiter: 0, ninja: 0, mascot: 0 }, reviews: [],
+        shiftNumber: 1, shiftEndsAt: Date.now() + EXTREME_SHIFT_MS, strikes: 0, gameOver: false, gameOverReason: ''
+    };
+    seats = Array.from({ length: 1000 }, () => ({
+        occupied: false, needsMenu: false, isCooking: false, cookStep: 0,
+        needsServing: false, needsToPay: false, patience: 100, charData: null,
+        ingredientsUsed: {}, bowlReadyAt: 0, patienceEndsAt: 0
+    }));
+    waitList = [];
+    saveGame();
+    location.reload();
 }
 
 function getRestaurantLevel() {
@@ -386,7 +513,11 @@ function renderMissionsPanel() {
     renderReviewFeed();
 }
 
-let seats = Array.from({length: 1000}, () => ({ occupied: false, needsMenu: false, isCooking: false, cookStep: 0, needsServing: false, needsToPay: false, patience: 100, charData: null }));
+let seats = Array.from({length: 1000}, () => ({
+    occupied: false, needsMenu: false, isCooking: false, cookStep: 0,
+    needsServing: false, needsToPay: false, patience: 100, charData: null,
+    ingredientsUsed: {}, bowlReadyAt: 0, patienceEndsAt: 0, patienceDuration: 0
+}));
 let waitList = []; let isRushHour = false; let rushMultiplier = 1;
 
 const FPS_MAP = (() => {
@@ -1059,14 +1190,18 @@ function getPrestigeMultiplier() {
 }
 
 function customerArrives() { 
-    if (waitList.length < 10) { 
-        waitList.push(generateRandomChar()); 
+    if (game.gameOver) return;
+    const partySize = 4 + Math.floor(Math.random() * 2);
+    if (waitList.length < 100) {
+        for (let guest = 0; guest < partySize && waitList.length < 100; guest++) {
+            waitList.push(generateRandomChar());
+        }
         renderWaitList(); 
     } 
     checkEmptySeats(); 
     
-    let baseDelay = 4000 * Math.pow(0.92, game.idxAds || 0);
-    let finalDelay = Math.max(300, baseDelay / rushMultiplier); 
+    let baseDelay = 3000 * Math.pow(0.94, game.idxAds || 0);
+    let finalDelay = Math.max(800, baseDelay / rushMultiplier);
     
     setTimeout(customerArrives, finalDelay); 
 }
@@ -1077,26 +1212,39 @@ function renderWaitList() {
 }
 
 function checkEmptySeats() {
-    if (waitList.length === 0) return;
-    for (let i = 0; i < game.tablesOwned; i++) {
+    if (game.gameOver || waitList.length === 0) return;
+    let seated = 0;
+    for (let i = 0; i < game.tablesOwned && waitList.length; i++) {
         if (!seats[i].occupied) {
-            const char = waitList.shift();
-            renderWaitList();
-            spawnWalkingCustomer(i, char);
-            // Some guests arrive as a two-person party and take neighboring tables.
-            if (Math.random() < 0.28 && i % 3 === 0 && i + 1 < game.tablesOwned && !seats[i + 1].occupied && waitList.length) {
-                const companion = waitList.shift();
-                renderWaitList();
-                spawnWalkingCustomer(i + 1, companion);
-            }
-            break;
+            spawnWalkingCustomer(i, waitList.shift());
+            seated++;
         }
     }
+    if (seated) renderWaitList();
 }
 
 function spawnWalkingCustomer(seatIdx, char) {
-    seats[seatIdx].occupied = true; seats[seatIdx].patience = 100; updateUI();
-    setTimeout(() => { seats[seatIdx].charData = char; seats[seatIdx].needsMenu = true; updateUI(); }, 1000 / rushMultiplier);
+    const seat = seats[seatIdx];
+    seat.occupied = true;
+    seat.patience = 100;
+    seat.patienceEndsAt = 0;
+    seat.ingredientsUsed = {};
+    seat.bowlReadyAt = 0;
+    updateUI();
+    setTimeout(() => {
+        if (game.gameOver || !seat.occupied) return;
+        seat.charData = char;
+        seat.needsMenu = true;
+        armCustomerPatience(seat);
+        updateUI();
+    }, 350 / rushMultiplier);
+}
+
+function armCustomerPatience(seat) {
+    if (!seat || !seat.occupied || !seat.charData) return;
+    seat.patienceDuration = 3000 + Math.floor(Math.random() * 2001);
+    seat.patienceEndsAt = Date.now() + seat.patienceDuration;
+    seat.patience = 100;
 }
 
 function handleTableClick(index) {
@@ -1109,6 +1257,9 @@ function handleTableClick(index) {
         seat.patience = 100; 
         seat.isCooking = true; 
         seat.cookStep = 0; 
+        seat.ingredientsUsed = {};
+        seat.bowlReadyAt = 0;
+        armCustomerPatience(seat);
         updateUI(); 
         updateKitchenUI();
     } 
@@ -1125,7 +1276,7 @@ function handleTableClick(index) {
         }
         seat.needsServing = false; 
         seat.needsToPay = true; 
-        seat.patience = 100; 
+        armCustomerPatience(seat);
         playSound('serve'); 
         updateUI(); 
     } 
@@ -1138,6 +1289,8 @@ function handleTableClick(index) {
         seat.isCooking = true; 
         seat.cookStep = 0; 
         seat.patience = 100; 
+        seat.ingredientsUsed = {};
+        armCustomerPatience(seat);
         updateUI(); 
         updateKitchenUI(); 
     }
@@ -1181,29 +1334,37 @@ function collectPayment(index) {
 }
 
 function buyIngredient(type, amount, cost) { 
-    if (game.wallet >= cost) { 
-        game.wallet -= cost; game.inv[type] += amount; 
+    if (game.gameOver || !Object.hasOwn(INGREDIENT_BATCH_COSTS, type) || game.wallet < cost) {
+        playSound('error');
+        return;
+    }
+    if (chargeExtremeCash(cost)) {
+        game.inv[type] = (game.inv[type] || 0) + amount;
         let msg = document.getElementById('out-of-stock-msg');
         if (msg) msg.classList.add('hidden'); 
         playSound('cook'); updateUI(); saveGame(); 
-    } else { playSound('error'); }
+    }
 }
 
 function buyAutoRefill() {
-    if (game.wallet >= 50000 && !game.autoRefill) {
-        game.wallet -= 50000; game.autoRefill = true; playSound('cash'); saveGame(); updateUI();
-    } else { playSound('error'); }
+    if (game.gameOver || game.wallet < 500000 || game.autoRefill) { playSound('error'); return; }
+    if (chargeExtremeCash(500000)) {
+        game.autoRefill = true; playSound('cash'); saveGame(); updateUI();
+    }
 }
 
 // --- BACKGROUND LOOPS ---
 setInterval(() => {
+    if (game.gameOver) return;
     if (game.autoRefill) {
-        let restockAmount = 100; let cost = 50; let threshold = 10; let didRefill = false;
-        if (game.inv.noodle <= threshold && game.wallet >= cost) { game.inv.noodle += restockAmount; game.wallet -= cost; didRefill = true; }
-        if (game.inv.broth <= threshold && game.wallet >= cost) { game.inv.broth += restockAmount; game.wallet -= cost; didRefill = true; }
-        if (game.inv.spice <= threshold && game.wallet >= cost) { game.inv.spice += restockAmount; game.wallet -= cost; didRefill = true; }
-        if (game.inv.egg <= threshold && game.wallet >= cost) { game.inv.egg += restockAmount; game.wallet -= cost; didRefill = true; }
-        if (game.inv.boba <= threshold && game.wallet >= cost) { game.inv.boba += restockAmount; game.wallet -= cost; didRefill = true; }
+        let restockAmount = 100; let threshold = 10; let didRefill = false;
+        Object.entries(INGREDIENT_BATCH_COSTS).forEach(([ingredient, batchCost]) => {
+            const refillCost = batchCost * (restockAmount / 10);
+            if (game.inv[ingredient] <= threshold && game.wallet >= refillCost && chargeExtremeCash(refillCost)) {
+                game.inv[ingredient] = (game.inv[ingredient] || 0) + restockAmount;
+                didRefill = true;
+            }
+        });
         if (didRefill) { updateUI(); updateKitchenUI(); }
     }
 }, 1000);
@@ -1220,46 +1381,33 @@ setInterval(() => {
 
 // --- PATIENCE DRAIN SYSTEM ---
 setInterval(() => {
+    if (game.gameOver) return;
+    const now = Date.now();
     let uiNeedsUpdate = false;
-    let drainRate = 5; 
-    
-    if (game.staff && game.staff.mascot > 0) {
-        drainRate -= (game.staff.mascot * 0.4);
-    }
-    drainRate = Math.max(1, drainRate);
-
     for (let i = 0; i < game.tablesOwned; i++) {
-        let seat = seats[i];
-        if (seat && seat.occupied && seat.charData) {
-            seat.patience -= drainRate;
+        const seat = seats[i];
+        if (seat && seat.occupied && seat.charData && seat.patienceEndsAt) {
+            seat.patience = Math.max(0, ((seat.patienceEndsAt - now) / (seat.patienceDuration || 4000)) * 100);
             uiNeedsUpdate = true;
-
             if (seat.patience <= 0) {
                 playSound('error');
                 spawnFloatingMoney("😡 WALKOUT!", `seat-${i}`, '#e74c3c');
-                
-                seat.occupied = false; 
-                seat.charData = null;
-                seat.needsMenu = false;
-                seat.isCooking = false;
-                seat.cookStep = 0;
-                seat.needsServing = false;
-                seat.needsToPay = false;
-                seat.patience = 100;
                 game.combo = 0;
                 game.popularity = Math.max(0, game.popularity - 2);
-                addReview('The wait was too long. The guest left before trying the ramen.', false);
-                updateKitchenUI();
+                addReview('The picky guest walked out after a short wait.', false);
+                recordExtremeStrike('A customer ran out of patience. One angry walkout ends the run.');
+                return;
             }
         }
     }
     if (uiNeedsUpdate) updateUI();
-}, 1000);
+}, 100);
 
 let lastClickTime = 0;
 let clickWarnings = 0;
 
 function clickStove(index) {
+    if (game.gameOver) return;
     let now = Date.now();
     if (now - lastClickTime < 50) { 
         clickWarnings++;
@@ -1273,62 +1421,84 @@ function clickStove(index) {
     lastClickTime = now;
     clickWarnings = Math.max(0, clickWarnings - 0.2);
 
-    let seat = seats[index]; if (!seat || !seat.isCooking) return;
-    let msg = document.getElementById('out-of-stock-msg');
-    
-    if(seat.cookStep === 0 && game.staff.ninja > 0 && Math.random() < ((game.staff.ninja * 0.05) + ((game.staffTraining.ninja || 0) * 0.02))) {
-        if(game.inv.noodle<1||game.inv.broth<1||game.inv.spice<1||game.inv.egg<1) { if(msg) msg.classList.remove('hidden'); playSound('error'); return; }
-        game.inv.noodle--; game.inv.broth--; game.inv.spice--; game.inv.egg--;
-        seat.cookStep = 3; playSound('cook'); finishCooking(index); return;
+    const seat = seats[index];
+    if (!seat || !seat.isCooking) return;
+    if (seat.bowlReadyAt) {
+        takeBowlOffStove(index);
+        return;
     }
-
-    if (seat.cookStep === 0) { if (game.inv.noodle < 1 || game.inv.broth < 1) { if(msg) msg.classList.remove('hidden'); playSound('error'); return; } game.inv.noodle--; game.inv.broth--; playSound('cook'); seat.cookStep = 1; } 
-    else if (seat.cookStep === 1) { if (game.inv.spice < 1) { if(msg) msg.classList.remove('hidden'); playSound('error'); return; } game.inv.spice--; playSound('cook'); seat.cookStep = 2; } 
-    else if (seat.cookStep === 2) { 
-        if (game.inv.egg < 1) { if(msg) msg.classList.remove('hidden'); playSound('error'); return; } 
-        game.inv.egg--; playSound('cook'); seat.cookStep = 3; 
-        
-        const stoveElements = document.querySelectorAll('.stove-station');
-        const currentStove = stoveElements[index];
-        if (currentStove) {
-            const eggEmoji = document.createElement('div'); eggEmoji.className = 'egg-drop'; eggEmoji.innerText = '🥚';
-            currentStove.appendChild(eggEmoji); setTimeout(() => eggEmoji.remove(), 500);
-        }
-        finishCooking(index); return; 
+    const step = RAMEN_ASSEMBLY[seat.cookStep];
+    if (!step) return;
+    if (step.key === 'broth' || step.key === 'noodle') {
+        seat.charData.ramenOrder ||= {
+            broth: RAMEN_ASSEMBLY[0].options[0],
+            firmness: RAMEN_ASSEMBLY[1].options[1]
+        };
+    } else if (game.inv[step.key] < 1) {
+        document.getElementById('out-of-stock-msg')?.classList.remove('hidden');
+        playSound('error');
+        return;
     }
-    updateUI(); updateKitchenUI();
+    if (!['broth', 'noodle'].includes(step.key)) {
+        game.inv[step.key]--;
+        seat.ingredientsUsed[step.key] = (seat.ingredientsUsed[step.key] || 0) + 1;
+    } else {
+        game.inv[step.key]--;
+        seat.ingredientsUsed[step.key] = (seat.ingredientsUsed[step.key] || 0) + 1;
+    }
+    seat.cookStep++;
+    armCustomerPatience(seat);
+    playSound('cook');
+    if (seat.cookStep === RAMEN_ASSEMBLY.length) finishCooking(index);
+    updateUI();
+    updateKitchenUI();
 }
 
 function finishCooking(index) {
-    let seat = seats[index]; if(!seat) return;
-    setTimeout(() => {
-        seat.isCooking = false; 
-        seat.needsServing = true; 
-        seat.patience = 100;
-        
-        let maxExtra = game.idxWok;
-        if (maxExtra > 0) {
-            let extra = 0;
-            for (let j = 0; j < game.tablesOwned; j++) { 
-                if (extra >= maxExtra) break; 
-                let otherSeat = seats[j];
-                if (j !== index && otherSeat && otherSeat.occupied && otherSeat.isCooking) { 
-                    let reqNoodle = otherSeat.cookStep === 0 ? 1 : 0;
-                    let reqBroth  = otherSeat.cookStep === 0 ? 1 : 0;
-                    let reqSpice  = otherSeat.cookStep <= 1 ? 1 : 0;
-                    let reqEgg    = otherSeat.cookStep <= 2 ? 1 : 0;
-                    
-                    if (game.inv.noodle >= reqNoodle && game.inv.broth >= reqBroth && game.inv.spice >= reqSpice && game.inv.egg >= reqEgg) {
-                        game.inv.noodle -= reqNoodle; game.inv.broth -= reqBroth; game.inv.spice -= reqSpice; game.inv.egg -= reqEgg;
-                        otherSeat.isCooking = false; otherSeat.needsServing = true; otherSeat.patience = 100; otherSeat.cookStep = 3; extra++; 
-                    } else {
-                        let msg = document.getElementById('out-of-stock-msg'); if(msg) msg.classList.remove('hidden');
-                    }
-                } 
-            }
-        }
-        saveGame(); updateUI(); updateKitchenUI();
-    }, 400);
+    const seat = seats[index];
+    if (!seat || !seat.isCooking || seat.bowlReadyAt) return;
+    seat.bowlReadyAt = Date.now() + 2000;
+    seat.patience = 100;
+    armCustomerPatience(seat);
+    saveGame();
+    updateKitchenUI();
+}
+
+function takeBowlOffStove(index) {
+    const seat = seats[index];
+    if (!seat || !seat.isCooking || !seat.bowlReadyAt || Date.now() >= seat.bowlReadyAt) return;
+    seat.bowlReadyAt = 0;
+    seat.isCooking = false;
+    seat.needsServing = true;
+    armCustomerPatience(seat);
+    playSound('serve');
+    updateKitchenUI();
+    updateUI();
+    saveGame();
+}
+
+function ruinBowl(index) {
+    const seat = seats[index];
+    if (!seat || !seat.bowlReadyAt || Date.now() < seat.bowlReadyAt) return;
+    const ingredientCost = Object.entries(seat.ingredientsUsed || {}).reduce((total, [ingredient, quantity]) => {
+        return total + (INGREDIENT_COST_PER_UNIT[ingredient] || 0) * quantity;
+    }, 0);
+    const penalty = Math.ceil(ingredientCost * 2);
+    game.wallet = Math.max(0, game.wallet - penalty);
+    seat.bowlReadyAt = 0;
+    seat.isCooking = false;
+    seat.occupied = false;
+    seat.needsMenu = false;
+    seat.needsServing = false;
+    seat.needsToPay = false;
+    seat.charData = null;
+    seat.cookStep = 0;
+    seat.patienceEndsAt = 0;
+    addReview(`A ruined bowl wasted ingredients. Double-price penalty: $${formatMoney(penalty)}.`, false);
+    playSound('error');
+    updateKitchenUI();
+    updateUI();
+    recordExtremeStrike(`The ramen burned in 2 seconds. Its ingredients cost double ($${formatMoney(penalty)}). One ruined bowl ends the run.`);
 }
 
 function getMonkeySpeed() { 

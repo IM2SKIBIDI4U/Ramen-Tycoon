@@ -36,11 +36,14 @@
 
         <div class="pantry-panel glass-panel">
             <div class="pantry-grid">
-                <div class="ing-item"><span>🍜 Noodles: <b id="inv-noodle">0</b></span><button onclick="buyIngredient('noodle', 10, 5)">Buy 10 ($5)</button></div>
-                <div class="ing-item"><span>🥣 Broth: <b id="inv-broth">0</b></span><button onclick="buyIngredient('broth', 10, 5)">Buy 10 ($5)</button></div>
-                <div class="ing-item"><span>🧂 Spice: <b id="inv-spice">0</b></span><button onclick="buyIngredient('spice', 10, 2)">Buy 10 ($2)</button></div>
-                <div class="ing-item"><span>🥚 Eggs: <b id="inv-egg">0</b></span><button onclick="buyIngredient('egg', 10, 8)">Buy 10 ($8)</button></div>
-                <div class="ing-item"><span>🧋 Boba: <b id="inv-boba">0</b></span><button onclick="buyIngredient('boba', 10, 15)">Buy 10 ($15)</button></div>
+                <div class="ing-item"><span>🍜 Noodles: <b id="inv-noodle">0</b></span><button onclick="buyIngredient('noodle', 10, 50)">Buy 10 ($50)</button></div>
+                <div class="ing-item"><span>🥣 Broth: <b id="inv-broth">0</b></span><button onclick="buyIngredient('broth', 10, 50)">Buy 10 ($50)</button></div>
+                <div class="ing-item"><span>🧂 Spice: <b id="inv-spice">0</b></span><button onclick="buyIngredient('spice', 10, 20)">Buy 10 ($20)</button></div>
+                <div class="ing-item"><span>🥚 Eggs: <b id="inv-egg">0</b></span><button onclick="buyIngredient('egg', 10, 80)">Buy 10 ($80)</button></div>
+                <div class="ing-item"><span>🧋 Boba: <b id="inv-boba">0</b></span><button onclick="buyIngredient('boba', 10, 150)">Buy 10 ($150)</button></div>
+                <div class="ing-item"><span>🥩 Chashu: <b id="inv-chashu">0</b></span><button onclick="buyIngredient('chashu', 10, 120)">Buy 10 ($120)</button></div>
+                <div class="ing-item"><span>🌿 Nori: <b id="inv-nori">0</b></span><button onclick="buyIngredient('nori', 10, 70)">Buy 10 ($70)</button></div>
+                <div class="ing-item"><span>🎋 Bamboo Shoots: <b id="inv-bamboo">0</b></span><button onclick="buyIngredient('bamboo', 10, 60)">Buy 10 ($60)</button></div>
                 <div class="ing-item"><span>🚚 Auto-Refill</span><button id="btn-auto-refill" onclick="buyAutoRefill()">Buy ($50k)</button></div>
             </div>
             <div id="out-of-stock-msg" class="hidden" style="color: #ff4d4d; font-weight: bold; margin-top: 5px;">⚠️ OUT OF STOCK! ⚠️</div>
@@ -61,6 +64,11 @@
                 <span>🚚 DELIVERY DISPATCH</span>
                 <strong id="delivery-status">Ready for orders</strong>
                 <button class="delivery-btn" id="btn-delivery" onclick="startDelivery()">Dispatch Order</button>
+            </div>
+            <div class="extreme-shift-card">
+                <span>⚠ EXTREME SHIFT <b id="shift-number">1</b></span>
+                <strong id="shift-timer">03:00</strong>
+                <small>Rent due: <b id="shift-rent">$425</b> · one strike ends the run</small>
             </div>
         </div>
 
@@ -139,6 +147,7 @@
                 <div id="pad-wok" class="pad-slot"></div>
                 <div id="pad-auto" class="pad-slot"></div>
                 <div id="pad-ads" class="pad-slot"></div>
+                <div id="pad-bowl" class="pad-slot"></div>
             </div>
             <button class="modern-btn prestige-btn" id="btn-prestige" onclick="prestigeGame()">🌟 Claim Monkey Money (Req: $1 Trillion)</button>
             <button class="modern-btn black-market-btn" onclick="openBlackMarket()">🕵️ Visit the Black Market</button>
@@ -153,6 +162,17 @@
             <h2 style="color: #05c46b; font-size: 2.5rem; margin: 10px 0;">+ $<span id="offline-earned">0</span></h2>
             <p>Time away: <span id="offline-time">0</span></p>
             <button class="modern-btn" onclick="closeOfflineModal()">Collect & Resume</button>
+        </div>
+    </div>
+
+    <div id="extreme-gameover" class="hidden">
+        <div class="extreme-gameover-card">
+            <div class="extreme-gameover-icon">☠</div>
+            <p class="extreme-kicker">EXTREME MODE · SHIFT FAILED</p>
+            <h1>RESTAURANT CLOSED</h1>
+            <p id="extreme-gameover-reason">One mistake ended the shift.</p>
+            <p class="extreme-reset-note">Starting over resets cash, ingredients, tables, upgrades, and staff. Monkey Money and achievements are kept.</p>
+            <button class="modern-btn" onclick="startNewExtremeRun()">Start a New Run</button>
         </div>
     </div>
 
@@ -201,7 +221,7 @@
         </div>
     </div>
 
-    <script src="script.js?v=7"></script>
+    <script src="script.js?v=8"></script>
     <div id="achieve-toast" class="hidden-toast">
     🏆 <b id="achieve-name">Achievement Unlocked!</b>
     </div>

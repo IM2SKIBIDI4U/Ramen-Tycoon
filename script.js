@@ -132,6 +132,7 @@ let game = {
     specialEndsAt: Date.now() + 86400000,
     nightMode: false, deliveryActive: null, deliveriesCompleted: 0,
     shiftNumber: 1, shiftEndsAt: Date.now() + EXTREME_SHIFT_MS, strikes: 0, gameOver: false, gameOverReason: '',
+    rentDebt: 0, chefFever: 0, chefFeverEndsAt: 0,
     staffTraining: { waiter: 0, ninja: 0, mascot: 0 }, reviews: []
 };
 
@@ -218,7 +219,8 @@ function normalizeGameState() {
     const numericDefaults = {
         wallet: 150, monkeyMoney: 0, turfMult: 1, tablesOwned: 5,
         idxTable: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxAds: 0,
-        idxBowl: 0, shiftNumber: 1, strikes: 0,
+        idxBowl: 0, shiftNumber: 1, strikes: 0, rentDebt: 0,
+        chefFever: 0, chefFeverEndsAt: 0,
         currentMenuPrice: 50, autoChefSpeedMulti: 1, restaurantXp: 0,
         popularity: 50, dailySpecialIndex: 0, specialEndsAt: Date.now() + 86400000,
         deliveriesCompleted: 0
@@ -230,8 +232,12 @@ function normalizeGameState() {
     game.idxTable = Math.max(game.idxTable, game.tablesOwned - 1);
     game.idxBowl = Math.max(0, Math.min(TRACK_BOWLS.length, Math.floor(game.idxBowl)));
     game.strikes = Math.max(0, Math.floor(game.strikes));
-    game.gameOver = Boolean(game.gameOver);
-    game.gameOverReason = typeof game.gameOverReason === 'string' ? game.gameOverReason : '';
+    // Older saves may contain the former one-strike failure state; always resume play.
+    game.gameOver = false;
+    game.gameOverReason = '';
+    game.rentDebt = Math.max(0, Number.isFinite(game.rentDebt) ? game.rentDebt : 0);
+    game.chefFever = Math.max(0, Math.min(100, Number.isFinite(game.chefFever) ? game.chefFever : 0));
+    game.chefFeverEndsAt = Number.isFinite(game.chefFeverEndsAt) ? game.chefFeverEndsAt : 0;
     if (!Number.isFinite(game.shiftEndsAt)) game.shiftEndsAt = Date.now() + EXTREME_SHIFT_MS;
     game.activeDecor = typeof game.activeDecor === 'string' ? game.activeDecor : 'theme-default';
     game.autoRefill = Boolean(game.autoRefill);
@@ -271,62 +277,105 @@ function updateExtremeShiftHud() {
     const number = document.getElementById('shift-number');
     const timer = document.getElementById('shift-timer');
     const rent = document.getElementById('shift-rent');
+    const debt = document.getElementById('rent-debt');
     if (number) number.innerText = game.shiftNumber;
     if (timer) {
         timer.innerText = formatShiftTimer(remaining);
         timer.classList.toggle('urgent', remaining < 30000);
     }
     if (rent) rent.innerText = `$${formatMoney(getShiftRent())}`;
+    if (debt) debt.innerText = `$${formatMoney(game.rentDebt || 0)}`;
+    renderChefFever();
 }
 
-function triggerExtremeGameOver(reason) {
-    if (game.gameOver) return;
-    game.gameOver = true;
-    game.gameOverReason = reason;
-    const overlay = document.getElementById('extreme-gameover');
-    const reasonElement = document.getElementById('extreme-gameover-reason');
-    if (reasonElement) reasonElement.innerText = reason;
-    overlay?.classList.remove('hidden');
-    document.body.classList.add('extreme-mode-over');
-    if (fpsOpen) closeFirstPerson();
+function renderChefFever() {
+    const button = document.getElementById('btn-fever');
+    if (!button) return;
+    const remaining = Math.max(0, Math.ceil((game.chefFeverEndsAt - Date.now()) / 1000));
+    const active = remaining > 0;
+    button.innerText = active ? `🔥 FEVER ${remaining}s` : `🔥 FEVER ${Math.floor(game.chefFever || 0)}%`;
+    button.disabled = active || game.chefFever < 100 || game.gameOver;
+    button.classList.toggle('fever-active', active);
+    button.title = active
+        ? 'Double tips and extra patience are active.'
+        : 'Serve five bowls to charge Chef Fever. Activate for double tips and extra patience.';
+}
+
+function activateChefFever() {
+    if (game.gameOver || game.chefFever < 100 || game.chefFeverEndsAt > Date.now()) return;
+    game.chefFever = 0;
+    game.chefFeverEndsAt = Date.now() + 15000;
+    for (let i = 0; i < game.tablesOwned; i++) {
+        const seat = seats[i];
+        if (seat?.occupied && seat.charData && seat.patienceEndsAt) {
+            seat.patienceEndsAt += 5000;
+            seat.patienceDuration += 5000;
+        }
+    }
+    showSetbackToast('CHEF FEVER! Tips doubled and impatient guests get 5 extra seconds.');
+    playSound('cash');
+    updateUI();
     saveGame();
 }
 
-function recordExtremeStrike(reason) {
-    if (game.gameOver) return;
-    game.strikes = 1;
-    triggerExtremeGameOver(reason);
+function getChefFeverMultiplier() {
+    return game.chefFeverEndsAt > Date.now() ? 2 : 1;
 }
 
-function chargeExtremeCash(amount, allowBankruptcy = true) {
+let setbackToastTimeout;
+function showSetbackToast(message) {
+    const toast = document.getElementById('event-toast');
+    if (!toast) return;
+    toast.innerText = `⚠ SETBACK · ${message} You can keep playing.`;
+    toast.classList.remove('hidden');
+    clearTimeout(setbackToastTimeout);
+    setbackToastTimeout = setTimeout(() => toast.classList.add('hidden'), 5000);
+}
+
+function triggerExtremeGameOver(reason) {
+    // Keep this compatibility hook non-terminal for any older call sites.
+    recordExtremeStrike(reason);
+}
+
+function recordExtremeStrike(reason) {
+    game.strikes = (game.strikes || 0) + 1;
+    game.combo = 0;
+    showSetbackToast(reason);
+    saveGame();
+    updateUI();
+}
+
+function chargeExtremeCash(amount) {
     const cost = Math.max(0, Math.ceil(amount));
     if (game.gameOver || game.wallet < cost) return false;
     game.wallet -= cost;
-    if (allowBankruptcy && game.wallet <= 0) {
-        triggerExtremeGameOver('The restaurant ran out of cash. Bankruptcy is immediate in Extreme Mode.');
-    }
-    return !game.gameOver;
+    if (game.wallet < 0) game.wallet = 0;
+    return true;
 }
 
 function endExtremeShift() {
     if (game.gameOver) return;
     const rent = getShiftRent();
-    if (game.wallet < rent) {
-        game.wallet = 0;
-        updateUI();
-        triggerExtremeGameOver(`Shift ${game.shiftNumber} rent was $${formatMoney(rent)}, but the restaurant could not cover it. Bankruptcy.`);
-        return;
-    }
-    game.wallet -= rent;
-    if (game.wallet <= 0) {
-        triggerExtremeGameOver(`The restaurant paid $${formatMoney(rent)} rent, leaving no cash for the next shift. Bankruptcy.`);
-        return;
+    const rentPaid = Math.min(game.wallet, rent);
+    const shortfall = rent - rentPaid;
+    game.wallet -= rentPaid;
+    if (shortfall > 0) {
+        game.rentDebt += shortfall;
+        recordExtremeStrike(`Rent was short by $${formatMoney(shortfall)}; it was added to your tab.`);
     }
     game.shiftNumber++;
     game.shiftEndsAt = Date.now() + EXTREME_SHIFT_MS;
-    playSound('error');
+    playSound(shortfall > 0 ? 'error' : 'cash');
     updateUI();
     saveGame();
+}
+
+function creditRestaurantCash(amount) {
+    const income = Math.max(0, Number(amount) || 0);
+    const debtPayment = Math.min(game.rentDebt || 0, income * 0.2);
+    game.rentDebt = Math.max(0, (game.rentDebt || 0) - debtPayment);
+    game.wallet += income - debtPayment;
+    return income - debtPayment;
 }
 
 function startNewExtremeRun() {
@@ -1429,8 +1478,26 @@ setInterval(() => {
                 spawnFloatingMoney("😡 WALKOUT!", `seat-${i}`, '#e74c3c');
                 game.combo = 0;
                 game.popularity = Math.max(0, game.popularity - 2);
-                addReview('The picky guest walked out after a short wait.', false);
-                recordExtremeStrike('A customer ran out of patience. One angry walkout ends the run.');
+                addReview('A guest walked out after a short wait. Your restaurant can still recover.');
+                if (seat.isDelivery) game.deliveryActive = null;
+                seat.occupied = false;
+                seat.charData = null;
+                seat.needsMenu = false;
+                seat.isCooking = false;
+                seat.cookStep = 0;
+                seat.needsServing = false;
+                seat.needsToPay = false;
+                seat.bowlReadyAt = 0;
+                seat.patience = 100;
+                seat.patienceEndsAt = 0;
+                seat.patienceDuration = 0;
+                seat.ingredientsUsed = {};
+                seat.assemblyOrder = [];
+                seat.preparedRamen = {};
+                seat.isDelivery = false;
+                recordExtremeStrike('A guest walked out. Popularity dipped, but the shift continues.');
+                updateKitchenUI();
+                checkEmptySeats();
                 return;
             }
         }
@@ -1512,7 +1579,13 @@ function finishCooking(index) {
     const requiredOrder = RAMEN_ASSEMBLY.map(step => step.key);
     if (JSON.stringify(seat.assemblyOrder || []) !== JSON.stringify(requiredOrder)
         || !seat.preparedRamen?.broth || !seat.preparedRamen?.firmness) {
-        recordExtremeStrike('The ramen was assembled out of order. One failed bowl ends the run.');
+        seat.cookStep = 0;
+        seat.assemblyOrder = [];
+        seat.preparedRamen = {};
+        seat.ingredientsUsed = {};
+        armCustomerPatience(seat);
+        recordExtremeStrike('The bowl was assembled out of order; restart the recipe and keep going.');
+        updateKitchenUI();
         return;
     }
     seat.bowlReadyAt = Date.now() + 2000;
@@ -1559,11 +1632,16 @@ function ruinBowl(index) {
     seat.charData = null;
     seat.cookStep = 0;
     seat.patienceEndsAt = 0;
+    seat.patienceDuration = 0;
+    seat.ingredientsUsed = {};
+    seat.assemblyOrder = [];
+    seat.preparedRamen = {};
     addReview(`A ruined bowl wasted ingredients. Double-price penalty: $${formatMoney(penalty)}.`, false);
     playSound('error');
     updateKitchenUI();
     updateUI();
-    recordExtremeStrike(`The ramen burned in 2 seconds. Its ingredients cost double ($${formatMoney(penalty)}). One ruined bowl ends the run.`);
+    recordExtremeStrike(`The ramen burned. The double-cost penalty was $${formatMoney(penalty)}, but the shift continues.`);
+    checkEmptySeats();
 }
 
 function getMonkeySpeed() { 

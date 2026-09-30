@@ -60,10 +60,12 @@ const TRACK_TABLES = Array.from({length: 1000}, (_, i) => ({
     cost: Math.floor(1600 * Math.pow(1.12, i)) 
 }));
 
-const TRACK_WOK = Array.from({length: 1000}, (_, i) => ({ 
-    name: `Wok Lvl ${i+2}`, 
-    cost: Math.floor(750000 * Math.pow(1.13, i)) 
-}));
+const TRACK_WOK = [
+  { name: "Wok Lvl 2", cost: 1500, cookSpeedMs: 2500, capacity: 2, priceMultiplier: 1.2 },
+  { name: "Wok Lvl 3", cost: 5000, cookSpeedMs: 1800, capacity: 2, priceMultiplier: 1.5 },
+  { name: "Wok Lvl 4", cost: 15000, cookSpeedMs: 1000, capacity: 3, priceMultiplier: 1.8 },
+  { name: "MAX WOK (GOD TIER)", cost: 50000, cookSpeedMs: 400, capacity: 4, priceMultiplier: 2.5 }
+];
 
 const TRACK_AUTO = Array.from({length: 1000}, (_, i) => ({ 
     name: `Chef Speed Lvl ${i+1}`, 

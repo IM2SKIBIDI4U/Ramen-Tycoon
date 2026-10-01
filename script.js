@@ -269,6 +269,18 @@ function getShiftRent() {
         + (game.idxBowl * 250);
 }
 
+function getWokLevel() {
+    return Math.max(0, Math.min(1000, Math.floor(Number(game.idxWok) || 0)));
+}
+
+function getWokTipMultiplier() {
+    return 1 + getWokLevel() * 0.002;
+}
+
+function getBowlPullWindowMs() {
+    return 2000 + getWokLevel() * 12;
+}
+
 function formatShiftTimer(milliseconds) {
     const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
     return `${String(Math.floor(totalSeconds / 60)).padStart(2, '0')}:${String(totalSeconds % 60).padStart(2, '0')}`;
@@ -326,17 +338,14 @@ function getChefFeverMultiplier() {
 
 let setbackToastTimeout;
 function showSetbackToast(message) {
-    const toast = document.getElementById('event-toast');
+    const toast = document.getElementById('setback-toast');
     if (!toast) return;
-    toast.innerText = `⚠ SETBACK · ${message} You can keep playing.`;
+    toast.innerText = message.startsWith('CHEF FEVER!')
+        ? `🔥 ${message}`
+        : `⚠ SETBACK · ${message} You can keep playing.`;
     toast.classList.remove('hidden');
     clearTimeout(setbackToastTimeout);
     setbackToastTimeout = setTimeout(() => toast.classList.add('hidden'), 5000);
-}
-
-function triggerExtremeGameOver(reason) {
-    // Keep this compatibility hook non-terminal for any older call sites.
-    recordExtremeStrike(reason);
 }
 
 function recordExtremeStrike(reason) {
@@ -380,35 +389,6 @@ function creditRestaurantCash(amount) {
     return income - debtPayment;
 }
 
-function startNewExtremeRun() {
-    if (!confirm('Start a new run? This resets cash, ingredients, tables, upgrades, and staff. Monkey Money and achievements will be kept.')) return;
-    const monkeyMoney = game.monkeyMoney || 0;
-    const achievements = Array.isArray(game.achievements) ? [...game.achievements] : [];
-    localStorage.removeItem('RamenUltimateData');
-    game = {
-        wallet: 150, monkeyMoney, turfMult: 1, lastSaveTime: Date.now(),
-        tablesOwned: 5, idxTable: 4, idxBowl: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxAds: 0, idxSpecial: 0, currentMenuPrice: 50,
-        activeDecor: 'theme-default', decorOwned: ['theme-default'], autoRefill: false,
-        staff: { waiter: 0, ninja: 0, mascot: 0 }, rivals: JSON.parse(JSON.stringify(INITIAL_RIVALS)),
-        inv: { ...defaultInv }, upgrades: {}, achievements, autoChefSpeedMulti: 1, idxAds: 0,
-        servedCount: 0, totalEarned: 0, vipServed: 0, combo: 0, bestCombo: 0,
-        rivalsDefeated: 0, eventsTriggered: 0, missionCycle: 0, missions: [],
-        missionStreak: 0, lastMissionReset: Date.now(),
-        restaurantXp: 0, popularity: 50, dailySpecialIndex: 0,
-        specialEndsAt: Date.now() + 86400000, nightMode: false, deliveryActive: null, deliveriesCompleted: 0,
-        staffTraining: { waiter: 0, ninja: 0, mascot: 0 }, reviews: [],
-        shiftNumber: 1, shiftEndsAt: Date.now() + EXTREME_SHIFT_MS, strikes: 0, gameOver: false, gameOverReason: ''
-    };
-    seats = Array.from({ length: 1000 }, () => ({
-        occupied: false, needsMenu: false, isCooking: false, cookStep: 0,
-        needsServing: false, needsToPay: false, patience: 100, charData: null,
-        ingredientsUsed: {}, bowlReadyAt: 0, patienceEndsAt: 0
-    }));
-    waitList = [];
-    saveGame();
-    location.reload();
-}
-
 function getRestaurantLevel() {
     return 1 + Math.floor(Math.sqrt(Math.max(0, game.restaurantXp) / 25));
 }
@@ -418,7 +398,7 @@ function gainRestaurantXp(amount) {
     game.restaurantXp += Math.max(0, amount);
     const newLevel = getRestaurantLevel();
     if (newLevel > oldLevel) {
-        game.wallet += newLevel * 100;
+        creditRestaurantCash(newLevel * 100);
         showAchievementToast({ icon: '🏆', title: `Restaurant Level ${newLevel}!` });
     }
 }
@@ -519,7 +499,7 @@ function claimMission(index) {
     const mission = game.missions[index];
     if (!mission || mission.claimed || getMissionProgress(mission) < mission.target) return;
     mission.claimed = true;
-    game.wallet += mission.reward;
+    creditRestaurantCash(mission.reward);
     game.missionStreak++;
     playSound('cash');
     showAchievementToast({ icon: '🎯', title: `${mission.title} Complete` });
@@ -1303,7 +1283,7 @@ function spawnWalkingCustomer(seatIdx, char) {
 
 function armCustomerPatience(seat) {
     if (!seat || !seat.occupied || !seat.charData) return;
-    seat.patienceDuration = 3000 + Math.floor(Math.random() * 2001);
+    seat.patienceDuration = 3000 + Math.floor(Math.random() * 2001) + getWokLevel() * 3;
     seat.patienceEndsAt = Date.now() + seat.patienceDuration;
     seat.patience = 100;
 }
@@ -1379,13 +1359,14 @@ function collectPayment(index) {
     game.combo++;
     game.bestCombo = Math.max(game.bestCombo, game.combo);
     const comboMultiplier = 1 + Math.min(game.combo, 10) * 0.05;
-    let finalValue = (game.currentMenuPrice * mult) * getPrestigeMultiplier() * rushMultiplier * comboMultiplier * getDailySpecial().multiplier * getPopularityMultiplier() * (1 + game.idxBowl * 0.05);
+    let finalValue = (game.currentMenuPrice * mult) * getPrestigeMultiplier() * rushMultiplier * comboMultiplier * getDailySpecial().multiplier * getPopularityMultiplier() * (1 + game.idxBowl * 0.05) * getWokTipMultiplier() * getChefFeverMultiplier();
     
     if (game.idxRecipe >= 999) finalValue *= 1000000;
     
-    game.wallet += finalValue;
+    creditRestaurantCash(finalValue);
     game.totalEarned += finalValue;
     game.servedCount++;
+    game.chefFever = Math.min(100, game.chefFever + 20);
     if (seat.charData.isVIP || seat.charData.isCritic) game.vipServed++;
     game.popularity = Math.min(100, game.popularity + (seat.charData.isVIP ? 1.5 : 0.35));
     gainRestaurantXp(Math.max(1, Math.ceil(finalValue / 100)));
@@ -1590,7 +1571,7 @@ function finishCooking(index) {
         updateKitchenUI();
         return;
     }
-    seat.bowlReadyAt = Date.now() + 2000;
+    seat.bowlReadyAt = Date.now() + getBowlPullWindowMs();
     seat.patience = 100;
     armCustomerPatience(seat);
     saveGame();
@@ -1620,7 +1601,7 @@ function ruinBowl(index) {
     const ingredientCost = Object.entries(seat.ingredientsUsed || {}).reduce((total, [ingredient, quantity]) => {
         return total + (INGREDIENT_COST_PER_UNIT[ingredient] || 0) * quantity;
     }, 0);
-    const replacementBowlPrice = TRACK_BOWLS[Math.max(0, game.idxBowl - 1)]?.cost || TRACK_BOWLS[0].cost;
+    const replacementBowlPrice = Math.max(25, Math.ceil((TRACK_BOWLS[Math.max(0, game.idxBowl - 1)]?.cost || TRACK_BOWLS[0].cost) / 1000));
     const penalty = Math.ceil((ingredientCost + replacementBowlPrice) * 2);
     game.wallet = Math.max(0, game.wallet - penalty);
     seat.bowlReadyAt = 0;
@@ -1649,7 +1630,8 @@ function ruinBowl(index) {
 function getMonkeySpeed() { 
     let baseSpeed = 3000 * Math.pow(0.85, game.idxAuto);
     let trainingBoost = 1 - Math.min(0.45, (game.staffTraining.waiter || 0) * 0.03);
-    let finalSpeed = baseSpeed * (game.autoChefSpeedMulti || 1) * trainingBoost;
+    let wokBoost = 1 + getWokLevel() * 0.003;
+    let finalSpeed = baseSpeed * (game.autoChefSpeedMulti || 1) * trainingBoost / wokBoost;
     return Math.max(50, finalSpeed / rushMultiplier); 
 }
 
@@ -1721,8 +1703,11 @@ function renderPad(id, track, idx, func, title) {
     let container = document.getElementById(id); 
     if(!container) return; 
     let u = track[idx];
-    if (!u) { container.innerHTML = `<button class="tycoon-pad" style="background:#333;">${title}<br>MAX LEVEL</button>`; } 
-    else { let afford = game.wallet >= u.cost ? "affordable" : ""; container.innerHTML = `<button class="tycoon-pad ${afford}" onclick="${func}()"><b>${title}</b><br>Lvl ${idx+1}: ${u.name}<br>$${formatMoney(u.cost)}</button>`; }
+    const wokInfo = id === 'pad-wok'
+        ? `<br><small>Current: +${Math.round((getWokTipMultiplier() - 1) * 100)}% tips · ${(getBowlPullWindowMs() / 1000).toFixed(1)}s pull window · +${(getWokLevel() * 0.003).toFixed(1)}s patience</small>`
+        : '';
+    if (!u) { container.innerHTML = `<button class="tycoon-pad" style="background:#333;">${title}<br>MAX LEVEL${wokInfo}</button>`; }
+    else { let afford = game.wallet >= u.cost ? "affordable" : ""; container.innerHTML = `<button class="tycoon-pad ${afford}" onclick="${func}()"><b>${title}</b><br>Lvl ${idx+1}: ${u.name}<br>$${formatMoney(u.cost)}${wokInfo}</button>`; }
 }
 
 function updateUI() {
@@ -1783,6 +1768,7 @@ function updateUI() {
     updateExtremeShiftHud();
     renderRestaurantControls();
     renderMissionsPanel();
+    renderResetRecoveryButton();
 }
 
 function updateKitchenUI() {
@@ -1924,10 +1910,13 @@ function startDelivery() {
 
 function completeDelivery(seatIndex) {
     if (!game.deliveryActive || game.deliveryActive.seatIndex !== seatIndex) return;
-    const reward = game.deliveryActive.reward;
+    const reward = Math.ceil(game.deliveryActive.reward * getWokTipMultiplier() * getChefFeverMultiplier());
     const seat = seats[seatIndex];
     if (!seat || !seat.isDelivery) return;
-    game.wallet += reward;
+    creditRestaurantCash(reward);
+    game.totalEarned += reward;
+    game.servedCount++;
+    game.chefFever = Math.min(100, game.chefFever + 20);
     game.deliveriesCompleted++;
     game.popularity = Math.min(100, game.popularity + 1);
     gainRestaurantXp(15);
@@ -1949,6 +1938,7 @@ function completeDelivery(seatIndex) {
     seat.isDelivery = false;
     seat.bowlReadyAt = 0;
     playSound('cash');
+    checkAchievements();
     updateUI();
     updateKitchenUI();
     checkEmptySeats();
@@ -1959,14 +1949,43 @@ function prestigeGame() {
     if(game.idxRecipe >= 999 && confirm("Sell franchise for Monkey Money? Reset money/upgrades for 50 Monkey Money and a permanent profit multiplier!")) { 
         let st = (game.monkeyMoney || 0) + 50; 
         let tm = game.turfMult; let d = game.decorOwned; let ad = game.activeDecor; let rv = game.rivals; let ach = game.achievements || [];
-        localStorage.clear(); 
-        game = { wallet: 150, monkeyMoney: st, turfMult: tm, lastSaveTime: Date.now(), tablesOwned: 5, idxTable: 4, idxBowl: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxAds: 0, idxSpecial: 0, currentMenuPrice: 50, activeDecor: ad, decorOwned: d, autoRefill: false, staff: {waiter:0,ninja:0,mascot:0}, rivals: rv, inv: {...defaultInv}, upgrades: {}, achievements: ach, autoChefSpeedMulti: 1, staffTraining: { waiter: 0, ninja: 0, mascot: 0 }, shiftNumber: 1, shiftEndsAt: Date.now() + EXTREME_SHIFT_MS, strikes: 0, gameOver: false, gameOverReason: '' };
+        localStorage.removeItem('RamenUltimateData');
+        game = { wallet: 150, monkeyMoney: st, turfMult: tm, lastSaveTime: Date.now(), tablesOwned: 5, idxTable: 4, idxBowl: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxAds: 0, idxSpecial: 0, currentMenuPrice: 50, activeDecor: ad, decorOwned: d, autoRefill: false, staff: {waiter:0,ninja:0,mascot:0}, rivals: rv, inv: {...defaultInv}, upgrades: {}, achievements: ach, autoChefSpeedMulti: 1, staffTraining: { waiter: 0, ninja: 0, mascot: 0 }, shiftNumber: 1, shiftEndsAt: Date.now() + EXTREME_SHIFT_MS, strikes: 0, gameOver: false, gameOverReason: '', rentDebt: 0, chefFever: 0, chefFeverEndsAt: 0 };
         saveGame(); location.reload(); 
     } else if (game.idxRecipe < 999) {
         alert("You must unlock Universal Ramen (Level 1000) before you can franchise!");
     }
 }
-function resetGame() { if(confirm("Erase all history?")) { localStorage.clear(); location.reload(); } }
+function renderResetRecoveryButton() {
+    const button = document.getElementById('btn-restore-save');
+    if (button) button.classList.toggle('hidden', !localStorage.getItem('RamenPreviousRunBackup'));
+}
+
+function resetGame() {
+    if (!confirm('Start a fresh restaurant? You can restore your previous save afterward.')) return;
+    const currentSave = localStorage.getItem('RamenUltimateData');
+    if (currentSave && !localStorage.getItem('RamenPreviousRunBackup')) {
+        localStorage.setItem('RamenPreviousRunBackup', currentSave);
+    }
+    localStorage.removeItem('RamenUltimateData');
+    location.reload();
+}
+
+function restorePreviousSave() {
+    const backup = localStorage.getItem('RamenPreviousRunBackup');
+    if (!backup) return;
+    try {
+        JSON.parse(backup);
+        if (!confirm('Restore your saved restaurant from before the reset?')) return;
+        localStorage.setItem('RamenUltimateData', backup);
+        localStorage.removeItem('RamenPreviousRunBackup');
+        location.reload();
+    } catch (error) {
+        alert('The saved backup could not be restored because it is damaged.');
+        localStorage.removeItem('RamenPreviousRunBackup');
+        renderResetRecoveryButton();
+    }
+}
 
 function openBlackMarket() {
     let cost = 10;
@@ -2063,7 +2082,7 @@ function spawnGoldenMonkey() {
 function claimGoldenMonkey(monkey) {
     if (!monkey || !monkey.isConnected) return;
     const reward = Math.max(250, game.currentMenuPrice * 20) * getPrestigeMultiplier();
-    game.wallet += reward;
+    creditRestaurantCash(reward);
     game.monkeyMoney++;
     game.eventsTriggered++;
     window.vipPartyActive += 5;
@@ -2087,7 +2106,7 @@ function adminMaxEverything() {
     game.tablesOwned = 1000; 
     game.idxTable = 999;
     game.idxRecipe = 999; 
-    game.idxWok = 999;
+    game.idxWok = TRACK_WOK.length;
     game.idxAuto = 999;
     game.idxAds = 999;
     adminMaxIngredients();
@@ -2142,18 +2161,10 @@ window.onload = () => {
     initTables();        
     updateUI();          
     updateKitchenUI();   
-    if (game.gameOver) {
-        const overlay = document.getElementById('extreme-gameover');
-        const reason = document.getElementById('extreme-gameover-reason');
-        if (reason) reason.innerText = game.gameOverReason || 'One mistake ended the run.';
-        overlay?.classList.remove('hidden');
-        document.body.classList.add('extreme-mode-over');
-    } else {
-        customerArrives();
-    }
+    customerArrives();
     runMonkeyLoop(); 
     scheduleGoldenMonkey();
-    if (!game.gameOver && new URLSearchParams(window.location.search).has('firstperson')) {
+    if (new URLSearchParams(window.location.search).has('firstperson')) {
         setTimeout(toggleFirstPerson, 250);
     }
 };

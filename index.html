@@ -10,6 +10,7 @@
 </head>
 <body>
     <div id="event-toast" class="event-toast hidden">🚨 RUSH HOUR! 🚨</div>
+    <div id="setback-toast" class="event-toast hidden">⚠ SETBACK</div>
 
     <div class="game-container" id="main-container">
         <h1>🍜 Ramen Monkey Tycoon</h1>
@@ -152,7 +153,7 @@
             </div>
             <button class="modern-btn prestige-btn" id="btn-prestige" onclick="prestigeGame()">🌟 Claim Monkey Money (Req: $1 Trillion)</button>
             <button class="modern-btn black-market-btn" onclick="openBlackMarket()">🕵️ Visit the Black Market</button>
-            <button class="reset-btn" onclick="resetGame()">Hard Reset Data</button>
+            <button class="reset-btn" onclick="resetGame()">Start Fresh (Save Backup)</button>
                 <button class="reset-btn hidden" id="btn-restore-save" onclick="restorePreviousSave()">↩ Restore Previous Save</button>
         </div>
     </div>
@@ -164,17 +165,6 @@
             <h2 style="color: #05c46b; font-size: 2.5rem; margin: 10px 0;">+ $<span id="offline-earned">0</span></h2>
             <p>Time away: <span id="offline-time">0</span></p>
             <button class="modern-btn" onclick="closeOfflineModal()">Collect & Resume</button>
-        </div>
-    </div>
-
-    <div id="extreme-gameover" class="hidden">
-        <div class="extreme-gameover-card">
-            <div class="extreme-gameover-icon">☠</div>
-            <p class="extreme-kicker">EXTREME MODE · SHIFT FAILED</p>
-            <h1>RESTAURANT CLOSED</h1>
-            <p id="extreme-gameover-reason">One mistake ended the shift.</p>
-            <p class="extreme-reset-note">Starting over resets cash, ingredients, tables, upgrades, and staff. Monkey Money and achievements are kept.</p>
-            <button class="modern-btn" onclick="startNewExtremeRun()">Start a New Run</button>
         </div>
     </div>
 

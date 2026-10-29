@@ -370,30 +370,26 @@ function chargeExtremeCash(amount) {
     return true;
 }
 
-function resetAfterMissedRent(shortfall) {
-    game.shiftEndsAt = Date.now() + EXTREME_SHIFT_MS;
-    game.rentDebt = 0;
-    saveGame();
-    const recoverySave = localStorage.getItem('RamenUltimateData');
-    if (recoverySave) localStorage.setItem('RamenRentResetBackup', recoverySave);
-    localStorage.removeItem('RamenUltimateData');
-    alert(`Rent was short by $${formatMoney(shortfall)}. Your restaurant has been reset. A recovery save is available from before the missed rent.`);
-    location.reload();
-}
-
 function endExtremeShift() {
     if (game.gameOver) return;
     const rent = getShiftRent();
     const rentPaid = Math.min(game.wallet, rent);
     const shortfall = rent - rentPaid;
-    if (shortfall > 0) {
-        resetAfterMissedRent(shortfall);
-        return;
-    }
+
+    // Deduct available funds for rent
     game.wallet -= rentPaid;
+
+    if (shortfall > 0) {
+        // Roll shortfall into debt instead of triggering a reset
+        game.rentDebt = (game.rentDebt || 0) + shortfall;
+        showSetbackToast(`Rent short by $${formatMoney(shortfall)}. Added to debt balance ($${formatMoney(game.rentDebt)} total).`);
+        playSound('error');
+    } else {
+        playSound('cash');
+    }
+
     game.shiftNumber++;
     game.shiftEndsAt = Date.now() + EXTREME_SHIFT_MS;
-    playSound('cash');
     updateUI();
     saveGame();
 }

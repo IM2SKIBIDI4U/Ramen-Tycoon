@@ -2256,3 +2256,26 @@ window.onload = () => {
         setTimeout(toggleFirstPerson, 250);
     }
 };
+
+// --- EMERGENCY BAILOUT SYSTEM ---
+// Checks every second if the player is soft-locked
+setInterval(() => {
+    if (game.gameOver) return;
+
+    // Trigger bailout if wallet is under $100 AND player has fewer than 5 noodles or broth
+    if (game.wallet < 100 && ((game.inv.noodle || 0) < 5 || (game.inv.broth || 0) < 5)) {
+        const giftAmount = 1000;
+        
+        game.wallet += giftAmount;
+        game.inv.noodle = (game.inv.noodle || 0) + 20;
+        game.inv.broth = (game.inv.broth || 0) + 20;
+
+        // Visual feedback
+        playSound('cash');
+        spawnFloatingMoney(`+$${giftAmount} EMERGENCY GRANT!`, 'money', '#f1c40f');
+        showSetbackToast('🚨 EMERGENCY RELIEF: The City granted you $1,000 & fresh stock to keep cooking!');
+        
+        saveGame();
+        updateUI();
+    }
+}, 1000);

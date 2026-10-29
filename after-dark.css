@@ -1,0 +1,299 @@
+/* Ramen Monkey Tycoon — neon night-market refresh */
+:root {
+    color-scheme: dark;
+    --bg: #080b13;
+    --surface: #111a2b;
+    --text: #f4f6ff;
+    --muted: #9aa9c1;
+    --primary: #ff6447;
+    --success: #34dfb2;
+    --danger: #ff5470;
+    --warning: #ffd166;
+    --line: rgba(179, 199, 232, 0.14);
+}
+
+body {
+    min-height: 100vh;
+    padding: clamp(12px, 2.2vw, 30px);
+    color: var(--text);
+    background:
+        radial-gradient(ellipse at 15% -10%, rgba(93, 73, 190, 0.26), transparent 36rem),
+        radial-gradient(ellipse at 100% 18%, rgba(0, 201, 208, 0.12), transparent 32rem),
+        linear-gradient(145deg, #080b13 0%, #0b1120 48%, #080b13 100%);
+    overflow-x: hidden;
+}
+
+.game-container { max-width: 1320px; text-align: left; }
+.brand-lockup { display: flex; align-items: center; gap: 16px; min-height: 82px; margin: 0 2px 18px; }
+.brand-bowl {
+    display: grid; width: 64px; height: 64px; flex: 0 0 64px; place-items: center;
+    border: 1px solid rgba(255, 215, 132, 0.42); border-radius: 20px;
+    background: linear-gradient(145deg, rgba(255, 110, 68, 0.22), rgba(106, 56, 147, 0.35));
+    box-shadow: 0 0 32px rgba(255, 102, 66, 0.17), inset 0 1px rgba(255,255,255,0.12);
+    font-size: 2rem;
+}
+.brand-copy { min-width: 0; }
+.brand-kicker, .panel-kicker {
+    display: block; color: #ffb27e; font-size: 0.65rem; font-weight: 900; letter-spacing: 0.22em;
+}
+.brand-copy h1 {
+    margin: 1px 0 0; color: #f7f8ff; font-size: clamp(1.55rem, 4vw, 2.35rem);
+    line-height: 1; letter-spacing: -0.065em; text-shadow: 0 0 26px rgba(255, 101, 72, 0.22);
+}
+.brand-copy h1 em { color: #ff7556; font-style: normal; }
+.brand-copy p { margin: 5px 0 0; color: var(--muted); font-size: 0.82rem; }
+.shift-live, .stock-status {
+    display: inline-flex; align-items: center; gap: 8px; margin-left: auto; padding: 8px 11px;
+    color: #a8f4d7; border: 1px solid rgba(52, 223, 178, 0.23); border-radius: 999px;
+    background: rgba(52, 223, 178, 0.08); font-size: 0.62rem; font-weight: 900;
+    letter-spacing: 0.1em; white-space: nowrap;
+}
+.shift-live i, .stock-status i {
+    width: 7px; height: 7px; border-radius: 50%; background: #34dfb2; box-shadow: 0 0 12px #34dfb2;
+}
+
+.glass-panel {
+    margin-bottom: 14px; padding: clamp(14px, 2vw, 23px); color: var(--text);
+    border: 1px solid var(--line); border-radius: 20px;
+    background: linear-gradient(145deg, rgba(19, 29, 48, 0.96), rgba(11, 17, 30, 0.96));
+    box-shadow: 0 18px 55px rgba(0, 0, 0, 0.24), inset 0 1px rgba(255,255,255,0.045);
+    backdrop-filter: blur(12px);
+}
+.top-bar { position: relative; gap: 18px; padding: 20px 24px; overflow: hidden; }
+.top-bar::after {
+    content: ""; position: absolute; top: -72px; left: 42%; width: 210px; height: 180px;
+    border-radius: 50%; background: rgba(255, 99, 69, 0.11); filter: blur(45px); pointer-events: none;
+}
+.wallet-display {
+    position: relative; z-index: 1; color: #dce5f6; font-size: clamp(1.2rem, 3vw, 1.75rem);
+    font-weight: 900; letter-spacing: -0.04em;
+}
+.wallet-display span { color: #53e8ad !important; text-shadow: 0 0 22px rgba(83, 232, 173, 0.24); }
+.stats-box {
+    position: relative; z-index: 1; padding: 10px 14px; color: #e7edf8;
+    border: 1px solid rgba(178, 197, 229, 0.1); border-radius: 14px;
+    background: rgba(3, 8, 18, 0.48); line-height: 1.8;
+}
+.stats-box span { color: #bdc9dc !important; }
+.stats-box b { color: #fff; }
+
+.tab-nav {
+    position: sticky; top: 8px; z-index: 30; gap: 8px; margin: 12px 0; padding: 7px;
+    border: 1px solid var(--line); border-radius: 17px; background: rgba(10, 16, 29, 0.9);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.25); backdrop-filter: blur(18px);
+}
+.tab-btn {
+    min-width: 110px; padding: 11px 10px; color: #aab8ce; border: 1px solid transparent;
+    border-radius: 12px; background: transparent; font-size: 0.88rem;
+}
+.tab-btn:hover {
+    color: #fff; border-color: rgba(157, 180, 219, 0.14);
+    background: rgba(255,255,255,0.045); transform: translateY(-1px);
+}
+.tab-btn.active {
+    color: #fff; border-color: rgba(255, 128, 93, 0.42);
+    background: linear-gradient(135deg, #ff744f, #e4474d);
+    box-shadow: 0 8px 24px rgba(239, 75, 75, 0.24);
+}
+
+.pantry-panel { padding: 18px; }
+.pantry-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 1px 13px; }
+.pantry-heading h2 { margin: 3px 0 0; color: #f5f7ff; font-size: 1.15rem; letter-spacing: -0.035em; }
+.panel-kicker { color: #8f9db6; font-size: 0.58rem; }
+.stock-status {
+    margin: 0; padding: 6px 9px; color: #9bb3ce; border-color: rgba(147, 170, 210, 0.16);
+    background: rgba(255,255,255,0.035); font-size: 0.55rem;
+}
+.stock-status i { width: 6px; height: 6px; background: #55e8b2; }
+.pantry-grid { gap: 9px; }
+.ing-item {
+    min-height: 76px; padding: 11px; color: #d9e2f0;
+    border: 1px solid rgba(177, 195, 228, 0.09); border-radius: 13px;
+    background: linear-gradient(145deg, rgba(255,255,255,0.055), rgba(255,255,255,0.018));
+}
+.ing-item span { font-size: 0.84rem; }
+.ing-item b { color: #fff; }
+.ing-item button, .modern-btn, .delivery-btn { border-radius: 9px; font-weight: 900; transition: 0.18s ease; }
+.ing-item button {
+    color: #052119; background: linear-gradient(135deg, #43e5b1, #18bd91);
+    box-shadow: 0 4px 16px rgba(39, 213, 162, 0.16);
+}
+.ing-item button:hover, .modern-btn:hover, .delivery-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+
+.restaurant-command-bar {
+    display: grid; grid-template-columns: minmax(190px, 1.1fr) repeat(3, minmax(0, 1fr));
+    align-items: stretch; gap: 11px;
+}
+.command-group { display: flex; align-content: center; align-items: center; flex-wrap: wrap; gap: 7px; padding: 8px 2px; }
+.command-label { width: 100%; color: #8f9db4; font-size: 0.57rem; font-weight: 900; letter-spacing: 0.13em; }
+.scene-control {
+    padding: 8px 10px; color: #d7e2f4; border: 1px solid rgba(170, 193, 231, 0.13);
+    border-radius: 9px; background: rgba(255,255,255,0.055); font-size: 0.74rem; font-weight: 800;
+}
+.scene-control:hover { color: #fff; border-color: rgba(99, 229, 200, 0.4); background: rgba(52, 223, 178, 0.1); }
+.special-card, .delivery-card, .extreme-shift-card {
+    min-height: 104px; padding: 13px; border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 15px; box-shadow: inset 0 1px rgba(255,255,255,0.08);
+}
+.special-card { color: #fff3d6; background: linear-gradient(145deg, rgba(129, 74, 37, 0.76), rgba(63, 36, 33, 0.82)); }
+.delivery-card { color: #e9faff; background: linear-gradient(145deg, rgba(29, 100, 137, 0.76), rgba(20, 43, 77, 0.9)); }
+.extreme-shift-card { color: #ffe8e4; background: linear-gradient(145deg, rgba(113, 37, 51, 0.82), rgba(51, 21, 37, 0.92)); }
+.special-card span, .delivery-card span, .extreme-shift-card span { color: rgba(255,255,255,0.72); font-size: 0.59rem; letter-spacing: 0.11em; }
+.special-card strong, .delivery-card strong { color: #fff; font-size: 0.9rem; }
+.special-card small, .extreme-shift-card small { color: rgba(255,255,255,0.68); }
+.rent-risk-note { margin-top: 3px; color: #ffbd9d; font-size: 0.62rem; font-weight: 800; }
+.delivery-btn { padding: 7px 10px; color: #082039; background: #d6f5ff; font-size: 0.72rem; }
+
+.restaurant-floor {
+    padding: 10px; border-color: rgba(127, 161, 213, 0.24);
+    background: linear-gradient(145deg, rgba(25, 38, 62, 0.94), rgba(10, 17, 29, 0.97));
+}
+.view-panel { border: 1px solid rgba(169, 192, 229, 0.1); border-radius: 16px; background: rgba(4, 9, 19, 0.24); }
+.restaurant-scene { border-radius: 13px; background: #101426; }
+.scene-back-wall {
+    background:
+        linear-gradient(90deg, rgba(102, 161, 220, 0.11) 1px, transparent 1px) 0 0 / 48px 48px,
+        linear-gradient(rgba(102, 161, 220, 0.09) 1px, transparent 1px) 0 0 / 48px 48px,
+        radial-gradient(ellipse at 50% 0%, #273253, #121726 72%);
+}
+.scene-window {
+    border-color: #111727; background: linear-gradient(180deg, #522f75, #15738d 67%, #182038 68%);
+    box-shadow: 0 0 25px rgba(66, 212, 235, 0.2);
+}
+.neon-sign {
+    color: #ff8cab; border-color: #ff8cab; background: rgba(46, 20, 48, 0.85);
+    box-shadow: 0 0 18px rgba(255, 110, 166, 0.55), inset 0 0 14px rgba(255, 110, 166, 0.22);
+}
+.neon-sign b { color: #ffe39b; }
+.scene-counter {
+    border: 2px solid #ec8457; background: linear-gradient(180deg, #9f442e, #542a29);
+    box-shadow: 0 12px 0 rgba(0,0,0,0.35), 0 0 28px rgba(255, 123, 79, 0.19);
+}
+.scene-floor {
+    background:
+        linear-gradient(90deg, rgba(255,255,255,0.055) 1px, transparent 1px) 0 0 / 52px 52px,
+        linear-gradient(rgba(0,0,0,0.16) 1px, transparent 1px) 0 0 / 52px 52px,
+        linear-gradient(135deg, #493646, #574147 48%, #352a3b);
+}
+.seat {
+    color: #f0f5ff; border: 1px solid rgba(192, 213, 247, 0.24);
+    background: linear-gradient(145deg, #47546c, #252e44);
+    box-shadow: inset 0 -10px 0 rgba(0,0,0,0.2), 0 8px 18px rgba(0,0,0,0.22);
+}
+.custom-ramen-order { color: #edf4ff; }
+.status-text { color: #d8e8ff; }
+.status-text.order { color: #67f0be; }
+.status-text.cooking { color: #ffbc82; }
+.status-text.serve { color: #85dcff; }
+.menu-request, .serve-request { color: #fff; border: 1px solid rgba(255,255,255,0.23); background: #293852; }
+.pay-request { color: #112216; background: #68edbb; }
+.patience-container { background: #26354c; }
+.door-frame { background: #554276; box-shadow: 0 0 20px rgba(165, 115, 238, 0.25); }
+
+.kitchen-bg { padding: 20px; }
+.kitchen-title { color: #f4f6ff; font-size: 1.25rem; font-weight: 900; letter-spacing: -0.03em; }
+.kitchen-hint { margin: 5px 0 22px; color: #9baac2; font-size: 0.82rem; }
+#stoves-container { gap: 22px; }
+.stove-station {
+    width: 116px; height: 116px; border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 17px; background: linear-gradient(145deg, #29344d, #151d30);
+    box-shadow: inset 0 1px rgba(255,255,255,0.1), 0 8px 24px rgba(0,0,0,0.24);
+}
+.stove-station:hover { border-color: rgba(255, 128, 94, 0.5); box-shadow: 0 0 24px rgba(255, 103, 74, 0.15); }
+.stove-station:active { transform: translateY(2px) scale(0.98); box-shadow: inset 0 1px rgba(255,255,255,0.1), 0 4px 12px rgba(0,0,0,0.2); }
+.stove-station.bowl-ready { border: 2px solid #ff795b; background: linear-gradient(145deg, #603c3d, #301f32); animation: bowlWarning 0.45s infinite alternate; }
+.stove-order-spec { color: #e0e8f8; }
+.stove-label {
+    top: -18px; color: #fff; border: 1px solid rgba(197, 213, 242, 0.2);
+    background: #1b263b; box-shadow: 0 5px 15px rgba(0,0,0,0.24);
+}
+.manual-bowl { border-color: #c9d5e8; box-shadow: 0 5px 14px rgba(0,0,0,0.23); }
+.stove-burner { background: #ff745a; box-shadow: 0 0 18px rgba(255, 104, 83, 0.6); }
+.wok-batch-badge {
+    position: absolute; top: -12px; right: -10px; z-index: 12; padding: 5px 7px;
+    color: #122036; border: 1px solid rgba(255,255,255,0.4); border-radius: 999px;
+    background: linear-gradient(135deg, #ffe38d, #ffae67);
+    box-shadow: 0 4px 13px rgba(255, 174, 103, 0.28);
+    font-size: 0.58rem; font-weight: 1000; letter-spacing: 0.04em;
+}
+
+.tycoon-section > h3, .view-panel > h2, .missions-header h2 { color: #f5f7ff; letter-spacing: -0.035em; }
+.pad-container { gap: 11px; }
+.tycoon-pad {
+    min-height: 102px; color: #fff; border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 14px; background: linear-gradient(145deg, #74374a, #41243d);
+    box-shadow: 0 6px 0 #211a2c, 0 12px 22px rgba(0,0,0,0.2); line-height: 1.5;
+}
+.tycoon-pad.affordable {
+    color: #effff8; border-color: rgba(68, 237, 181, 0.35);
+    background: linear-gradient(145deg, #16866e, #10564f);
+    box-shadow: 0 6px 0 #103c3b, 0 12px 22px rgba(0,0,0,0.2);
+}
+.tycoon-pad small { display: inline-block; margin-top: 4px; color: rgba(255,255,255,0.75); font-size: 0.65rem; font-weight: 700; }
+.tycoon-pad:active { transform: translateY(4px); }
+.modern-btn { box-shadow: 0 5px 0 rgba(0,0,0,0.25), 0 12px 25px rgba(0,0,0,0.18); }
+.prestige-btn { color: #281b17; background: linear-gradient(135deg, #ffdd84, #ffab63); box-shadow: 0 5px 0 #9b633b; }
+.prestige-btn:disabled { color: #8793a6; background: #263147; box-shadow: 0 5px 0 #182234; }
+.black-market-btn { background: linear-gradient(135deg, #8270ff, #5949be); box-shadow: 0 5px 0 #38317d; }
+.reset-btn { color: #ffb1bc; border-color: rgba(255, 115, 139, 0.34); background: rgba(255, 83, 112, 0.08); }
+
+.rival-card, .mission-stats > div, .mission-card, .achievement-card, .review-card, .review-item {
+    color: #e4ebf7; border: 1px solid rgba(176, 197, 230, 0.12);
+    background: linear-gradient(145deg, rgba(33, 46, 69, 0.78), rgba(16, 24, 40, 0.85));
+}
+.hp-bar-bg { background: #2a344b; }
+.mission-card.claimed, .achievement-card.unlocked {
+    border-color: rgba(52, 223, 178, 0.32);
+    background: linear-gradient(145deg, rgba(28, 102, 83, 0.5), rgba(16, 38, 43, 0.84));
+}
+.mission-streak, .mission-progress { border-color: rgba(177, 196, 230, 0.12); }
+.review-item { border-radius: 12px; }
+.modal-box { color: #f3f6ff; border: 1px solid var(--line); background: #131c2e; }
+#admin-panel { background: #080d14; border-color: #4cffad; }
+.event-toast, .hidden-toast { box-shadow: 0 12px 40px rgba(0,0,0,0.42); backdrop-filter: blur(12px); }
+button:focus-visible { outline: 3px solid #83e9ff; outline-offset: 3px; }
+::selection { color: #fff; background: #c74a62; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: rgba(2, 7, 15, 0.5); border-radius: 8px; }
+::-webkit-scrollbar-thumb { background: #36445e; border: 2px solid #101827; border-radius: 8px; }
+
+@media (max-width: 900px) {
+    .restaurant-command-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .command-group { grid-column: 1 / -1; }
+    .stats-box { max-width: 52%; }
+}
+
+@media (max-width: 760px) {
+    .restaurant-scene { min-width: 0; width: 100%; left: auto; transform: none; }
+}
+
+@media (max-width: 600px) {
+    body { padding: 10px; }
+    .brand-lockup { gap: 10px; margin-bottom: 12px; }
+    .brand-bowl { width: 49px; height: 49px; flex-basis: 49px; border-radius: 15px; font-size: 1.55rem; }
+    .brand-copy p { font-size: 0.72rem; }
+    .shift-live { padding: 7px; font-size: 0.5rem; }
+    .top-bar { align-items: flex-start; flex-direction: column; padding: 16px; }
+    .stats-box { width: 100%; max-width: none; text-align: left; }
+    .tab-nav { position: static; gap: 6px; }
+    .tab-btn { min-width: 0; flex: 1 1 30%; padding: 10px 5px; font-size: 0.75rem; }
+    .pantry-heading { align-items: flex-start; }
+    .stock-status { font-size: 0.48rem; }
+    .pantry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .restaurant-command-bar { grid-template-columns: 1fr; }
+    .command-group { grid-column: auto; }
+    .special-card, .delivery-card, .extreme-shift-card { min-height: 86px; }
+    .kitchen-bg { padding: 14px 8px; }
+    #stoves-container { gap: 22px 15px; }
+    .stove-station { width: 104px; height: 104px; }
+    .tycoon-pad { min-height: 95px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}

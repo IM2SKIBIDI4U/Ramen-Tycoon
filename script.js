@@ -237,7 +237,7 @@ function normalizeGameState() {
     // Older saves may contain the former one-strike failure state; always resume play.
     game.gameOver = false;
     game.gameOverReason = '';
-    game.rentDebt = Math.max(0, Number.isFinite(game.rentDebt) ? game.rentDebt : 0);
+    game.rentDebt = 0;
     game.chefFever = Math.max(0, Math.min(100, Number.isFinite(game.chefFever) ? game.chefFever : 0));
     game.chefFeverEndsAt = Number.isFinite(game.chefFeverEndsAt) ? game.chefFeverEndsAt : 0;
     if (!Number.isFinite(game.shiftEndsAt)) game.shiftEndsAt = Date.now() + EXTREME_SHIFT_MS;
@@ -273,12 +273,13 @@ function getWokLevel() {
     return Math.max(0, Math.min(1000, Math.floor(Number(game.idxWok) || 0)));
 }
 
-function getWokTipMultiplier() {
-    return 1 + getWokLevel() * 0.002;
+function getWokBatchSize(level = getWokLevel()) {
+    const wokLevel = Math.max(0, Math.min(1000, Math.floor(Number(level) || 0)));
+    return wokLevel === 0 ? 1 : wokLevel * 3;
 }
 
-function getBowlPullWindowMs() {
-    return 2000 + getWokLevel() * 12;
+function getEffectiveWokBatchSize(level = getWokLevel()) {
+    return Math.max(1, Math.min(game.tablesOwned || 1, getWokBatchSize(level)));
 }
 
 function formatShiftTimer(milliseconds) {
@@ -337,15 +338,20 @@ function getChefFeverMultiplier() {
 }
 
 let setbackToastTimeout;
-function showSetbackToast(message) {
+function showRamenToast(message) {
     const toast = document.getElementById('setback-toast');
     if (!toast) return;
-    toast.innerText = message.startsWith('CHEF FEVER!')
-        ? `🔥 ${message}`
-        : `⚠ SETBACK · ${message} You can keep playing.`;
+    toast.innerText = message;
     toast.classList.remove('hidden');
     clearTimeout(setbackToastTimeout);
     setbackToastTimeout = setTimeout(() => toast.classList.add('hidden'), 5000);
+}
+
+function showSetbackToast(message) {
+    const text = message.startsWith('CHEF FEVER!')
+        ? `🔥 ${message}`
+        : `⚠ SETBACK · ${message} You can keep playing.`;
+    showRamenToast(text);
 }
 
 function recordExtremeStrike(reason) {
@@ -364,29 +370,38 @@ function chargeExtremeCash(amount) {
     return true;
 }
 
+function resetAfterMissedRent(shortfall) {
+    game.shiftEndsAt = Date.now() + EXTREME_SHIFT_MS;
+    game.rentDebt = 0;
+    saveGame();
+    const recoverySave = localStorage.getItem('RamenUltimateData');
+    if (recoverySave) localStorage.setItem('RamenRentResetBackup', recoverySave);
+    localStorage.removeItem('RamenUltimateData');
+    alert(`Rent was short by $${formatMoney(shortfall)}. Your restaurant has been reset. A recovery save is available from before the missed rent.`);
+    location.reload();
+}
+
 function endExtremeShift() {
     if (game.gameOver) return;
     const rent = getShiftRent();
     const rentPaid = Math.min(game.wallet, rent);
     const shortfall = rent - rentPaid;
-    game.wallet -= rentPaid;
     if (shortfall > 0) {
-        game.rentDebt += shortfall;
-        recordExtremeStrike(`Rent was short by $${formatMoney(shortfall)}; it was added to your tab.`);
+        resetAfterMissedRent(shortfall);
+        return;
     }
+    game.wallet -= rentPaid;
     game.shiftNumber++;
     game.shiftEndsAt = Date.now() + EXTREME_SHIFT_MS;
-    playSound(shortfall > 0 ? 'error' : 'cash');
+    playSound('cash');
     updateUI();
     saveGame();
 }
 
 function creditRestaurantCash(amount) {
     const income = Math.max(0, Number(amount) || 0);
-    const debtPayment = Math.min(game.rentDebt || 0, income * 0.2);
-    game.rentDebt = Math.max(0, (game.rentDebt || 0) - debtPayment);
-    game.wallet += income - debtPayment;
-    return income - debtPayment;
+    game.wallet += income;
+    return income;
 }
 
 function getRestaurantLevel() {
@@ -550,9 +565,11 @@ function renderMissionsPanel() {
 let seats = Array.from({length: 1000}, () => ({
     occupied: false, needsMenu: false, isCooking: false, cookStep: 0,
     needsServing: false, needsToPay: false, patience: 100, charData: null,
-    ingredientsUsed: {}, bowlReadyAt: 0, patienceEndsAt: 0, patienceDuration: 0
+    ingredientsUsed: {}, bowlReadyAt: 0, patienceEndsAt: 0, patienceDuration: 0,
+    cookBatchId: null
 }));
 let waitList = []; let isRushHour = false; let rushMultiplier = 1;
+let cookBatchSequence = 0;
 
 const FPS_MAP = (() => {
     const width = 84;
@@ -1269,6 +1286,7 @@ function spawnWalkingCustomer(seatIdx, char) {
     seat.assemblyOrder = [];
     seat.preparedRamen = {};
     seat.isDelivery = false;
+    seat.cookBatchId = null;
     seat.assemblyOrder = [];
     seat.preparedRamen = {};
     updateUI();
@@ -1283,7 +1301,7 @@ function spawnWalkingCustomer(seatIdx, char) {
 
 function armCustomerPatience(seat) {
     if (!seat || !seat.occupied || !seat.charData) return;
-    seat.patienceDuration = 3000 + Math.floor(Math.random() * 2001) + getWokLevel() * 3;
+    seat.patienceDuration = 3000 + Math.floor(Math.random() * 2001);
     seat.patienceEndsAt = Date.now() + seat.patienceDuration;
     seat.patience = 100;
 }
@@ -1301,6 +1319,7 @@ function handleTableClick(index) {
         seat.cookStep = 0; 
         seat.ingredientsUsed = {};
         seat.bowlReadyAt = 0;
+        seat.cookBatchId = null;
         seat.assemblyOrder = [];
         seat.preparedRamen = {};
         seat.isDelivery = false;
@@ -1359,7 +1378,7 @@ function collectPayment(index) {
     game.combo++;
     game.bestCombo = Math.max(game.bestCombo, game.combo);
     const comboMultiplier = 1 + Math.min(game.combo, 10) * 0.05;
-    let finalValue = (game.currentMenuPrice * mult) * getPrestigeMultiplier() * rushMultiplier * comboMultiplier * getDailySpecial().multiplier * getPopularityMultiplier() * (1 + game.idxBowl * 0.05) * getWokTipMultiplier() * getChefFeverMultiplier();
+    let finalValue = (game.currentMenuPrice * mult) * getPrestigeMultiplier() * rushMultiplier * comboMultiplier * getDailySpecial().multiplier * getPopularityMultiplier() * (1 + game.idxBowl * 0.05) * getChefFeverMultiplier();
     
     if (game.idxRecipe >= 999) finalValue *= 1000000;
     
@@ -1389,6 +1408,7 @@ function collectPayment(index) {
     seat.patienceDuration = 0;
     seat.ingredientsUsed = {};
     seat.bowlReadyAt = 0;
+    seat.cookBatchId = null;
 
     checkAchievements();
     saveGame(); 
@@ -1474,6 +1494,7 @@ setInterval(() => {
                 seat.patience = 100;
                 seat.patienceEndsAt = 0;
                 seat.patienceDuration = 0;
+                seat.cookBatchId = null;
                 seat.ingredientsUsed = {};
                 seat.assemblyOrder = [];
                 seat.preparedRamen = {};
@@ -1504,6 +1525,14 @@ setInterval(() => {
 let lastClickTime = 0;
 let clickWarnings = 0;
 
+function getIngredientsForRamenStep(seat, step) {
+    const ingredients = [step.key];
+    if (step.key === 'broth' && seat.charData?.ramenOrder?.broth === 'Spicy miso') {
+        ingredients.push('spice');
+    }
+    return ingredients;
+}
+
 function clickStove(index) {
     if (game.gameOver) return;
     let now = Date.now();
@@ -1527,30 +1556,59 @@ function clickStove(index) {
     }
     const step = RAMEN_ASSEMBLY[seat.cookStep];
     if (!step) return;
-    seat.charData.ramenOrder ||= {
-        broth: RAMEN_ASSEMBLY[0].options[0],
-        firmness: RAMEN_ASSEMBLY[1].options[1]
-    };
-    const requiredIngredients = [step.key];
-    if (step.key === 'broth' && seat.charData.ramenOrder.broth === 'Spicy miso') requiredIngredients.push('spice');
-    if (requiredIngredients.some(ingredient => (game.inv[ingredient] || 0) < 1)) {
-        document.getElementById('out-of-stock-msg')?.classList.remove('hidden');
-        playSound('error');
-        return;
+    const batchLimit = getEffectiveWokBatchSize();
+    const candidates = [index];
+    for (let candidateIndex = 0; candidateIndex < Math.min(game.tablesOwned, seats.length); candidateIndex++) {
+        if (candidateIndex === index) continue;
+        const candidate = seats[candidateIndex];
+        if (candidate?.occupied && candidate.isCooking && !candidate.bowlReadyAt
+            && candidate.cookStep === seat.cookStep && candidate.charData) {
+            candidates.push(candidateIndex);
+        }
     }
-    seat.assemblyOrder ||= [];
-    seat.preparedRamen ||= {};
-    requiredIngredients.forEach(ingredient => {
-        game.inv[ingredient]--;
-        seat.ingredientsUsed[ingredient] = (seat.ingredientsUsed[ingredient] || 0) + 1;
+
+    const targets = [];
+    for (const candidateIndex of candidates) {
+        if (targets.length >= batchLimit) break;
+        const candidate = seats[candidateIndex];
+        candidate.charData.ramenOrder ||= {
+            broth: RAMEN_ASSEMBLY[0].options[0],
+            firmness: RAMEN_ASSEMBLY[1].options[1]
+        };
+        const requiredIngredients = getIngredientsForRamenStep(candidate, step);
+        if (requiredIngredients.some(ingredient => (game.inv[ingredient] || 0) < 1)) {
+            if (candidateIndex === index) {
+                document.getElementById('out-of-stock-msg')?.classList.remove('hidden');
+                playSound('error');
+                return;
+            }
+            continue;
+        }
+        targets.push({ candidateIndex, candidate, requiredIngredients });
+    }
+    if (!targets.length) return;
+
+    const batchId = `wok-${Date.now()}-${++cookBatchSequence}`;
+    targets.forEach(({ candidateIndex, candidate, requiredIngredients }) => {
+        candidate.assemblyOrder ||= [];
+        candidate.preparedRamen ||= {};
+        candidate.ingredientsUsed ||= {};
+        candidate.cookBatchId = batchId;
+        requiredIngredients.forEach(ingredient => {
+            game.inv[ingredient]--;
+            candidate.ingredientsUsed[ingredient] = (candidate.ingredientsUsed[ingredient] || 0) + 1;
+        });
+        if (step.key === 'broth') candidate.preparedRamen.broth = candidate.charData.ramenOrder.broth;
+        if (step.key === 'noodle') candidate.preparedRamen.firmness = candidate.charData.ramenOrder.firmness;
+        candidate.assemblyOrder.push(step.key);
+        candidate.cookStep++;
+        armCustomerPatience(candidate);
+        if (candidate.cookStep === RAMEN_ASSEMBLY.length) finishCooking(candidateIndex);
     });
-    if (step.key === 'broth') seat.preparedRamen.broth = seat.charData.ramenOrder.broth;
-    if (step.key === 'noodle') seat.preparedRamen.firmness = seat.charData.ramenOrder.firmness;
-    seat.assemblyOrder.push(step.key);
-    seat.cookStep++;
-    armCustomerPatience(seat);
+    if (targets.length > 1) {
+        showRamenToast(`🍳 WOK BATCH · ${targets.length} bowls advanced together`);
+    }
     playSound('cook');
-    if (seat.cookStep === RAMEN_ASSEMBLY.length) finishCooking(index);
     updateUI();
     updateKitchenUI();
     saveGame();
@@ -1571,24 +1629,33 @@ function finishCooking(index) {
         updateKitchenUI();
         return;
     }
-    seat.bowlReadyAt = Date.now() + getBowlPullWindowMs();
+    seat.bowlReadyAt = Date.now() + 2000;
     seat.patience = 100;
     armCustomerPatience(seat);
-    saveGame();
-    updateKitchenUI();
 }
 
 function takeBowlOffStove(index) {
-    const seat = seats[index];
-    if (!seat || !seat.isCooking || !seat.bowlReadyAt || Date.now() >= seat.bowlReadyAt) return;
-    seat.bowlReadyAt = 0;
-    seat.isCooking = false;
-    if (seat.isDelivery) {
-        completeDelivery(index);
-        return;
-    }
-    seat.needsServing = true;
-    armCustomerPatience(seat);
+    const selectedSeat = seats[index];
+    if (!selectedSeat || !selectedSeat.isCooking || !selectedSeat.bowlReadyAt
+        || Date.now() >= selectedSeat.bowlReadyAt) return;
+    const batchId = selectedSeat.cookBatchId;
+    const batchIndices = batchId
+        ? seats.map((seat, seatIndex) => seat?.cookBatchId === batchId ? seatIndex : -1).filter(seatIndex => seatIndex >= 0)
+        : [index];
+    const now = Date.now();
+    batchIndices.forEach(seatIndex => {
+        const seat = seats[seatIndex];
+        if (!seat?.isCooking || !seat.bowlReadyAt || now >= seat.bowlReadyAt) return;
+        seat.bowlReadyAt = 0;
+        seat.isCooking = false;
+        seat.cookBatchId = null;
+        if (seat.isDelivery) {
+            completeDelivery(seatIndex);
+            return;
+        }
+        seat.needsServing = true;
+        armCustomerPatience(seat);
+    });
     playSound('serve');
     updateKitchenUI();
     updateUI();
@@ -1619,6 +1686,7 @@ function ruinBowl(index) {
     seat.ingredientsUsed = {};
     seat.assemblyOrder = [];
     seat.preparedRamen = {};
+    seat.cookBatchId = null;
     addReview(`A ruined bowl wasted ingredients. Double-price penalty: $${formatMoney(penalty)}.`, false);
     playSound('error');
     updateKitchenUI();
@@ -1630,8 +1698,7 @@ function ruinBowl(index) {
 function getMonkeySpeed() { 
     let baseSpeed = 3000 * Math.pow(0.85, game.idxAuto);
     let trainingBoost = 1 - Math.min(0.45, (game.staffTraining.waiter || 0) * 0.03);
-    let wokBoost = 1 + getWokLevel() * 0.003;
-    let finalSpeed = baseSpeed * (game.autoChefSpeedMulti || 1) * trainingBoost / wokBoost;
+    let finalSpeed = baseSpeed * (game.autoChefSpeedMulti || 1) * trainingBoost;
     return Math.max(50, finalSpeed / rushMultiplier); 
 }
 
@@ -1704,7 +1771,7 @@ function renderPad(id, track, idx, func, title) {
     if(!container) return; 
     let u = track[idx];
     const wokInfo = id === 'pad-wok'
-        ? `<br><small>Current: +${Math.round((getWokTipMultiplier() - 1) * 100)}% tips · ${(getBowlPullWindowMs() / 1000).toFixed(1)}s pull window · +${(getWokLevel() * 0.003).toFixed(1)}s patience</small>`
+        ? `<br><small>Batch cooking: up to ${getEffectiveWokBatchSize()} bowl${getEffectiveWokBatchSize() === 1 ? '' : 's'} per click${u && Math.min(game.tablesOwned, getWokBatchSize(idx + 1)) > getEffectiveWokBatchSize() ? ` · next: ${Math.min(game.tablesOwned, getWokBatchSize(idx + 1))}` : ''}</small>`
         : '';
     if (!u) { container.innerHTML = `<button class="tycoon-pad" style="background:#333;">${title}<br>MAX LEVEL${wokInfo}</button>`; }
     else { let afford = game.wallet >= u.cost ? "affordable" : ""; container.innerHTML = `<button class="tycoon-pad ${afford}" onclick="${func}()"><b>${title}</b><br>Lvl ${idx+1}: ${u.name}<br>$${formatMoney(u.cost)}${wokInfo}</button>`; }
@@ -1775,6 +1842,11 @@ function updateKitchenUI() {
     let container = document.getElementById('stoves-container'); 
     if(!container) return;
     container.innerHTML = ""; 
+    const batchCounts = new Map();
+    seats.forEach(candidate => {
+        if (!candidate?.cookBatchId || !candidate.isCooking) return;
+        batchCounts.set(candidate.cookBatchId, (batchCounts.get(candidate.cookBatchId) || 0) + 1);
+    });
     seats.forEach((seat, i) => {
         if (seat.occupied && seat.isCooking) {
             let stove = document.createElement('div'); stove.className = `stove-station ${seat.bowlReadyAt ? 'bowl-ready' : ''}`; stove.id = `stove-${i}`; stove.onclick = () => clickStove(i);
@@ -1784,7 +1856,12 @@ function updateKitchenUI() {
                 : `${step?.emoji || '🍜'} ${step?.label || 'Assemble ramen'}`;
             const order = seat.charData?.ramenOrder;
             const spec = order ? `<div class="stove-order-spec">${order.broth} broth · ${order.firmness} noodles</div>` : '';
-            stove.innerHTML = `<div class="stove-label">${label}</div>${spec}<div class="manual-bowl step-${Math.min(seat.cookStep, 5)}">${seat.bowlReadyAt ? '🍜' : ''}</div><div class="stove-burner"></div>`;
+            const batchCount = seat.cookBatchId ? (batchCounts.get(seat.cookBatchId) || 1) : 1;
+            const batchBadge = batchCount > 1 ? `<div class="wok-batch-badge">WOK ×${batchCount}</div>` : '';
+            stove.title = batchCount > 1
+                ? `This click advances ${batchCount} bowls at the same step. Pulling one finished bowl pulls the whole batch.`
+                : 'Click to prepare the next ramen step.';
+            stove.innerHTML = `${batchBadge}<div class="stove-label">${label}</div>${spec}<div class="manual-bowl step-${Math.min(seat.cookStep, 5)}">${seat.bowlReadyAt ? '🍜' : ''}</div><div class="stove-burner"></div>`;
             container.appendChild(stove);
         }
     });
@@ -1898,6 +1975,7 @@ function startDelivery() {
     seat.assemblyOrder = [];
     seat.preparedRamen = {};
     seat.bowlReadyAt = 0;
+    seat.cookBatchId = null;
     seat.isDelivery = true;
     game.deliveryActive = { seatIndex, reward, startedAt: Date.now() };
     armCustomerPatience(seat);
@@ -1910,7 +1988,7 @@ function startDelivery() {
 
 function completeDelivery(seatIndex) {
     if (!game.deliveryActive || game.deliveryActive.seatIndex !== seatIndex) return;
-    const reward = Math.ceil(game.deliveryActive.reward * getWokTipMultiplier() * getChefFeverMultiplier());
+    const reward = Math.ceil(game.deliveryActive.reward * getChefFeverMultiplier());
     const seat = seats[seatIndex];
     if (!seat || !seat.isDelivery) return;
     creditRestaurantCash(reward);
@@ -1937,6 +2015,7 @@ function completeDelivery(seatIndex) {
     seat.preparedRamen = {};
     seat.isDelivery = false;
     seat.bowlReadyAt = 0;
+    seat.cookBatchId = null;
     playSound('cash');
     checkAchievements();
     updateUI();
@@ -1958,7 +2037,13 @@ function prestigeGame() {
 }
 function renderResetRecoveryButton() {
     const button = document.getElementById('btn-restore-save');
-    if (button) button.classList.toggle('hidden', !localStorage.getItem('RamenPreviousRunBackup'));
+    if (!button) return;
+    const rentResetSave = localStorage.getItem('RamenRentResetBackup');
+    const previousRunSave = localStorage.getItem('RamenPreviousRunBackup');
+    button.classList.toggle('hidden', !rentResetSave && !previousRunSave);
+    button.innerText = rentResetSave
+        ? '↩ Restore Save Before Missed Rent'
+        : '↩ Restore Previous Save';
 }
 
 function resetGame() {
@@ -1972,17 +2057,20 @@ function resetGame() {
 }
 
 function restorePreviousSave() {
-    const backup = localStorage.getItem('RamenPreviousRunBackup');
+    const backupKey = localStorage.getItem('RamenRentResetBackup')
+        ? 'RamenRentResetBackup'
+        : 'RamenPreviousRunBackup';
+    const backup = localStorage.getItem(backupKey);
     if (!backup) return;
     try {
         JSON.parse(backup);
-        if (!confirm('Restore your saved restaurant from before the reset?')) return;
+        if (!confirm('Restore the saved restaurant from before the reset?')) return;
         localStorage.setItem('RamenUltimateData', backup);
-        localStorage.removeItem('RamenPreviousRunBackup');
+        localStorage.removeItem(backupKey);
         location.reload();
     } catch (error) {
         alert('The saved backup could not be restored because it is damaged.');
-        localStorage.removeItem('RamenPreviousRunBackup');
+        localStorage.removeItem(backupKey);
         renderResetRecoveryButton();
     }
 }
@@ -2061,9 +2149,9 @@ let goldenMonkeyTimer;
 function scheduleGoldenMonkey() {
     clearTimeout(goldenMonkeyTimer);
     goldenMonkeyTimer = setTimeout(() => {
-        spawnGoldenMonkey();
+        if (Math.random() < 0.05) spawnGoldenMonkey();
         scheduleGoldenMonkey();
-    }, 25000 + Math.random() * 25000);
+    }, 60000);
 }
 
 function spawnGoldenMonkey() {
@@ -2072,7 +2160,7 @@ function spawnGoldenMonkey() {
     monkey.className = 'golden-macaque';
     monkey.type = 'button';
     monkey.innerText = '🐒';
-    monkey.title = 'Click for a golden bonus!';
+    monkey.title = 'Click for +50% cash and 1 Monkey Money';
     monkey.setAttribute('aria-label', 'Collect the golden monkey bonus');
     monkey.onclick = () => claimGoldenMonkey(monkey);
     document.body.appendChild(monkey);
@@ -2081,14 +2169,14 @@ function spawnGoldenMonkey() {
 
 function claimGoldenMonkey(monkey) {
     if (!monkey || !monkey.isConnected) return;
-    const reward = Math.max(250, game.currentMenuPrice * 20) * getPrestigeMultiplier();
-    creditRestaurantCash(reward);
+    const reward = Math.max(0, Number(game.wallet) || 0) * 0.5;
+    game.wallet += reward;
     game.monkeyMoney++;
     game.eventsTriggered++;
     window.vipPartyActive += 5;
     monkey.remove();
-    showAchievementToast({ icon: '🌟', title: 'Golden Monkey Found!' });
-    spawnFloatingMoney(`+$${formatMoney(reward)} +1 MM`, 'money', '#f1c40f');
+    showAchievementToast({ icon: '🌟', title: 'Golden Monkey · +50% Cash · +1 MM' });
+    spawnFloatingMoney(`+$${formatMoney(reward)} (+50%) · +1 MM`, 'money', '#f1c40f');
     checkAchievements();
     updateUI();
     saveGame();

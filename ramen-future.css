@@ -494,3 +494,375 @@ button:focus-visible { outline: 3px solid #1c8e8b; outline-offset: 3px; }
         transition-duration: 0.01ms !important;
     }
 }
+
+/* Standard Store: service-first ramen console with a cozy future-night palette. */
+.game-container.theme-default {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    --panel-bg: rgba(255, 251, 242, 0.96);
+    --ink: #203638;
+    --ink-muted: #6d7c77;
+    --accent: #178f87;
+    --accent-deep: #115b62;
+    --accent-hot: #e66d52;
+    --soft-line: rgba(41, 89, 89, 0.16);
+}
+
+.game-container.theme-default > .brand-lockup { order: 0; }
+.game-container.theme-default > .top-bar { order: 1; }
+.game-container.theme-default > .tab-nav { order: 2; }
+.game-container.theme-default > .restaurant-command-bar { order: 3; }
+.game-container.theme-default > .restaurant-floor { order: 4; }
+.game-container.theme-default > .pantry-panel { order: 5; }
+.game-container.theme-default > .tycoon-section { order: 6; }
+
+.game-container.theme-default .brand-lockup {
+    min-height: 70px;
+    margin-bottom: 12px;
+}
+
+.game-container.theme-default .brand-bowl {
+    border-color: rgba(27, 143, 135, 0.24);
+    background: linear-gradient(145deg, #fffdf7, #dff3e9);
+    box-shadow: 0 10px 28px rgba(24, 89, 84, 0.13), inset 0 1px #fff;
+}
+
+.game-container.theme-default .brand-kicker { color: #387f77; }
+.game-container.theme-default .brand-copy h1 em { color: #d76b50; }
+.game-container.theme-default .shift-live {
+    color: #176b63;
+    border-color: rgba(23, 143, 135, 0.22);
+    background: rgba(225, 247, 235, 0.9);
+}
+
+.game-container.theme-default .glass-panel {
+    border-color: rgba(41, 89, 89, 0.15);
+    box-shadow: 0 13px 34px rgba(31, 63, 62, 0.075), inset 0 1px rgba(255,255,255,0.96);
+}
+
+.game-container.theme-default .top-bar {
+    display: grid;
+    grid-template-columns: minmax(170px, 0.7fr) minmax(0, 2.3fr);
+    align-items: stretch;
+    gap: 16px;
+    padding: 15px 18px;
+}
+
+.game-container.theme-default .wallet-display {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    font-size: 1rem;
+    letter-spacing: 0;
+}
+
+.game-container.theme-default .wallet-display .wallet-caption {
+    color: #5f827b !important;
+    font-size: 0.58rem;
+    font-weight: 1000;
+    letter-spacing: 0.16em;
+}
+
+.game-container.theme-default .wallet-display .wallet-value {
+    color: #17866e !important;
+    font-size: clamp(1.8rem, 3vw, 2.5rem);
+    line-height: 1;
+    letter-spacing: -0.055em;
+    text-shadow: 0 2px 14px rgba(35, 151, 112, 0.15);
+}
+
+.game-container.theme-default .wallet-display .wallet-note {
+    color: var(--ink-muted) !important;
+    font-size: 0.68rem;
+    font-weight: 700;
+}
+
+.game-container.theme-default .stats-box.hud-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    max-width: none;
+    padding: 0;
+    text-align: left;
+    border: 0;
+    background: transparent;
+    line-height: 1.25;
+}
+
+.game-container.theme-default .hud-cell {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    padding: 9px 11px;
+    border: 1px solid rgba(40, 99, 95, 0.12);
+    border-radius: 13px;
+    background: linear-gradient(145deg, rgba(255,255,255,0.86), rgba(233,245,235,0.72));
+}
+
+.game-container.theme-default .hud-label {
+    color: #66817a !important;
+    font-size: 0.53rem;
+    font-weight: 1000;
+    letter-spacing: 0.12em;
+}
+
+.game-container.theme-default .hud-value {
+    overflow-wrap: anywhere;
+    color: #243c3d;
+    font-size: 0.78rem;
+    line-height: 1.3;
+}
+
+.game-container.theme-default .hud-note {
+    color: #6d7c77 !important;
+    font-size: 0.64rem;
+    font-weight: 700;
+}
+
+.game-container.theme-default .stats-box .hud-value span {
+    color: inherit !important;
+}
+
+.game-container.theme-default .tab-nav {
+    margin-top: 1px;
+    border-color: rgba(41, 89, 89, 0.17);
+    background: rgba(247, 251, 245, 0.92);
+    box-shadow: 0 9px 24px rgba(31, 63, 62, 0.09);
+}
+
+.game-container.theme-default .tab-btn {
+    color: #62736e;
+    font-size: 0.82rem;
+    letter-spacing: 0.01em;
+}
+
+.game-container.theme-default .tab-btn.active {
+    color: #f9fff8 !important;
+    border-color: rgba(19, 107, 99, 0.42);
+    background: linear-gradient(135deg, #1d9a90, #145d63);
+    box-shadow: 0 7px 18px rgba(22, 124, 118, 0.22);
+}
+
+.game-container.theme-default .restaurant-command-bar {
+    gap: 10px;
+    padding: 13px;
+    border-color: rgba(52, 100, 91, 0.19);
+    background:
+        radial-gradient(ellipse at 8% 0%, rgba(185, 226, 194, 0.3), transparent 38%),
+        linear-gradient(145deg, rgba(248, 251, 242, 0.97), rgba(229, 241, 225, 0.91));
+}
+
+.game-container.theme-default .command-label {
+    color: #4f7973;
+    font-size: 0.55rem;
+}
+
+.game-container.theme-default .scene-control {
+    border: 1px solid rgba(39, 108, 99, 0.16);
+    background: rgba(235, 246, 232, 0.9);
+}
+
+.game-container.theme-default .scene-control.active {
+    color: #fff;
+    background: linear-gradient(135deg, #178f87, #145d63);
+    box-shadow: 0 4px 12px rgba(22, 124, 118, 0.19);
+}
+
+.game-container.theme-default .special-card,
+.game-container.theme-default .delivery-card,
+.game-container.theme-default .extreme-shift-card {
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: inset 0 1px rgba(255,255,255,0.18), 0 7px 16px rgba(40, 61, 54, 0.1);
+}
+
+.game-container.theme-default .special-card { background: linear-gradient(145deg, #c66c47, #87483d); }
+.game-container.theme-default .delivery-card { background: linear-gradient(145deg, #348e85, #205a65); }
+.game-container.theme-default .extreme-shift-card { background: linear-gradient(145deg, #374c4c, #243638); }
+
+.game-container.theme-default .restaurant-floor {
+    padding: 9px;
+    border-color: rgba(49, 94, 88, 0.22);
+    background: linear-gradient(145deg, #d7e7dc, #bdcfc5);
+    box-shadow: 0 15px 34px rgba(31, 63, 62, 0.13), inset 0 1px rgba(255,255,255,0.8);
+}
+
+.game-container.theme-default #view-dining {
+    height: clamp(390px, 43vw, 510px);
+    border-color: rgba(32, 68, 68, 0.2);
+    background: #20383b;
+}
+
+.game-container.theme-default .restaurant-scene {
+    border: 1px solid rgba(153, 226, 198, 0.2);
+    box-shadow: inset 0 0 40px rgba(9, 29, 34, 0.16);
+}
+
+.game-container.theme-default .pantry-panel {
+    border-color: rgba(180, 133, 79, 0.17);
+    background: linear-gradient(145deg, rgba(255, 251, 242, 0.96), rgba(247, 239, 222, 0.94));
+}
+
+.game-container.theme-default .ing-item {
+    border-color: rgba(54, 100, 92, 0.14);
+    background: linear-gradient(145deg, rgba(255,255,255,0.96), rgba(235,246,233,0.82));
+}
+
+.game-container.theme-default .tycoon-section {
+    border-color: rgba(50, 99, 94, 0.17);
+    background:
+        radial-gradient(ellipse at 100% 0%, rgba(195, 230, 206, 0.3), transparent 42%),
+        linear-gradient(145deg, rgba(255, 251, 242, 0.97), rgba(244, 239, 224, 0.95));
+}
+
+.game-container.theme-default .tycoon-section > h3 {
+    color: #244546;
+    margin: 0 0 15px;
+    font-size: 1.15rem;
+}
+
+.game-container.theme-default .pad-container {
+    grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+    align-items: stretch;
+    gap: 12px;
+}
+
+.game-container.theme-default .pad-slot { min-width: 0; }
+
+.game-container.theme-default .tycoon-pad {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    min-height: 176px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 7px;
+    padding: 14px;
+    color: #294043;
+    border: 1px solid rgba(77, 114, 101, 0.2);
+    border-radius: 16px;
+    background: linear-gradient(145deg, #f1e1c6, #e5c99c);
+    box-shadow: 0 5px 0 #c2a777, 0 12px 23px rgba(63, 68, 47, 0.09);
+    text-align: left;
+    line-height: 1.35;
+}
+
+.game-container.theme-default .tycoon-pad.affordable {
+    color: #f5fff9;
+    border-color: rgba(23, 114, 100, 0.35);
+    background: linear-gradient(145deg, #267f76, #174f5a);
+    box-shadow: 0 5px 0 #113f49, 0 12px 23px rgba(26, 93, 82, 0.16);
+}
+
+.game-container.theme-default .tycoon-pad.is-maxed {
+    color: #315c50;
+    border-color: rgba(68, 130, 97, 0.2);
+    background: linear-gradient(145deg, #e4f1dd, #d4e7d4);
+    box-shadow: 0 5px 0 #b5cfb7, 0 12px 23px rgba(63, 101, 76, 0.08);
+    cursor: default;
+}
+
+.game-container.theme-default .upgrade-kicker {
+    color: inherit;
+    font-size: 0.56rem;
+    font-weight: 1000;
+    letter-spacing: 0.1em;
+    opacity: 0.78;
+}
+
+.game-container.theme-default .upgrade-title {
+    font-size: 0.9rem;
+    line-height: 1.25;
+}
+
+.game-container.theme-default .upgrade-cost {
+    color: #ffe4a6;
+    font-size: 1rem;
+    font-weight: 1000;
+    font-variant-numeric: tabular-nums;
+}
+
+.game-container.theme-default .tycoon-pad:not(.affordable) .upgrade-cost { color: #275f55; }
+.game-container.theme-default .upgrade-description {
+    color: inherit;
+    font-size: 0.7rem;
+    font-weight: 650;
+    line-height: 1.42;
+    opacity: 0.88;
+}
+
+.game-container.theme-default .upgrade-status {
+    margin-top: auto;
+    padding-top: 4px;
+    color: inherit;
+    font-size: 0.56rem;
+    font-weight: 1000;
+    letter-spacing: 0.04em;
+    opacity: 0.82;
+}
+
+.game-container.theme-default .tycoon-pad:hover:not(:disabled) {
+    filter: brightness(1.04);
+    transform: translateY(-2px);
+}
+
+.game-container.theme-default .reset-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    margin: 10px 8px 0 0;
+    padding: 9px 13px;
+    color: #a5493f;
+    border: 1px solid rgba(177, 65, 51, 0.24);
+    border-radius: 10px;
+    background: rgba(203, 83, 60, 0.07);
+    font-family: inherit;
+    font-size: 0.76rem;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.game-container.theme-default .modern-btn { border-radius: 12px; }
+.game-container.theme-default .prestige-btn { color: #4a3317; }
+.game-container.theme-default .black-market-btn { background: linear-gradient(135deg, #457c82, #2a5968); }
+
+@media (max-width: 900px) {
+    .game-container.theme-default .top-bar { grid-template-columns: 1fr; gap: 11px; }
+    .game-container.theme-default .wallet-display {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 8px 12px;
+    }
+    .game-container.theme-default .wallet-display .wallet-caption { grid-column: 1; }
+    .game-container.theme-default .wallet-display .wallet-value { grid-column: 2; grid-row: 1 / 3; }
+    .game-container.theme-default .wallet-display .wallet-note { grid-column: 3; grid-row: 1 / 3; }
+    .game-container.theme-default .stats-box.hud-grid { max-width: none; }
+}
+
+@media (max-width: 600px) {
+    .game-container.theme-default .brand-lockup { margin-bottom: 8px; }
+    .game-container.theme-default .top-bar { padding: 13px; }
+    .game-container.theme-default .wallet-display {
+        grid-template-columns: auto 1fr;
+        gap: 3px 10px;
+    }
+    .game-container.theme-default .wallet-display .wallet-value { grid-column: 2; grid-row: 1 / 3; }
+    .game-container.theme-default .wallet-display .wallet-note { display: none; }
+    .game-container.theme-default .stats-box.hud-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .game-container.theme-default .hud-cell { padding: 8px; }
+    .game-container.theme-default .restaurant-command-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .game-container.theme-default .command-group,
+    .game-container.theme-default .extreme-shift-card { grid-column: 1 / -1; }
+    .game-container.theme-default .special-card,
+    .game-container.theme-default .delivery-card { min-height: 94px; }
+    .game-container.theme-default > .restaurant-floor { order: 3; }
+    .game-container.theme-default > .restaurant-command-bar { order: 4; }
+    .game-container.theme-default #view-dining { height: 410px; }
+    .game-container.theme-default .pad-container { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .game-container.theme-default .tycoon-pad { min-height: 190px; padding: 11px; }
+}

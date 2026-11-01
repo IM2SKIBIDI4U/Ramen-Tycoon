@@ -1762,15 +1762,60 @@ function buyBowl() {
     }
 }
 
+function getUpgradeDescription(id, upgrade, idx) {
+    if (!upgrade) {
+        const currentWokBatch = getEffectiveWokBatchSize();
+        switch (id) {
+            case 'pad-table': return 'Every available table is open.';
+            case 'pad-recipe': return `Recipe book complete. Your menu is currently $${formatMoney(game.currentMenuPrice)} per bowl.`;
+            case 'pad-wok': return `Wok fully upgraded: cooks up to ${currentWokBatch} bowl${currentWokBatch === 1 ? '' : 's'} per click.`;
+            case 'pad-auto': return 'Your auto-chef crew has reached its top level.';
+            case 'pad-ads': return 'Marketing is maxed; guests already arrive at the fastest rate.';
+            case 'pad-bowl': return `All bowl sets unlocked: payments are boosted by ${game.idxBowl * 5}% total.`;
+            default: return 'All levels in this upgrade path are complete.';
+        }
+    }
+
+    switch (id) {
+        case 'pad-table':
+            return 'Adds one seat for another guest. More tables also increase shift rent.';
+        case 'pad-recipe':
+            return `Unlocks ${upgrade.name} and sets its menu price to $${formatMoney(upgrade.value)} per bowl.`;
+        case 'pad-wok': {
+            const currentBatch = getEffectiveWokBatchSize();
+            const nextBatch = getEffectiveWokBatchSize(idx + 1);
+            return `Raises batch cooking from up to ${currentBatch} to ${nextBatch} bowl${nextBatch === 1 ? '' : 's'} per click, limited by your open tables.`;
+        }
+        case 'pad-auto': {
+            const nextLoopSeconds = (3000 * Math.pow(0.85, idx + 1) / 1000).toFixed(1);
+            return `Adds an auto-chef and cuts its work cycle by 15% per level. Next base cycle: ${nextLoopSeconds}s; waiters are needed for auto-service.`;
+        }
+        case 'pad-ads': {
+            const nextDelay = Math.max(800, 3000 * Math.pow(0.94, idx + 1));
+            return `Brings guest parties in faster: 6% less arrival time per level, down to 0.8s. Next arrival: about ${(nextDelay / 1000).toFixed(1)}s.`;
+        }
+        case 'pad-bowl':
+            return `Adds 5% to every payment. This set raises your total bowl bonus to ${(idx + 1) * 5}%.`;
+        default:
+            return 'Improves this part of your ramen shop with every level.';
+    }
+}
+
 function renderPad(id, track, idx, func, title) {
     let container = document.getElementById(id); 
     if(!container) return; 
     let u = track[idx];
-    const wokInfo = id === 'pad-wok'
-        ? `<br><small>Batch cooking: up to ${getEffectiveWokBatchSize()} bowl${getEffectiveWokBatchSize() === 1 ? '' : 's'} per click${u && Math.min(game.tablesOwned, getWokBatchSize(idx + 1)) > getEffectiveWokBatchSize() ? ` · next: ${Math.min(game.tablesOwned, getWokBatchSize(idx + 1))}` : ''}</small>`
+    const description = getUpgradeDescription(id, u, idx);
+    const wokStatus = id === 'pad-wok'
+        ? `<small class="upgrade-status">CURRENT BATCH · up to ${getEffectiveWokBatchSize()} bowl${getEffectiveWokBatchSize() === 1 ? '' : 's'} per click</small>`
         : '';
-    if (!u) { container.innerHTML = `<button class="tycoon-pad" style="background:#333;">${title}<br>MAX LEVEL${wokInfo}</button>`; }
-    else { let afford = game.wallet >= u.cost ? "affordable" : ""; container.innerHTML = `<button class="tycoon-pad ${afford}" onclick="${func}()"><b>${title}</b><br>Lvl ${idx+1}: ${u.name}<br>$${formatMoney(u.cost)}${wokInfo}</button>`; }
+    container.dataset.upgrade = id;
+    if (!u) {
+        container.innerHTML = `<button class="tycoon-pad is-maxed" type="button" disabled><span class="upgrade-kicker">${title}</span><b class="upgrade-title">MAX LEVEL</b><span class="upgrade-description">${description}</span>${wokStatus}</button>`;
+    } else {
+        const afford = game.wallet >= u.cost ? 'affordable' : '';
+        container.innerHTML = `<button class="tycoon-pad ${afford}" type="button" aria-label="${title}: ${u.name}. ${description} Cost $${formatMoney(u.cost)}" onclick="${func}()"><span class="upgrade-kicker">${title}</span><b class="upgrade-title">Lvl ${idx + 1}: ${u.name}</b><span class="upgrade-cost">$${formatMoney(u.cost)}</span><span class="upgrade-description">${description}</span>${wokStatus}</button>`;
+    }
 }
 
 function updateUI() {

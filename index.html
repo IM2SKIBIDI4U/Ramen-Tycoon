@@ -14,7 +14,7 @@
     <div id="event-toast" class="event-toast hidden">🚨 RUSH HOUR! 🚨</div>
     <div id="setback-toast" class="event-toast hidden">⚠ SETBACK</div>
 
-    <div class="game-container" id="main-container">
+    <div class="game-container theme-default" id="main-container">
         <header class="brand-lockup">
             <div class="brand-bowl" aria-hidden="true">🍜</div>
             <div class="brand-copy">
@@ -26,13 +26,31 @@
         </header>
         
         <div class="top-bar glass-panel">
-            <div class="wallet-display">Wallet: <span id="money" style="color:#05c46b;">$0</span></div>
-            <div class="stats-box">
-                Menu: <b id="stat-menu">Basic Shoyu ($50)</b><br>
-                <span style="color:#f1c40f; font-size:0.9rem;">🐒 Monkey Money: <b id="stat-stars">0</b> (<span id="star-mult">1</span>x Profits)</span><br>
-                <span style="color:#0984e3; font-size:0.9rem;">🗺️ Turf Bonus: <b id="stat-turf">1</b>x</span><br>
-                <span style="color:#8e44ad; font-size:0.9rem;">🍜 Served: <b id="stat-served">0</b> · 🔥 Combo: <b id="stat-combo">0</b></span><br>
-                <span style="color:#e17055; font-size:0.9rem;">🏆 Lv.<b id="stat-level">1</b> · ⭐ <b id="stat-popularity">50</b>% Popularity</span>
+            <div class="wallet-display">
+                <span class="wallet-caption">SHIFT WALLET</span>
+                <span id="money" class="wallet-value">$0</span>
+                <span class="wallet-note">Keep the broth flowing.</span>
+            </div>
+            <div class="stats-box hud-grid">
+                <div class="hud-cell">
+                    <span class="hud-label">FEATURED BOWL</span>
+                    <b class="hud-value" id="stat-menu">Basic Shoyu ($50)</b>
+                </div>
+                <div class="hud-cell">
+                    <span class="hud-label">MONKEY MONEY</span>
+                    <b class="hud-value"><span id="stat-stars">0</span> MM</b>
+                    <small class="hud-note"><span id="star-mult">1</span>× profit bonus</small>
+                </div>
+                <div class="hud-cell">
+                    <span class="hud-label">SERVICE</span>
+                    <b class="hud-value"><span id="stat-served">0</span> bowls</b>
+                    <small class="hud-note">Combo <span id="stat-combo">0</span></small>
+                </div>
+                <div class="hud-cell">
+                    <span class="hud-label">RESTAURANT</span>
+                    <b class="hud-value">Lv. <span id="stat-level">1</span> · <span id="stat-popularity">50</span>% favor</b>
+                    <small class="hud-note"><span id="stat-turf">1</span>× turf bonus</small>
+                </div>
             </div>
         </div>
 

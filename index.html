@@ -9,8 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="ramen-future.css?v=2">
-    <script defer crossorigin="anonymous" src="https://flying-scorpion-2042.clerk.accounts.dev/npm/@clerk/ui@1/dist/ui.browser.js" type="text/javascript"></script>
-    <script defer crossorigin="anonymous" data-clerk-publishable-key="pk_test_Zmx5aW5nLXNjb3JwaW9uLTIwNDIuY2xlcmsuYWNjb3VudHMuZGV2JA" src="https://flying-scorpion-2042.clerk.accounts.dev/npm/@clerk/clerk-js@6/dist/clerk.browser.js" type="text/javascript"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <script defer src="supabase-config.js"></script>
 </head>
 <body>
     <div id="event-toast" class="event-toast hidden">🚨 RUSH HOUR! 🚨</div>
@@ -24,10 +24,13 @@
                 <h1>RAMEN <em>MONKEY</em></h1>
                 <p>Slow-brewed comfort. Built for tomorrow.</p>
             </div>
-            <div id="clerk-auth" class="auth-clerk-widget">
-                <div id="clerk-control" class="auth-clerk-control" aria-live="polite">
-                    <button id="clerk-sign-in" class="clerk-auth-button" type="button" disabled>Loading account…</button>
-                </div>
+            <div id="account-auth" class="auth-account-widget">
+                <form id="account-sign-in-form" class="auth-sign-in-form">
+                    <label class="visually-hidden" for="account-email">Email address</label>
+                    <input id="account-email" type="email" autocomplete="email" placeholder="Email address" required>
+                    <button class="account-auth-button" type="submit">Email sign-in link</button>
+                </form>
+                <div id="account-auth-control" class="account-auth-control" aria-live="polite"></div>
                 <small id="account-sync-status" class="auth-local-note">Sign in to sync progress across devices</small>
                 <button id="account-sync-now" class="account-sync-button" type="button" hidden>Sync progress</button>
             </div>

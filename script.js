@@ -2503,31 +2503,35 @@ setInterval(() => {
     }
 }, 1000);
 
-function initClerk() {
-    const authControl = document.getElementById('clerk-control');
-    const signInButton = document.getElementById('clerk-sign-in');
-    if (!authControl || !signInButton) return;
-
+function initSupabaseSync() {
+    const authControl = document.getElementById('account-auth-control');
+    const signInForm = document.getElementById('account-sign-in-form');
     const syncStatus = document.getElementById('account-sync-status');
     const syncNowButton = document.getElementById('account-sync-now');
+    if (!authControl || !signInForm) return;
+
     const setSyncStatus = (message) => {
         if (syncStatus) syncStatus.textContent = message;
     };
     const setSyncError = (error) => {
         console.error('Game account sync failed:', error);
-        const detail = error?.errors?.[0]?.longMessage || error?.message || 'Unknown sync error';
-        setSyncStatus(`Sync failed: ${detail}`);
+        setSyncStatus(`Sync failed: ${error?.message || 'Unknown error'}. Local progress is still saved.`);
     };
-    const showError = (error) => {
-        console.error('Clerk failed to initialize:', error);
-        const statusButton = document.createElement('button');
-        statusButton.className = 'clerk-auth-button';
-        statusButton.type = 'button';
-        statusButton.textContent = 'Sign in unavailable';
-        statusButton.title = 'Clerk could not load. Check the browser console for details.';
-        statusButton.disabled = true;
-        authControl.replaceChildren(statusButton);
-    };
+    const config = window.RAMEN_SUPABASE_CONFIG;
+    if (!window.supabase?.createClient || !config?.url || !config?.anonKey
+        || config.url.includes('YOUR_') || config.anonKey.includes('YOUR_')) {
+        signInForm.hidden = true;
+        setSyncStatus('Cloud saves need Supabase setup. Local progress stays on this device.');
+        return;
+    }
+
+    const supabaseClient = window.supabase.createClient(config.url, config.anonKey);
+    let syncUserId = null;
+    let syncTimer = null;
+    let uploadInProgress = false;
+    let uploadRequested = false;
+    let syncReady = false;
+    let saveChangedDuringInitialSync = false;
 
     const isValidCloudSave = (save) => save
         && save.version === 1
@@ -2536,197 +2540,200 @@ function initClerk() {
         && Number.isFinite(save.game.wallet)
         && Number.isFinite(save.game.tablesOwned);
 
-    if (!window.Clerk || !window.__internal_ClerkUICtor) {
-        showError(new Error('Clerk scripts did not load. Check network access to the Clerk domain.'));
-        return;
+    const uploadSave = async () => {
+        if (uploadInProgress) {
+            uploadRequested = true;
+            return false;
+        }
+        if (!syncUserId) return false;
+
+        uploadInProgress = true;
+        try {
+            setSyncStatus('Syncing progress to your account…');
+            const savedAt = Math.max(Date.now(), game.lastSaveTime || 0);
+            const save = { version: 1, savedAt, game: { ...game, lastSaveTime: savedAt } };
+            const { error } = await supabaseClient
+                .from('game_saves')
+                .upsert({ user_id: syncUserId, save, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+            if (error) throw error;
+
+            if (game.lastSaveTime <= savedAt) {
+                game.lastSaveTime = savedAt;
+                localSaveTimestamp = savedAt;
+                localStorage.setItem('RamenUltimateData', JSON.stringify(game));
+            }
+            setSyncStatus('Progress synced to your account');
+            return true;
+        } catch (error) {
+            setSyncError(error);
+            return false;
+        } finally {
+            uploadInProgress = false;
+            if (uploadRequested) {
+                uploadRequested = false;
+                void uploadSave();
+            }
+        }
+    };
+
+    const scheduleUpload = () => {
+        if (!syncUserId) return;
+        if (!syncReady) {
+            saveChangedDuringInitialSync = true;
+            return;
+        }
+        clearTimeout(syncTimer);
+        setSyncStatus('Progress changed — syncing…');
+        syncTimer = setTimeout(() => void uploadSave(), 800);
+    };
+
+    const restoreCloudSave = (save) => {
+        const localSave = localStorage.getItem('RamenUltimateData');
+        if (localSave && localSaveTimestamp && !localStorage.getItem('RamenPreviousRunBackup')) {
+            localStorage.setItem('RamenPreviousRunBackup', localSave);
+        }
+        game = Object.assign(game, save.game);
+        game.lastSaveTime = save.savedAt;
+        normalizeGameState();
+        resetMissionsIfNeeded();
+        localSaveTimestamp = game.lastSaveTime;
+        localStorage.setItem('RamenUltimateData', JSON.stringify(game));
+        applyTheme();
+        updateUI();
+        updateKitchenUI();
+        renderStaffPanel();
+        renderTurfPanel();
+        renderDecorPanel();
+    };
+
+    const syncAccountSave = async (user, startingLocalTimestamp) => {
+        const { data, error } = await supabaseClient
+            .from('game_saves')
+            .select('save')
+            .eq('user_id', user.id)
+            .maybeSingle();
+        if (error) throw error;
+
+        const cloudSave = data?.save;
+        if (cloudSave != null && !isValidCloudSave(cloudSave)) {
+            throw new Error('The cloud save is invalid. Local progress was left unchanged.');
+        }
+        if (isValidCloudSave(cloudSave)
+            && cloudSave.savedAt > localSaveTimestamp
+            && localSaveTimestamp === startingLocalTimestamp) {
+            restoreCloudSave(cloudSave);
+            setSyncStatus('Progress loaded from your account');
+            return;
+        }
+        await uploadSave();
+    };
+
+    const renderAuth = (user) => {
+        signInForm.hidden = Boolean(user);
+        authControl.replaceChildren();
+        if (!user) return;
+
+        const email = document.createElement('span');
+        email.className = 'account-email-label';
+        email.textContent = user.email || 'Signed in';
+        const signOutButton = document.createElement('button');
+        signOutButton.className = 'account-auth-button';
+        signOutButton.type = 'button';
+        signOutButton.textContent = 'Sign out';
+        signOutButton.addEventListener('click', async () => {
+            const { error } = await supabaseClient.auth.signOut();
+            if (error) setSyncError(error);
+        });
+        authControl.append(email, signOutButton);
+    };
+
+    const handleAuthState = async (user) => {
+        renderAuth(user);
+        if (!user) {
+            syncUserId = null;
+            syncReady = false;
+            clearTimeout(syncTimer);
+            accountSaveSync = null;
+            if (syncNowButton) syncNowButton.hidden = true;
+            setSyncStatus('Sign in to sync progress across devices');
+            return;
+        }
+        if (user.id === syncUserId) return;
+
+        const startingLocalTimestamp = localSaveTimestamp;
+        syncUserId = user.id;
+        syncReady = false;
+        accountSaveSync = { schedule: scheduleUpload };
+        if (syncNowButton) {
+            syncNowButton.hidden = false;
+            syncNowButton.disabled = true;
+        }
+        setSyncStatus('Loading account progress…');
+        try {
+            await syncAccountSave(user, startingLocalTimestamp);
+        } catch (error) {
+            setSyncError(error);
+            accountSaveSync = null;
+        } finally {
+            if (user.id === syncUserId) {
+                syncReady = true;
+                if (syncNowButton) syncNowButton.disabled = false;
+                if (saveChangedDuringInitialSync) {
+                    saveChangedDuringInitialSync = false;
+                    scheduleUpload();
+                }
+            }
+        }
+    };
+
+    signInForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const emailInput = document.getElementById('account-email');
+        const submitButton = signInForm.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        setSyncStatus('Sending sign-in link…');
+        try {
+            const { error } = await supabaseClient.auth.signInWithOtp({
+                email: emailInput.value.trim(),
+                options: { emailRedirectTo: window.location.href }
+            });
+            if (error) throw error;
+            setSyncStatus('Check your email for the sign-in link.');
+        } catch (error) {
+            setSyncError(error);
+        } finally {
+            submitButton.disabled = false;
+        }
+    });
+
+    if (syncNowButton) {
+        syncNowButton.addEventListener('click', async () => {
+            if (!syncReady || !syncUserId) return;
+            clearTimeout(syncTimer);
+            syncNowButton.disabled = true;
+            await uploadSave();
+            syncNowButton.disabled = false;
+        });
     }
 
-    const clerk = window.Clerk;
-    clerk.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } })
-        .then(() => {
-            let syncUserId = null;
-            let syncTimer = null;
-            let uploadInProgress = false;
-            let uploadRequested = false;
-            let syncReady = false;
-            let saveChangedDuringInitialSync = false;
+    const flushScheduledSave = () => {
+        if (!syncUserId || !syncReady || !syncTimer) return;
+        clearTimeout(syncTimer);
+        syncTimer = null;
+        void uploadSave();
+    };
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') flushScheduledSave();
+    });
+    window.addEventListener('pagehide', flushScheduledSave);
 
-            const uploadSave = async () => {
-                if (uploadInProgress) {
-                    uploadRequested = true;
-                    return false;
-                }
-
-                const user = clerk.user;
-                if (!user || user.id !== syncUserId) return false;
-                uploadInProgress = true;
-                try {
-                    setSyncStatus('Syncing progress to your account…');
-                    const savedAt = Math.max(Date.now(), game.lastSaveTime || 0);
-                    const snapshot = { ...game, lastSaveTime: savedAt };
-                    const save = {
-                        version: 1,
-                        savedAt,
-                        game: snapshot
-                    };
-                    const metadata = {
-                        ...(user.unsafeMetadata || {}),
-                        ramenTycoonSave: save
-                    };
-                    if (new TextEncoder().encode(JSON.stringify(metadata)).length > 7500) {
-                        throw new Error('Your save is too large for Clerk account metadata. Local progress is still saved.');
-                    }
-
-                    await user.updateMetadata({ unsafeMetadata: { ramenTycoonSave: save } });
-                    if (clerk.user?.id === syncUserId) {
-                        if (game.lastSaveTime <= savedAt) {
-                            game.lastSaveTime = savedAt;
-                            localSaveTimestamp = savedAt;
-                            localStorage.setItem('RamenUltimateData', JSON.stringify(game));
-                        }
-                        setSyncStatus('Progress synced to your account');
-                    }
-                    return true;
-                } catch (error) {
-                    setSyncError(error);
-                    return false;
-                } finally {
-                    uploadInProgress = false;
-                    if (uploadRequested) {
-                        uploadRequested = false;
-                        void uploadSave();
-                    }
-                }
-            };
-
-            const scheduleUpload = () => {
-                if (!clerk.user || clerk.user.id !== syncUserId) return;
-                if (!syncReady) {
-                    saveChangedDuringInitialSync = true;
-                    return;
-                }
-                clearTimeout(syncTimer);
-                setSyncStatus('Progress changed — syncing…');
-                syncTimer = setTimeout(() => void uploadSave(), 1200);
-            };
-
-            const restoreCloudSave = (save) => {
-                const localSave = localStorage.getItem('RamenUltimateData');
-                if (localSave && localSaveTimestamp && !localStorage.getItem('RamenPreviousRunBackup')) {
-                    localStorage.setItem('RamenPreviousRunBackup', localSave);
-                }
-                game = Object.assign(game, save.game);
-                game.lastSaveTime = save.savedAt;
-                normalizeGameState();
-                resetMissionsIfNeeded();
-                localSaveTimestamp = game.lastSaveTime;
-                localStorage.setItem('RamenUltimateData', JSON.stringify(game));
-                applyTheme();
-                updateUI();
-                updateKitchenUI();
-                renderStaffPanel();
-                renderTurfPanel();
-                renderDecorPanel();
-            };
-
-            const syncAccountSave = async (user, startingLocalTimestamp) => {
-                const cloudSave = user.unsafeMetadata?.ramenTycoonSave;
-                if (cloudSave != null && !isValidCloudSave(cloudSave)) {
-                    throw new Error('The saved game in this account is invalid. The local save was left unchanged.');
-                }
-
-                if (isValidCloudSave(cloudSave)
-                    && cloudSave.savedAt > localSaveTimestamp
-                    && localSaveTimestamp === startingLocalTimestamp) {
-                    restoreCloudSave(cloudSave);
-                    setSyncStatus('Progress loaded from your account');
-                    return;
-                }
-
-                await uploadSave();
-            };
-
-            let renderedUserId;
-            let hasRenderedAuth = false;
-            const renderAuth = ({ user } = clerk) => {
-                const userId = user?.id || null;
-                if (hasRenderedAuth && userId === renderedUserId) return;
-                hasRenderedAuth = true;
-                renderedUserId = userId;
-                authControl.replaceChildren();
-                if (user) {
-                    clerk.mountUserButton(authControl);
-                    return;
-                }
-
-                const button = document.createElement('button');
-                button.className = 'clerk-auth-button';
-                button.type = 'button';
-                button.textContent = 'Sign in';
-                button.addEventListener('click', () => {
-                    try {
-                        clerk.openSignIn();
-                    } catch (error) {
-                        console.error('Clerk sign-in failed:', error);
-                        button.textContent = 'Sign in failed';
-                        button.title = 'Try again or check the browser console for details.';
-                    }
-                });
-                authControl.appendChild(button);
-            };
-
-            const handleClerkState = (state = clerk) => {
-                const user = state.user;
-                renderAuth(state);
-                if (!user) {
-                    syncUserId = null;
-                    syncReady = false;
-                    clearTimeout(syncTimer);
-                    accountSaveSync = null;
-                    if (syncNowButton) syncNowButton.hidden = true;
-                    setSyncStatus('Sign in to sync progress across devices');
-                    return;
-                }
-                if (user.id === syncUserId) return;
-
-                const startingLocalTimestamp = localSaveTimestamp;
-                syncUserId = user.id;
-                syncReady = false;
-                accountSaveSync = { schedule: scheduleUpload };
-                if (syncNowButton) {
-                    syncNowButton.hidden = false;
-                    syncNowButton.disabled = true;
-                }
-                setSyncStatus('Loading account progress…');
-                syncAccountSave(user, startingLocalTimestamp).catch((error) => {
-                    setSyncError(error);
-                    accountSaveSync = null;
-                }).finally(() => {
-                    if (user.id === syncUserId) {
-                        syncReady = true;
-                        if (syncNowButton) syncNowButton.disabled = false;
-                        if (saveChangedDuringInitialSync) {
-                            saveChangedDuringInitialSync = false;
-                            scheduleUpload();
-                        }
-                    }
-                });
-            };
-
-            handleClerkState();
-            clerk.addListener(handleClerkState);
-
-            if (syncNowButton) {
-                syncNowButton.addEventListener('click', async () => {
-                    if (!syncReady || !clerk.user || clerk.user.id !== syncUserId) return;
-                    syncNowButton.disabled = true;
-                    const synced = await uploadSave();
-                    syncNowButton.disabled = false;
-                    if (!synced) syncNowButton.title = syncStatus?.textContent || 'Sync failed';
-                });
-            }
-        })
-        .catch(showError);
+    supabaseClient.auth.onAuthStateChange((_event, session) => {
+        void handleAuthState(session?.user || null);
+    });
+    supabaseClient.auth.getSession().then(({ data, error }) => {
+        if (error) setSyncError(error);
+        else void handleAuthState(data.session?.user || null);
+    });
 }
 
-initClerk();
+initSupabaseSync();

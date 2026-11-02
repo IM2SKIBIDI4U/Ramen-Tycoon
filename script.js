@@ -2621,7 +2621,72 @@ function initClerk() {
             const renderAuth = (user) => {
                 authControl.replaceChildren();
                 if (user) {
-                    clerk.mountUserButton(authControl);
+                    const displayName = user.fullName || user.primaryEmailAddress?.emailAddress || 'Account';
+                    const accountMenu = document.createElement('details');
+                    accountMenu.className = 'account-menu';
+
+                    const accountToggle = document.createElement('summary');
+                    accountToggle.className = 'account-menu-toggle';
+                    accountToggle.setAttribute('aria-label', `Open account menu for ${displayName}`);
+
+                    const avatar = document.createElement('img');
+                    avatar.className = 'account-avatar';
+                    avatar.src = user.imageUrl;
+                    avatar.alt = '';
+                    avatar.referrerPolicy = 'no-referrer';
+                    accountToggle.append(avatar);
+
+                    const name = document.createElement('span');
+                    name.className = 'account-menu-name';
+                    name.textContent = displayName;
+                    accountToggle.append(name);
+
+                    const menu = document.createElement('div');
+                    menu.className = 'account-menu-panel';
+
+                    const identity = document.createElement('div');
+                    identity.className = 'account-menu-identity';
+                    const identityName = document.createElement('strong');
+                    identityName.textContent = displayName;
+                    identity.append(identityName);
+                    if (user.primaryEmailAddress?.emailAddress) {
+                        const email = document.createElement('span');
+                        email.textContent = user.primaryEmailAddress.emailAddress;
+                        identity.append(email);
+                    }
+
+                    const manageAccount = document.createElement('button');
+                    manageAccount.type = 'button';
+                    manageAccount.className = 'account-menu-action';
+                    manageAccount.textContent = 'Manage account';
+                    manageAccount.addEventListener('click', () => {
+                        accountMenu.open = false;
+                        try {
+                            clerk.openUserProfile();
+                        } catch (error) {
+                            console.error('Could not open the Clerk account profile:', error);
+                            setSyncStatus(`Could not open account settings: ${error?.message || 'Unknown error'}`);
+                        }
+                    });
+
+                    const signOut = document.createElement('button');
+                    signOut.type = 'button';
+                    signOut.className = 'account-menu-action account-menu-signout';
+                    signOut.textContent = 'Sign out';
+                    signOut.addEventListener('click', async () => {
+                        signOut.disabled = true;
+                        try {
+                            await clerk.signOut({ redirectUrl: window.location.href });
+                        } catch (error) {
+                            console.error('Could not sign out of Clerk:', error);
+                            setSyncStatus(`Could not sign out: ${error?.message || 'Unknown error'}`);
+                            signOut.disabled = false;
+                        }
+                    });
+
+                    menu.append(identity, manageAccount, signOut);
+                    accountMenu.append(accountToggle, menu);
+                    authControl.append(accountMenu);
                     return;
                 }
                 const button = document.createElement('a');

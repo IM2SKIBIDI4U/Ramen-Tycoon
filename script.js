@@ -2519,13 +2519,13 @@ function initClerk() {
         console.error('Game account sync failed:', error);
         setSyncStatus(`Cloud save failed: ${error?.message || 'Unknown error'}. Progress is not saved until sync succeeds.`);
     };
-    if (!window.Clerk) {
-        setSyncStatus('Clerk could not load. Check the connection and try again.');
+    if (!window.Clerk || !window.__internal_ClerkUICtor) {
+        setSyncStatus('Clerk or its UI components could not load. Check the connection and try again.');
         return;
     }
 
     const clerk = window.Clerk;
-    clerk.load()
+    clerk.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } })
         .then(() => {
             let syncUserId = null;
             let syncTimer = null;

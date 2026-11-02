@@ -8,13 +8,13 @@
         if (status) status.textContent = error?.message || 'Sign-in is unavailable. Try again later.';
     };
 
-    if (!window.Clerk) {
-        showError(new Error('Clerk could not load. Check the connection and try again.'));
+    if (!window.Clerk || !window.__internal_ClerkUICtor) {
+        showError(new Error('Clerk or its UI components could not load. Check the connection and try again.'));
         return;
     }
 
     const clerk = window.Clerk;
-    clerk.load()
+    clerk.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } })
         .then(() => {
             if (clerk.user) {
                 window.location.replace(new URL('index.html', window.location.href));

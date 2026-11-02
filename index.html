@@ -9,6 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="ramen-future.css">
+    <script defer crossorigin="anonymous" src="https://flying-scorpion-2042.clerk.accounts.dev/npm/@clerk/ui@1/dist/ui.browser.js" type="text/javascript"></script>
+    <script defer crossorigin="anonymous" data-clerk-publishable-key="pk_test_Zmx5aW5nLXNjb3JwaW9uLTIwNDIuY2xlcmsuYWNjb3VudHMuZGV2JA" src="https://flying-scorpion-2042.clerk.accounts.dev/npm/@clerk/clerk-js@6/dist/clerk.browser.js" type="text/javascript"></script>
 </head>
 <body>
     <div id="event-toast" class="event-toast hidden">🚨 RUSH HOUR! 🚨</div>
@@ -21,6 +23,9 @@
                 <span class="brand-kicker">STEAM · SIGNAL · SOUL</span>
                 <h1>RAMEN <em>MONKEY</em></h1>
                 <p>Slow-brewed comfort. Built for tomorrow.</p>
+            </div>
+            <div id="clerk-auth" class="auth-clerk-widget" aria-live="polite">
+                <button id="clerk-sign-in" class="clerk-auth-button" type="button" disabled>Loading sign in…</button>
             </div>
             <span class="shift-live"><i></i> LIVE SHIFT</span>
         </header>
@@ -247,7 +252,7 @@
         </div>
     </div>
 
-    <script src="script.js?v=9"></script>
+    <script defer src="script.js?v=12"></script>
     <div id="achieve-toast" class="hidden-toast">
     🏆 <b id="achieve-name">Achievement Unlocked!</b>
     </div>

@@ -121,6 +121,8 @@ const RAMEN_ASSEMBLY = [
     { key: 'bamboo', label: 'Add bamboo shoots', emoji: '🎋' }
 ];
 const EXTREME_SHIFT_MS = 180000;
+const CUSTOMER_PATIENCE_MIN_MS = 10000;
+const CUSTOMER_PATIENCE_VARIANCE_MS = 0;
 let game = {
     wallet: 150, monkeyMoney: 0, turfMult: 1, lastSaveTime: Date.now(),
     tablesOwned: 5, idxTable: 4, idxBowl: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxSpecial: 0, currentMenuPrice: 50,
@@ -1297,7 +1299,7 @@ function spawnWalkingCustomer(seatIdx, char) {
 
 function armCustomerPatience(seat) {
     if (!seat || !seat.occupied || !seat.charData) return;
-    seat.patienceDuration = 3000 + Math.floor(Math.random() * 2001);
+    seat.patienceDuration = CUSTOMER_PATIENCE_MIN_MS + Math.floor(Math.random() * CUSTOMER_PATIENCE_VARIANCE_MS);
     seat.patienceEndsAt = Date.now() + seat.patienceDuration;
     seat.patience = 100;
 }
@@ -1466,7 +1468,7 @@ setInterval(() => {
     for (let i = 0; i < game.tablesOwned; i++) {
         const seat = seats[i];
         if (seat && seat.occupied && seat.charData && seat.patienceEndsAt) {
-            seat.patience = Math.max(0, ((seat.patienceEndsAt - now) / (seat.patienceDuration || 4000)) * 100);
+            seat.patience = Math.max(0, ((seat.patienceEndsAt - now) / (seat.patienceDuration || CUSTOMER_PATIENCE_MIN_MS)) * 100);
             const bar = document.getElementById(`patience-bar-${i}`);
             if (bar) {
                 bar.style.width = `${seat.patience}%`;
@@ -1477,7 +1479,7 @@ setInterval(() => {
                 spawnFloatingMoney("😡 WALKOUT!", `seat-${i}`, '#e74c3c');
                 game.combo = 0;
                 game.popularity = Math.max(0, game.popularity - 2);
-                addReview('A guest walked out after a short wait. Your restaurant can still recover.');
+                addReview('A guest ran out of patience. Your restaurant can still recover.');
                 if (seat.isDelivery) game.deliveryActive = null;
                 seat.occupied = false;
                 seat.charData = null;
@@ -2320,3 +2322,58 @@ setInterval(() => {
         updateUI();
     }
 }, 1000);
+
+function initClerk() {
+    const authRoot = document.getElementById('clerk-auth');
+    if (!authRoot) return;
+
+    const signInButton = document.getElementById('clerk-sign-in');
+    if (!signInButton) return;
+
+    const showError = (error) => {
+        console.error('Clerk failed to initialize:', error);
+        const statusButton = document.createElement('button');
+        statusButton.className = 'clerk-auth-button';
+        statusButton.type = 'button';
+        statusButton.textContent = 'Sign in unavailable';
+        statusButton.title = 'Clerk could not load. Check the browser console for details.';
+        statusButton.disabled = true;
+        authRoot.replaceChildren(statusButton);
+    };
+
+    if (!window.Clerk || !window.__internal_ClerkUICtor) {
+        showError(new Error('Clerk scripts did not load. Check network access to the Clerk domain.'));
+        return;
+    }
+
+    const clerk = window.Clerk;
+    clerk.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } })
+        .then(() => {
+            const renderAuth = ({ user } = clerk) => {
+                authRoot.replaceChildren();
+                if (user) {
+                    clerk.mountUserButton(authRoot);
+                    return;
+                }
+
+                const button = document.createElement('button');
+                button.className = 'clerk-auth-button';
+                button.type = 'button';
+                button.textContent = 'Sign in';
+                button.addEventListener('click', () => {
+                    clerk.openSignIn().catch((error) => {
+                        console.error('Clerk sign-in failed:', error);
+                        button.textContent = 'Sign in failed';
+                        button.title = 'Try again or check the browser console for details.';
+                    });
+                });
+                authRoot.appendChild(button);
+            };
+
+            renderAuth();
+            clerk.addListener(renderAuth);
+        })
+        .catch(showError);
+}
+
+initClerk();

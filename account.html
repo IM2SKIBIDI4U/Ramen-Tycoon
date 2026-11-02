@@ -8,10 +8,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="ramen-future.css?v=2">
-    <link rel="stylesheet" href="account.css?v=1">
-    <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-    <script defer src="supabase-config.js"></script>
-    <script defer src="account.js?v=1"></script>
+    <link rel="stylesheet" href="account.css?v=2">
+    <script defer crossorigin="anonymous" src="https://flying-scorpion-2042.clerk.accounts.dev/npm/@clerk/ui@1/dist/ui.browser.js" type="text/javascript"></script>
+    <script defer crossorigin="anonymous" data-clerk-publishable-key="pk_test_Zmx5aW5nLXNjb3JwaW9uLTIwNDIuY2xlcmsuYWNjb3VudHMuZGV2JA" src="https://flying-scorpion-2042.clerk.accounts.dev/npm/@clerk/clerk-js@6/dist/clerk.browser.js" type="text/javascript"></script>
+    <script defer src="account.js?v=2"></script>
 </head>
 <body class="account-screen">
     <main class="account-page">
@@ -23,16 +23,10 @@
             <div class="account-bowl" aria-hidden="true">&#127836;</div>
             <p class="account-kicker">YOUR RESTAURANT, ANYWHERE</p>
             <h1 id="account-heading">Welcome back.</h1>
-            <p id="account-description" class="account-description">Sign in to sync your restaurant across devices.</p>
-            <div class="account-mode" role="tablist" aria-label="Account action">
-                <button class="account-mode-button active" type="button" role="tab" aria-selected="true" data-mode="signin">Sign in</button>
-                <button class="account-mode-button" type="button" role="tab" aria-selected="false" data-mode="signup">Create account</button>
+            <p id="account-description" class="account-description">Sign in or create an account to sync your restaurant across devices.</p>
+            <div id="clerk-account-widget" class="clerk-account-widget" aria-live="polite">
+                <p id="account-status" class="account-status" role="status">Loading account options…</p>
             </div>
-            <form id="account-form" class="account-form">
-                <label for="account-email">Email address</label>
-                <input id="account-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
-                <button id="account-submit" class="account-submit" type="submit">Send sign-in link</button>
-            </form>
             <p id="account-status" class="account-status" role="status" aria-live="polite"></p>
             <a class="account-return" href="index.html">Return to the game</a>
         </section>

@@ -2235,14 +2235,19 @@ function renderResetRecoveryButton() {
         : '↩ Restore Previous Save';
 }
 
-function resetGame() {
+async function resetGame() {
     if (!confirm('Start a fresh restaurant? You can restore your previous save afterward.')) return;
     const currentSave = localStorage.getItem('RamenUltimateData');
     if (currentSave && !localStorage.getItem('RamenPreviousRunBackup')) {
         localStorage.setItem('RamenPreviousRunBackup', currentSave);
     }
     localStorage.removeItem('RamenUltimateData');
-    location.reload();
+    try {
+        await accountSaveSync?.reset();
+        location.reload();
+    } catch (error) {
+        alert(`The account save could not be reset: ${error.message}`);
+    }
 }
 
 function restorePreviousSave() {
@@ -2513,7 +2518,7 @@ function initClerk() {
     };
     const setSyncError = (error) => {
         console.error('Game account sync failed:', error);
-        setSyncStatus(`Sync failed: ${error?.message || 'Unknown error'}. Local progress is still saved.`);
+        setSyncStatus(`Cloud save failed: ${error?.message || 'Unknown error'}. Progress is not saved until sync succeeds.`);
     };
     if (!window.Clerk || !window.__internal_ClerkUICtor) {
         setSyncStatus('Clerk could not load. Check the connection and try again.');
@@ -2644,7 +2649,14 @@ function initClerk() {
                 const startingLocalTimestamp = localSaveTimestamp;
                 syncUserId = user.id;
                 syncReady = false;
-                accountSaveSync = { schedule: scheduleUpload };
+                accountSaveSync = {
+                    schedule: scheduleUpload,
+                    reset: async () => {
+                        if (!clerk.user || clerk.user.id !== syncUserId) return;
+                        clearTimeout(syncTimer);
+                        await clerk.user.updateMetadata({ unsafeMetadata: { ramenTycoonSave: null } });
+                    }
+                };
                 if (syncNowButton) {
                     syncNowButton.hidden = false;
                     syncNowButton.disabled = true;

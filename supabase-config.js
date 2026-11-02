@@ -1,4 +1,4 @@
 window.RAMEN_SUPABASE_CONFIG = {
-    url: 'YOUR_SUPABASE_PROJECT_URL',
-    anonKey: 'YOUR_SUPABASE_ANON_KEY'
+    url: 'https://mxuzrunqhsajspowfsul.supabase.co',
+    anonKey: 'sb_publishable_nWQVgYGLsvYoLQ4KGMppgQ_hKKFAN-3'
 };

@@ -25,14 +25,11 @@
                 <p>Slow-brewed comfort. Built for tomorrow.</p>
             </div>
             <div id="account-auth" class="auth-account-widget">
-                <form id="account-sign-in-form" class="auth-sign-in-form">
-                    <label class="visually-hidden" for="account-email">Email address</label>
-                    <input id="account-email" type="email" autocomplete="email" placeholder="Email address" required>
-                    <button class="account-auth-button" type="submit">Email sign-in link</button>
-                </form>
-                <div id="account-auth-control" class="account-auth-control" aria-live="polite"></div>
+                <div id="account-auth-control" class="account-auth-control" aria-live="polite">
+                    <a class="account-auth-button" href="account.html">Sign in / Sign up</a>
+                </div>
                 <small id="account-sync-status" class="auth-local-note">Sign in to sync progress across devices</small>
-                <button id="account-sync-now" class="account-sync-button" type="button" hidden>Sync progress</button>
+                <button id="account-sync-now" class="account-sync-button" type="button" hidden>Save to account</button>
             </div>
             <span class="shift-live"><i></i> LIVE SHIFT</span>
         </header>
@@ -264,7 +261,7 @@
         </div>
     </div>
 
-    <script defer src="script.js?v=16"></script>
+    <script defer src="script.js?v=18"></script>
     <div id="achieve-toast" class="hidden-toast">
     🏆 <b id="achieve-name">Achievement Unlocked!</b>
     </div>

@@ -2424,7 +2424,6 @@ function adminMaxEverything() {
 
 function saveGame() {
     game.lastSaveTime = Date.now();
-    localStorage.setItem('RamenUltimateData', JSON.stringify(game));
     localSaveTimestamp = game.lastSaveTime;
     accountSaveSync?.schedule();
 }
@@ -2505,10 +2504,9 @@ setInterval(() => {
 
 function initSupabaseSync() {
     const authControl = document.getElementById('account-auth-control');
-    const signInForm = document.getElementById('account-sign-in-form');
     const syncStatus = document.getElementById('account-sync-status');
     const syncNowButton = document.getElementById('account-sync-now');
-    if (!authControl || !signInForm) return;
+    if (!authControl) return;
 
     const setSyncStatus = (message) => {
         if (syncStatus) syncStatus.textContent = message;
@@ -2520,8 +2518,7 @@ function initSupabaseSync() {
     const config = window.RAMEN_SUPABASE_CONFIG;
     if (!window.supabase?.createClient || !config?.url || !config?.anonKey
         || config.url.includes('YOUR_') || config.anonKey.includes('YOUR_')) {
-        signInForm.hidden = true;
-        setSyncStatus('Cloud saves need Supabase setup. Local progress stays on this device.');
+        setSyncStatus('Cloud saves are unavailable. Sign in setup is incomplete.');
         return;
     }
 
@@ -2557,11 +2554,9 @@ function initSupabaseSync() {
                 .upsert({ user_id: syncUserId, save, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
             if (error) throw error;
 
-            if (game.lastSaveTime <= savedAt) {
-                game.lastSaveTime = savedAt;
-                localSaveTimestamp = savedAt;
-                localStorage.setItem('RamenUltimateData', JSON.stringify(game));
-            }
+            if (game.lastSaveTime <= savedAt) game.lastSaveTime = savedAt;
+            localSaveTimestamp = savedAt;
+            localStorage.removeItem('RamenUltimateData');
             setSyncStatus('Progress synced to your account');
             return true;
         } catch (error) {
@@ -2588,16 +2583,12 @@ function initSupabaseSync() {
     };
 
     const restoreCloudSave = (save) => {
-        const localSave = localStorage.getItem('RamenUltimateData');
-        if (localSave && localSaveTimestamp && !localStorage.getItem('RamenPreviousRunBackup')) {
-            localStorage.setItem('RamenPreviousRunBackup', localSave);
-        }
         game = Object.assign(game, save.game);
         game.lastSaveTime = save.savedAt;
         normalizeGameState();
         resetMissionsIfNeeded();
         localSaveTimestamp = game.lastSaveTime;
-        localStorage.setItem('RamenUltimateData', JSON.stringify(game));
+        localStorage.removeItem('RamenUltimateData');
         applyTheme();
         updateUI();
         updateKitchenUI();
@@ -2618,20 +2609,27 @@ function initSupabaseSync() {
         if (cloudSave != null && !isValidCloudSave(cloudSave)) {
             throw new Error('The cloud save is invalid. Local progress was left unchanged.');
         }
-        if (isValidCloudSave(cloudSave)
-            && cloudSave.savedAt > localSaveTimestamp
-            && localSaveTimestamp === startingLocalTimestamp) {
+        if (isValidCloudSave(cloudSave)) {
             restoreCloudSave(cloudSave);
             setSyncStatus('Progress loaded from your account');
             return;
+        }
+        if (startingLocalTimestamp) {
+            setSyncStatus('Moving this device save to your account…');
         }
         await uploadSave();
     };
 
     const renderAuth = (user) => {
-        signInForm.hidden = Boolean(user);
         authControl.replaceChildren();
-        if (!user) return;
+        if (!user) {
+            const signInLink = document.createElement('a');
+            signInLink.className = 'account-auth-button';
+            signInLink.href = 'account.html';
+            signInLink.textContent = 'Sign in / Sign up';
+            authControl.appendChild(signInLink);
+            return;
+        }
 
         const email = document.createElement('span');
         email.className = 'account-email-label';
@@ -2685,26 +2683,6 @@ function initSupabaseSync() {
             }
         }
     };
-
-    signInForm.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const emailInput = document.getElementById('account-email');
-        const submitButton = signInForm.querySelector('button[type="submit"]');
-        submitButton.disabled = true;
-        setSyncStatus('Sending sign-in link…');
-        try {
-            const { error } = await supabaseClient.auth.signInWithOtp({
-                email: emailInput.value.trim(),
-                options: { emailRedirectTo: window.location.href }
-            });
-            if (error) throw error;
-            setSyncStatus('Check your email for the sign-in link.');
-        } catch (error) {
-            setSyncError(error);
-        } finally {
-            submitButton.disabled = false;
-        }
-    });
 
     if (syncNowButton) {
         syncNowButton.addEventListener('click', async () => {

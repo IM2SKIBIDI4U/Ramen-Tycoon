@@ -5,10 +5,11 @@ https://im2skibidi4u.github.io/Ramen-Tycoon/
 
 ## Cloud accounts and saves
 
-The game uses Supabase email sign-in and stores each cloud save in a Postgres row owned by that signed-in user. Local browser saves remain enabled as a fallback. Cloud saves are not available until Supabase is configured.
+Game progress is saved to Supabase under the signed-in account. Existing browser saves are imported only when that account has no cloud save yet; after a successful cloud save, the old active local save is removed. Playing while signed out does not persist new progress, so create an account or sign in before playing.
 
-1. Create a Supabase project.
-2. In the Supabase SQL Editor, run:
+The public Supabase URL and publishable key are configured in `supabase-config.js`. A publishable key is intended for browser use; access to saves is restricted by row-level security. Never put a `service_role` key in this app.
+
+In the Supabase SQL Editor, run this once to create the save table and per-user policies:
 
 ```sql
 create table if not exists public.game_saves (
@@ -37,8 +38,8 @@ create policy "Users update own game save" on public.game_saves
 	with check ((select auth.uid()) = user_id);
 ```
 
-3. Copy the project URL and the public anon/publishable key from the Supabase project API settings into `supabase-config.js`. Never put a `service_role` key in this browser app.
-4. In Supabase Authentication URL settings, set the site URL to `https://im2skibidi4u.github.io/Ramen-Tycoon/` and allow that URL as a redirect.
-5. Deploy the site, then test signing in with an email link and confirm the status says `Progress synced to your account`. Sign in with the same email on another device and confirm it says `Progress loaded from your account`.
+In Supabase Authentication URL settings, set the site URL to `https://im2skibidi4u.github.io/Ramen-Tycoon/` and add `https://im2skibidi4u.github.io/Ramen-Tycoon/index.html` to allowed redirect URLs. Authentication happens on `account.html` using email links.
+
+After deploying, create an account, play until the status says `Progress synced to your account`, and sign in with the same email on another device. The account page and cloud database require an internet connection.
 
 Clerk accounts and saves are not automatically transferred to Supabase. Existing progress attached to a Clerk account must be recovered/exported separately before relying on the new account. No cloud save system can guarantee writes during network failures or a closed browser, so wait for the synced status before leaving the game.

@@ -8,13 +8,13 @@
         if (status) status.textContent = error?.message || 'Sign-in is unavailable. Try again later.';
     };
 
-    if (!window.Clerk || !window.__internal_ClerkUICtor) {
+    if (!window.Clerk) {
         showError(new Error('Clerk could not load. Check the connection and try again.'));
         return;
     }
 
     const clerk = window.Clerk;
-    clerk.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } })
+    clerk.load()
         .then(() => {
             if (clerk.user) {
                 window.location.replace(new URL('index.html', window.location.href));
@@ -22,15 +22,23 @@
             }
             if (status) status.remove();
             const mode = new URLSearchParams(window.location.search).get('mode');
-            const options = {
+            const returnToGame = new URL('index.html', window.location.href).toString();
+            const commonOptions = {
                 routing: 'hash',
-                signInUrl: 'account.html',
-                signUpUrl: 'account.html?mode=signup',
-                afterSignInUrl: 'index.html',
-                afterSignUpUrl: 'index.html'
+                forceRedirectUrl: returnToGame,
+                fallbackRedirectUrl: returnToGame
             };
-            if (mode === 'signup') clerk.mountSignUp(widget, options);
-            else clerk.mountSignIn(widget, options);
+            if (mode === 'signup') {
+                clerk.mountSignUp(widget, {
+                    ...commonOptions,
+                    signInUrl: new URL('account.html', window.location.href).toString()
+                });
+            } else {
+                clerk.mountSignIn(widget, {
+                    ...commonOptions,
+                    signUpUrl: new URL('account.html?mode=signup', window.location.href).toString()
+                });
+            }
         })
         .catch(showError);
 })();

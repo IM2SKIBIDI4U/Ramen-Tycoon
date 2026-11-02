@@ -109,20 +109,6 @@ body {
     line-height: 1.2;
     text-align: right;
 }
-.account-sync-button {
-    padding: 3px 0;
-    border: 0;
-    background: transparent;
-    color: #176b63;
-    font: inherit;
-    font-size: 0.65rem;
-    font-weight: 900;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-    cursor: pointer;
-}
-.account-sync-button[hidden] { display: none; }
-.account-sync-button:disabled { cursor: wait; opacity: 0.65; }
 .account-auth-button {
     display: inline-flex;
     min-height: 42px;

@@ -2510,7 +2510,6 @@ setInterval(() => {
 function initClerk() {
     const authControl = document.getElementById('account-auth-control');
     const syncStatus = document.getElementById('account-sync-status');
-    const syncNowButton = document.getElementById('account-sync-now');
     if (!authControl) return;
 
     const setSyncStatus = (message) => {
@@ -2520,13 +2519,13 @@ function initClerk() {
         console.error('Game account sync failed:', error);
         setSyncStatus(`Cloud save failed: ${error?.message || 'Unknown error'}. Progress is not saved until sync succeeds.`);
     };
-    if (!window.Clerk || !window.__internal_ClerkUICtor) {
+    if (!window.Clerk) {
         setSyncStatus('Clerk could not load. Check the connection and try again.');
         return;
     }
 
     const clerk = window.Clerk;
-    clerk.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } })
+    clerk.load()
         .then(() => {
             let syncUserId = null;
             let syncTimer = null;
@@ -2640,7 +2639,6 @@ function initClerk() {
                     syncReady = false;
                     clearTimeout(syncTimer);
                     accountSaveSync = null;
-                    if (syncNowButton) syncNowButton.hidden = true;
                     setSyncStatus('Sign in before playing to save progress to your account');
                     return;
                 }
@@ -2657,10 +2655,6 @@ function initClerk() {
                         await clerk.user.updateMetadata({ unsafeMetadata: { ramenTycoonSave: null } });
                     }
                 };
-                if (syncNowButton) {
-                    syncNowButton.hidden = false;
-                    syncNowButton.disabled = true;
-                }
                 setSyncStatus('Loading account progress…');
                 syncAccountSave(user, startingLocalTimestamp).catch((error) => {
                     setSyncError(error);
@@ -2668,7 +2662,6 @@ function initClerk() {
                 }).finally(() => {
                     if (user.id === syncUserId) {
                         syncReady = true;
-                        if (syncNowButton) syncNowButton.disabled = false;
                         if (saveChangedDuringInitialSync) {
                             saveChangedDuringInitialSync = false;
                             scheduleUpload();
@@ -2679,16 +2672,6 @@ function initClerk() {
 
             handleClerkState();
             clerk.addListener(handleClerkState);
-
-            if (syncNowButton) {
-                syncNowButton.addEventListener('click', async () => {
-                    if (!syncReady || !clerk.user || clerk.user.id !== syncUserId) return;
-                    clearTimeout(syncTimer);
-                    syncNowButton.disabled = true;
-                    await uploadSave();
-                    syncNowButton.disabled = false;
-                });
-            }
 
             const flushScheduledSave = () => {
                 if (!syncUserId || !syncReady || !syncTimer) return;

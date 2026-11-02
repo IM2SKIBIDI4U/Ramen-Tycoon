@@ -78,14 +78,16 @@
                 <span class="stock-status"><i></i> FRESH STOCK</span>
             </div>
             <div class="pantry-grid">
-                <div class="ing-item"><span>🍜 Noodles: <b id="inv-noodle">0</b></span><button onclick="buyIngredient('noodle', 10, 50)">Buy 10 ($50)</button></div>
-                <div class="ing-item"><span>🥣 Broth: <b id="inv-broth">0</b></span><button onclick="buyIngredient('broth', 10, 50)">Buy 10 ($50)</button></div>
-                <div class="ing-item"><span>🧂 Spice: <b id="inv-spice">0</b></span><button onclick="buyIngredient('spice', 10, 20)">Buy 10 ($20)</button></div>
-                <div class="ing-item"><span>🥚 Eggs: <b id="inv-egg">0</b></span><button onclick="buyIngredient('egg', 10, 80)">Buy 10 ($80)</button></div>
-                <div class="ing-item"><span>🧋 Boba: <b id="inv-boba">0</b></span><button onclick="buyIngredient('boba', 10, 150)">Buy 10 ($150)</button></div>
-                <div class="ing-item"><span>🥩 Chashu: <b id="inv-chashu">0</b></span><button onclick="buyIngredient('chashu', 10, 120)">Buy 10 ($120)</button></div>
-                <div class="ing-item"><span>🌿 Nori: <b id="inv-nori">0</b></span><button onclick="buyIngredient('nori', 10, 70)">Buy 10 ($70)</button></div>
-                <div class="ing-item"><span>🎋 Bamboo Shoots: <b id="inv-bamboo">0</b></span><button onclick="buyIngredient('bamboo', 10, 60)">Buy 10 ($60)</button></div>
+                <div class="ing-item"><span>🍜 Noodles: <b id="inv-noodle">0</b></span><button onclick="buyIngredient('noodle', 10)">Buy 10 ($50)</button></div>
+                <div class="ing-item"><span>🥣 Broth: <b id="inv-broth">0</b></span><button onclick="buyIngredient('broth', 10)">Buy 10 ($50)</button></div>
+                <div class="ing-item"><span>🧂 Spice: <b id="inv-spice">0</b></span><button onclick="buyIngredient('spice', 10)">Buy 10 ($20)</button></div>
+                <div class="ing-item"><span>🥚 Eggs: <b id="inv-egg">0</b></span><button onclick="buyIngredient('egg', 10)">Buy 10 ($80)</button></div>
+                <div class="ing-item"><span>🧋 Boba: <b id="inv-boba">0</b></span><button onclick="buyIngredient('boba', 10)">Buy 10 ($150)</button></div>
+                <div class="ing-item"><span>🥩 Chashu: <b id="inv-chashu">0</b></span><button onclick="buyIngredient('chashu', 10)">Buy 10 ($120)</button></div>
+                <div class="ing-item"><span>🌿 Nori: <b id="inv-nori">0</b></span><button onclick="buyIngredient('nori', 10)">Buy 10 ($70)</button></div>
+                <div class="ing-item"><span>🎋 Bamboo Shoots: <b id="inv-bamboo">0</b></span><button onclick="buyIngredient('bamboo', 10)">Buy 10 ($60)</button></div>
+                <div class="ing-item"><span>🌽 Sweet Corn: <b id="inv-corn">0</b></span><button onclick="buyIngredient('corn', 10)">Buy 10 ($90)</button></div>
+                <div class="ing-item"><span>🍄 Shiitake: <b id="inv-mushroom">0</b></span><button onclick="buyIngredient('mushroom', 10)">Buy 10 ($140)</button></div>
                 <div class="ing-item"><span>🚚 Auto-Refill</span><button id="btn-auto-refill" onclick="buyAutoRefill()">Buy ($50k)</button></div>
             </div>
             <div id="out-of-stock-msg" class="hidden" style="color: #ff4d4d; font-weight: bold; margin-top: 5px;">⚠️ OUT OF STOCK! ⚠️</div>
@@ -151,6 +153,9 @@
                 <h2>🗺️ Rival Empires</h2>
                 <p>Spend capital on marketing to steal their territory and gain permanent multipliers!</p>
                 <div id="turf-container" style="display: flex; flex-direction: column; gap: 10px;"></div>
+                <h2>🏗️ Restaurant Expansions</h2>
+                <p>Open new spaces to serve more guests and boost every bowl you sell.</p>
+                <div id="expansion-container" class="pad-container"></div>
             </div>
 
             <div id="view-decor" class="view-panel hidden-view">
@@ -256,7 +261,7 @@
         </div>
     </div>
 
-    <script defer src="script.js?v=15"></script>
+    <script defer src="script.js?v=16"></script>
     <div id="achieve-toast" class="hidden-toast">
     🏆 <b id="achieve-name">Achievement Unlocked!</b>
     </div>

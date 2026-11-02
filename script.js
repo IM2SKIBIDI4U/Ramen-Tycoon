@@ -60,18 +60,17 @@ const TRACK_TABLES = Array.from({length: 1000}, (_, i) => ({
     cost: Math.floor(1600 * Math.pow(1.12, i)) 
 }));
 
-const TRACK_WOK = [
-  { name: "Wok Lvl 2", cost: 1500, cookSpeedMs: 2500, capacity: 2, priceMultiplier: 1.2 },
-  { name: "Wok Lvl 3", cost: 5000, cookSpeedMs: 1800, capacity: 2, priceMultiplier: 1.5 },
-  { name: "Wok Lvl 4", cost: 15000, cookSpeedMs: 1000, capacity: 3, priceMultiplier: 1.8 },
-  { name: "MAX WOK (GOD TIER)", cost: 50000, cookSpeedMs: 400, capacity: 4, priceMultiplier: 2.5 }
-];
+const WOK_UPGRADE_COSTS = [1500, 5000, 15000, 50000];
+const TRACK_WOK = Array.from({ length: 999 }, (_, i) => ({
+    name: `Wok Lvl ${i + 2}`,
+    cost: WOK_UPGRADE_COSTS[i] || Math.floor(50000 * Math.pow(1.12, i - 3))
+}));
 
 const TRACK_AUTO = Array.from({length: 1000}, (_, i) => ({ 
     name: `Chef Speed Lvl ${i+1}`, 
     cost: Math.floor(9600 * Math.pow(1.11, i)) 
 }));
-const TRACK_BOWLS = Array.from({ length: 100 }, (_, i) => ({
+const TRACK_BOWLS = Array.from({ length: 1000 }, (_, i) => ({
     name: `Reinforced Bowl Set ${i + 1}`,
     cost: Math.floor(25000 * Math.pow(1.16, i))
 }));
@@ -288,8 +287,13 @@ function normalizeGameState() {
         if (!Number.isFinite(game[key])) game[key] = fallback;
     });
     game.tablesOwned = Math.max(5, Math.min(1000, Math.floor(game.tablesOwned)));
+    game.idxTable = Math.max(0, Math.min(TRACK_TABLES.length, Math.floor(Number(game.idxTable) || 0)));
     game.idxTable = Math.max(game.idxTable, game.tablesOwned - 1);
-    game.idxBowl = Math.max(0, Math.min(TRACK_BOWLS.length, Math.floor(game.idxBowl)));
+    game.idxRecipe = Math.max(0, Math.min(TRACK_RECIPES.length, Math.floor(Number(game.idxRecipe) || 0)));
+    game.idxWok = Math.max(0, Math.min(TRACK_WOK.length, Math.floor(Number(game.idxWok) || 0)));
+    game.idxAuto = Math.max(0, Math.min(TRACK_AUTO.length, Math.floor(Number(game.idxAuto) || 0)));
+    game.idxAds = Math.max(0, Math.min(TRACK_ADS.length, Math.floor(Number(game.idxAds) || 0)));
+    game.idxBowl = Math.max(0, Math.min(TRACK_BOWLS.length, Math.floor(Number(game.idxBowl) || 0)));
     game.strikes = Math.max(0, Math.floor(game.strikes));
     // Older saves may contain the former one-strike failure state; always resume play.
     game.gameOver = false;
@@ -328,12 +332,12 @@ function getShiftRent() {
 }
 
 function getWokLevel() {
-    return Math.max(0, Math.min(1000, Math.floor(Number(game.idxWok) || 0)));
+    return Math.max(1, Math.min(1000, Math.floor(Number(game.idxWok) || 0) + 1));
 }
 
 function getWokBatchSize(level = getWokLevel()) {
-    const wokLevel = Math.max(0, Math.min(1000, Math.floor(Number(level) || 0)));
-    return wokLevel === 0 ? 1 : wokLevel * 3;
+    const wokLevel = Math.max(1, Math.min(1000, Math.floor(Number(level) || 1)));
+    return wokLevel === 1 ? 1 : (wokLevel - 1) * 3;
 }
 
 function getEffectiveWokBatchSize(level = getWokLevel()) {
@@ -426,6 +430,30 @@ function chargeExtremeCash(amount) {
     game.wallet -= cost;
     if (game.wallet < 0) game.wallet = 0;
     return true;
+}
+
+function getAffordableUpgradePurchase(track, index, costMultiplier = 1, maxLevels = Infinity) {
+    const levelLimit = Math.max(0, Math.min(track.length - index, maxLevels));
+    let remainingCash = game.wallet;
+    let count = 0;
+    let totalCost = 0;
+
+    while (count < levelLimit) {
+        const cost = Math.ceil(track[index + count].cost * costMultiplier);
+        if (remainingCash < cost) break;
+        count++;
+        totalCost += cost;
+        remainingCash -= cost;
+    }
+
+    return { count, totalCost };
+}
+
+function buyAffordableUpgradeLevels(track, index, costMultiplier = 1, maxLevels = Infinity) {
+    if (game.gameOver) return 0;
+    const purchase = getAffordableUpgradePurchase(track, index, costMultiplier, maxLevels);
+    if (!purchase.count || !chargeExtremeCash(purchase.totalCost)) return 0;
+    return purchase.count;
 }
 
 function endExtremeShift() {
@@ -1436,7 +1464,7 @@ function collectPayment(index) {
     const decorMultiplier = 1 + getActiveDecor().profitBonus;
     let finalValue = (game.currentMenuPrice * mult) * getPrestigeMultiplier() * rushMultiplier * comboMultiplier * getDailySpecial().multiplier * getPopularityMultiplier() * (1 + game.idxBowl * 0.05) * getChefFeverMultiplier() * decorMultiplier * getExpansionRevenueMultiplier();
     
-    if (game.idxRecipe >= 999) finalValue *= 1000000;
+    if (game.idxRecipe >= TRACK_RECIPES.length) finalValue *= 1000000;
     
     creditRestaurantCash(finalValue);
     game.totalEarned += finalValue;
@@ -1780,23 +1808,23 @@ function runMonkeyLoop() {
 }
 
 function buyTable() {
-    const upgrade = TRACK_TABLES[game.idxTable];
-    if (game.gameOver || !upgrade || game.wallet < upgrade.cost || !chargeExtremeCash(upgrade.cost)) return;
-    game.tablesOwned++;
-    game.idxTable++;
+    const levels = buyAffordableUpgradeLevels(TRACK_TABLES, game.idxTable, 1, 1000 - game.tablesOwned);
+    if (!levels) return;
+    game.tablesOwned += levels;
+    game.idxTable += levels;
     playSound('cash'); saveGame(); updateUI(); updateKitchenUI();
 }
 function buyRecipe() {
-    const upgrade = TRACK_RECIPES[game.idxRecipe];
-    if (game.gameOver || !upgrade || game.wallet < upgrade.cost || !chargeExtremeCash(upgrade.cost)) return;
-    game.currentMenuPrice = upgrade.value;
-    game.idxRecipe++;
+    const levels = buyAffordableUpgradeLevels(TRACK_RECIPES, game.idxRecipe);
+    if (!levels) return;
+    game.idxRecipe += levels;
+    game.currentMenuPrice = TRACK_RECIPES[game.idxRecipe - 1].value;
     playSound('cash'); saveGame(); updateUI();
 }
 function buyAuto() { 
-    let u = TRACK_AUTO[game.idxAuto]; 
-    if (!game.gameOver && u && game.wallet >= u.cost && chargeExtremeCash(u.cost)) {
-        game.idxAuto++; 
+    const levels = buyAffordableUpgradeLevels(TRACK_AUTO, game.idxAuto);
+    if (levels) {
+        game.idxAuto += levels;
         playSound('cash'); 
         saveGame(); 
         updateUI(); 
@@ -1804,24 +1832,19 @@ function buyAuto() {
     } 
 }
 function buyWok() {
-    const upgrade = TRACK_WOK[game.idxWok];
-    if (!game.gameOver && upgrade && game.wallet >= upgrade.cost && chargeExtremeCash(upgrade.cost)) {
-        game.idxWok++; playSound('cash'); saveGame(); updateUI();
-    }
+    const levels = buyAffordableUpgradeLevels(TRACK_WOK, game.idxWok);
+    if (!levels) return;
+    game.idxWok += levels; playSound('cash'); saveGame(); updateUI();
 }
 function buyAds() {
-    const upgrade = TRACK_ADS[game.idxAds];
-    const cost = upgrade ? upgrade.cost * 8 : Infinity;
-    if (!game.gameOver && upgrade && game.wallet >= cost && chargeExtremeCash(cost)) {
-        game.idxAds++; playSound('cash'); saveGame(); updateUI();
-    }
+    const levels = buyAffordableUpgradeLevels(TRACK_ADS, game.idxAds, 8);
+    if (!levels) return;
+    game.idxAds += levels; playSound('cash'); saveGame(); updateUI();
 }
 function buyBowl() {
-    const upgrade = TRACK_BOWLS[game.idxBowl];
-    if (!game.gameOver && upgrade && game.wallet >= upgrade.cost && chargeExtremeCash(upgrade.cost)) {
-        game.idxBowl++;
-        playSound('cash'); saveGame(); updateUI();
-    }
+    const levels = buyAffordableUpgradeLevels(TRACK_BOWLS, game.idxBowl);
+    if (!levels) return;
+    game.idxBowl += levels; playSound('cash'); saveGame(); updateUI();
 }
 
 function getUpgradeDescription(id, upgrade, idx) {
@@ -1845,7 +1868,7 @@ function getUpgradeDescription(id, upgrade, idx) {
             return `Unlocks ${upgrade.name} and sets its menu price to $${formatMoney(upgrade.value)} per bowl.`;
         case 'pad-wok': {
             const currentBatch = getEffectiveWokBatchSize();
-            const nextBatch = getEffectiveWokBatchSize(idx + 1);
+            const nextBatch = getEffectiveWokBatchSize(idx + 2);
             return `Raises batch cooking from up to ${currentBatch} to ${nextBatch} bowl${nextBatch === 1 ? '' : 's'} per click, limited by your open tables.`;
         }
         case 'pad-auto': {
@@ -1863,20 +1886,27 @@ function getUpgradeDescription(id, upgrade, idx) {
     }
 }
 
-function renderPad(id, track, idx, func, title) {
+function renderPad(id, track, idx, func, title, costMultiplier = 1, maxLevels = Infinity) {
     let container = document.getElementById(id); 
     if(!container) return; 
     let u = track[idx];
-    const description = getUpgradeDescription(id, u, idx);
+    const availableLevels = Math.max(0, Math.min(track.length - idx, maxLevels));
+    const affordablePurchase = getAffordableUpgradePurchase(track, idx, costMultiplier, maxLevels);
+    const description = getUpgradeDescription(id, u && availableLevels ? u : undefined, idx);
     const wokStatus = id === 'pad-wok'
         ? `<small class="upgrade-status">CURRENT BATCH · up to ${getEffectiveWokBatchSize()} bowl${getEffectiveWokBatchSize() === 1 ? '' : 's'} per click</small>`
         : '';
     container.dataset.upgrade = id;
-    if (!u) {
+    if (!u || !availableLevels) {
         container.innerHTML = `<button class="tycoon-pad is-maxed" type="button" disabled><span class="upgrade-kicker">${title}</span><b class="upgrade-title">MAX LEVEL</b><span class="upgrade-description">${description}</span>${wokStatus}</button>`;
     } else {
-        const afford = game.wallet >= u.cost ? 'affordable' : '';
-        container.innerHTML = `<button class="tycoon-pad ${afford}" type="button" aria-label="${title}: ${u.name}. ${description} Cost $${formatMoney(u.cost)}" onclick="${func}()"><span class="upgrade-kicker">${title}</span><b class="upgrade-title">Lvl ${idx + 1}: ${u.name}</b><span class="upgrade-cost">$${formatMoney(u.cost)}</span><span class="upgrade-description">${description}</span>${wokStatus}</button>`;
+        const afford = affordablePurchase.count ? 'affordable' : '';
+        const nextCost = Math.ceil(u.cost * costMultiplier);
+        const purchaseText = affordablePurchase.count
+            ? `Buy ${affordablePurchase.count} level${affordablePurchase.count === 1 ? '' : 's'} · $${formatMoney(affordablePurchase.totalCost)}`
+            : `Next level · $${formatMoney(nextCost)}`;
+        const displayedLevel = id === 'pad-wok' ? idx + 2 : idx + 1;
+        container.innerHTML = `<button class="tycoon-pad ${afford}" type="button" aria-label="${title}: ${u.name}. ${description} ${purchaseText}" onclick="${func}()"><span class="upgrade-kicker">${title}</span><b class="upgrade-title">Lvl ${displayedLevel}: ${u.name}</b><span class="upgrade-cost">${purchaseText}</span><span class="upgrade-description">${description}</span>${wokStatus}</button>`;
     }
 }
 
@@ -1917,7 +1947,7 @@ function updateUI() {
     if(document.getElementById('stat-menu')) document.getElementById('stat-menu').innerText = `${currentRecipeName} ($${formatMoney(game.currentMenuPrice)})`;
 
     let pBtn = document.getElementById('btn-prestige'); 
-    if(pBtn) { if(game.idxRecipe >= 999) pBtn.removeAttribute('disabled'); else pBtn.setAttribute('disabled', 'true'); }
+    if(pBtn) { if(game.idxRecipe >= TRACK_RECIPES.length) pBtn.removeAttribute('disabled'); else pBtn.setAttribute('disabled', 'true'); }
 
     seats.forEach((seat, i) => {
         let el = document.getElementById(`seat-${i}`); if (!el) return;
@@ -1936,11 +1966,11 @@ function updateUI() {
         html += `<div class="belt-strip"></div>`; el.innerHTML = html; el.onclick = () => handleTableClick(i);
     });
 
-    renderPad('pad-table', TRACK_TABLES, game.idxTable, 'buyTable', '🪑 TABLES'); 
+    renderPad('pad-table', TRACK_TABLES, game.idxTable, 'buyTable', '🪑 TABLES', 1, 1000 - game.tablesOwned);
     renderPad('pad-recipe', TRACK_RECIPES, game.idxRecipe, 'buyRecipe', '🍲 RECIPES');
     renderPad('pad-wok', TRACK_WOK, game.idxWok, 'buyWok', '🍳 WOK'); 
     renderPad('pad-auto', TRACK_AUTO, game.idxAuto, 'buyAuto', '🐒 MAIN CHEF');
-    renderPad('pad-ads', TRACK_ADS, game.idxAds || 0, 'buyAds', '📺 ADVERTISE');
+    renderPad('pad-ads', TRACK_ADS, game.idxAds || 0, 'buyAds', '📺 ADVERTISE', 8);
     renderPad('pad-bowl', TRACK_BOWLS, game.idxBowl, 'buyBowl', '🥣 BOWL SET');
     updateExtremeShiftHud();
     renderRestaurantControls();
@@ -2184,13 +2214,13 @@ function completeDelivery(seatIndex) {
 }
 
 function prestigeGame() { 
-    if(game.idxRecipe >= 999 && confirm("Sell franchise for Monkey Money? Reset money/upgrades for 50 Monkey Money and a permanent profit multiplier!")) { 
+    if(game.idxRecipe >= TRACK_RECIPES.length && confirm("Sell franchise for Monkey Money? Reset money/upgrades for 50 Monkey Money and a permanent profit multiplier!")) {
         let st = (game.monkeyMoney || 0) + 50; 
         let tm = game.turfMult; let d = game.decorOwned; let ad = game.activeDecor; let rv = game.rivals; let ach = game.achievements || [];
         localStorage.removeItem('RamenUltimateData');
         game = { wallet: 150, monkeyMoney: st, turfMult: tm, lastSaveTime: Date.now(), tablesOwned: 5, idxTable: 4, idxBowl: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxAds: 0, idxSpecial: 0, currentMenuPrice: 50, activeDecor: ad, decorOwned: d, autoRefill: false, staff: { waiter: 0, ninja: 0, mascot: 0, host: 0, supplier: 0 }, rivals: rv, inv: { ...defaultInv }, upgrades: {}, achievements: ach, autoChefSpeedMulti: 1, staffTraining: { waiter: 0, ninja: 0, mascot: 0, host: 0, supplier: 0 }, expansionLevel: 0, shiftNumber: 1, shiftEndsAt: Date.now() + EXTREME_SHIFT_MS, strikes: 0, gameOver: false, gameOverReason: '', rentDebt: 0, chefFever: 0, chefFeverEndsAt: 0 };
         saveGame(); location.reload(); 
-    } else if (game.idxRecipe < 999) {
+    } else if (game.idxRecipe < TRACK_RECIPES.length) {
         alert("You must unlock Universal Ramen (Level 1000) before you can franchise!");
     }
 }
@@ -2380,10 +2410,12 @@ function adminMaxEverything() {
     game.monkeyMoney = 1e9;
     game.tablesOwned = 1000; 
     game.idxTable = 999;
-    game.idxRecipe = 999; 
+    game.idxRecipe = TRACK_RECIPES.length;
     game.idxWok = TRACK_WOK.length;
-    game.idxAuto = 999;
-    game.idxAds = 999;
+    game.idxAuto = TRACK_AUTO.length;
+    game.idxAds = TRACK_ADS.length;
+    game.idxBowl = TRACK_BOWLS.length;
+    game.currentMenuPrice = TRACK_RECIPES[TRACK_RECIPES.length - 1].value;
     adminMaxIngredients();
     saveGame();
     updateUI();

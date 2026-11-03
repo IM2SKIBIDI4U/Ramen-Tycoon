@@ -715,6 +715,122 @@ button:focus-visible { outline: 3px solid #1c8e8b; outline-offset: 3px; }
     }
 }
 
+/* Night-market arcade refresh */
+body {
+    background:
+        radial-gradient(ellipse at 8% 2%, rgba(233, 164, 83, 0.2), transparent 34rem),
+        radial-gradient(ellipse at 96% 14%, rgba(35, 177, 161, 0.2), transparent 38rem),
+        linear-gradient(145deg, #10282e, #17363a 55%, #10262e);
+}
+
+.game-container.theme-default .brand-lockup {
+    min-height: 82px;
+    margin: 0 0 16px;
+    padding: 12px 16px;
+    border: 1px solid rgba(164, 206, 184, 0.17);
+    border-radius: 22px;
+    background: linear-gradient(115deg, rgba(20, 54, 57, 0.96), rgba(31, 72, 70, 0.88));
+    box-shadow: 0 16px 38px rgba(0, 0, 0, 0.16), inset 0 1px rgba(255,255,255,0.12);
+}
+
+.game-container.theme-default .brand-bowl {
+    border-color: rgba(255, 213, 147, 0.55);
+    background: linear-gradient(145deg, #fff4d8, #f2c579);
+    box-shadow: 0 0 28px rgba(251, 190, 99, 0.21), inset 0 1px #fff;
+}
+
+.game-container.theme-default .brand-kicker { color: #a9ddd0; }
+.game-container.theme-default .brand-copy h1 { color: #fff5df; }
+.game-container.theme-default .brand-copy h1 em { color: #ff9a70; }
+.game-container.theme-default .brand-copy p { color: #bdd2ca; }
+.game-container.theme-default .shift-live {
+    color: #e2fff0;
+    border-color: rgba(103, 226, 173, 0.27);
+    background: rgba(39, 130, 102, 0.34);
+}
+.game-container.theme-default .shift-live i {
+    background: #71edb0;
+    box-shadow: 0 0 0 4px rgba(113, 237, 176, 0.13), 0 0 12px rgba(113, 237, 176, 0.65);
+}
+
+.audio-controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.audio-toggle {
+    min-height: 34px;
+    padding: 6px 9px;
+    border: 1px solid rgba(172, 214, 194, 0.22);
+    border-radius: 10px;
+    color: #e3f5ea;
+    background: rgba(255, 255, 255, 0.08);
+    font: 800 0.68rem 'Nunito', sans-serif;
+    cursor: pointer;
+    transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.audio-toggle:hover:not(:disabled),
+.audio-toggle[aria-pressed="true"] {
+    color: #fff4d8;
+    border-color: rgba(255, 193, 113, 0.44);
+    background: rgba(220, 145, 71, 0.2);
+}
+
+.audio-toggle:disabled { cursor: not-allowed; opacity: 0.5; }
+.audio-volume { display: inline-flex; align-items: center; gap: 5px; color: #a9c8bd; font-size: 0.55rem; font-weight: 1000; letter-spacing: 0.08em; }
+.audio-volume input { width: 66px; accent-color: #f0ad5d; cursor: pointer; }
+.audio-volume input:focus-visible { outline: 2px solid #f0ad5d; outline-offset: 3px; }
+
+.game-container.theme-default .glass-panel {
+    border-radius: 19px;
+    box-shadow: 0 13px 34px rgba(0, 0, 0, 0.12), inset 0 1px rgba(255,255,255,0.96);
+}
+
+.game-container.theme-default .restaurant-floor {
+    border-color: rgba(255, 211, 147, 0.4);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.19), inset 0 1px rgba(255,255,255,0.8);
+}
+
+.game-container.theme-default .tab-nav {
+    border-color: rgba(151, 205, 184, 0.3);
+    background: rgba(239, 248, 237, 0.96);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+}
+
+.game-container.theme-default .tab-btn.active {
+    background: linear-gradient(135deg, #22a898, #155d67);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.12) inset, 0 7px 20px rgba(18, 123, 116, 0.28);
+}
+
+.game-container.theme-default .ing-item,
+.game-container.theme-default .hud-cell {
+    transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.game-container.theme-default .ing-item:hover,
+.game-container.theme-default .hud-cell:hover {
+    transform: translateY(-2px);
+    border-color: rgba(34, 157, 139, 0.3);
+    box-shadow: 0 8px 18px rgba(31, 91, 77, 0.1);
+}
+
+@media (max-width: 900px) {
+    .game-container.theme-default .brand-lockup { flex-wrap: wrap; }
+    .game-container.theme-default .audio-controls { margin-left: auto; }
+    .game-container.theme-default .shift-live { margin-left: 0; }
+}
+
+@media (max-width: 600px) {
+    .game-container.theme-default .brand-lockup { gap: 9px; padding: 11px; }
+    .game-container.theme-default .audio-controls { order: 4; width: 100%; margin-left: 0; }
+    .game-container.theme-default .shift-live { margin-left: auto; }
+    .audio-toggle { min-height: 32px; }
+    .audio-volume { margin-left: auto; }
+}
+
 /* Standard Store: service-first ramen console with a cozy future-night palette. */
 .game-container.theme-default {
     display: flex;

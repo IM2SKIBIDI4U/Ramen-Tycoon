@@ -1,15 +1,175 @@
-// --- NEW SOUND SYSTEM ---
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-function playSound(type) {
-    if(audioCtx.state === 'suspended') audioCtx.resume();
-    const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
-    osc.connect(gain); gain.connect(audioCtx.destination);
-    
-    if(type === 'cash') { osc.type = 'sine'; osc.frequency.setValueAtTime(800, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1); gain.gain.setValueAtTime(0.1, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1); osc.start(); osc.stop(audioCtx.currentTime + 0.1); }
-    else if(type === 'cook') { osc.type = 'square'; osc.frequency.setValueAtTime(200, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1); gain.gain.setValueAtTime(0.05, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1); osc.start(); osc.stop(audioCtx.currentTime + 0.1); }
-    else if(type === 'serve') { osc.type = 'triangle'; osc.frequency.setValueAtTime(400, audioCtx.currentTime); gain.gain.setValueAtTime(0.05, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1); osc.start(); osc.stop(audioCtx.currentTime + 0.1); }
-    else if(type === 'error') { osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, audioCtx.currentTime); gain.gain.setValueAtTime(0.1, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2); osc.start(); osc.stop(audioCtx.currentTime + 0.2); }
+// --- SOUND SYSTEM ---
+const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+const audioSettingsKey = 'RamenSoundSettings';
+let audioSettings = { enabled: true, music: true, volume: 0.45 };
+let audioCtx = null;
+let masterGain = null;
+let musicGain = null;
+let musicTimer = null;
+let musicStep = 0;
+
+try {
+    const savedAudioSettings = localStorage.getItem(audioSettingsKey);
+    if (savedAudioSettings) {
+        const parsedSettings = JSON.parse(savedAudioSettings);
+        audioSettings = {
+            enabled: parsedSettings.enabled !== false,
+            music: parsedSettings.music !== false,
+            volume: Number.isFinite(parsedSettings.volume)
+                ? Math.min(1, Math.max(0, parsedSettings.volume))
+                : audioSettings.volume
+        };
+    }
+} catch (error) {
+    console.warn('Could not load saved audio settings.', error);
 }
+
+function saveAudioSettings() {
+    try {
+        localStorage.setItem(audioSettingsKey, JSON.stringify(audioSettings));
+    } catch (error) {
+        console.warn('Could not save audio settings.', error);
+    }
+}
+
+function ensureAudioContext() {
+    if (!AudioContextClass) return false;
+    if (!audioCtx) {
+        audioCtx = new AudioContextClass();
+        masterGain = audioCtx.createGain();
+        musicGain = audioCtx.createGain();
+        musicGain.gain.value = 0.22;
+        musicGain.connect(masterGain);
+        masterGain.connect(audioCtx.destination);
+        masterGain.gain.value = audioSettings.enabled ? audioSettings.volume * 0.45 : 0;
+    }
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(error => console.warn('Could not resume game audio.', error));
+    }
+    return true;
+}
+
+function playTone(frequency, duration, volume, waveform = 'sine', endFrequency = frequency, output = masterGain, delay = 0) {
+    if (!audioCtx || !output) return;
+    const start = audioCtx.currentTime + delay;
+    const oscillator = audioCtx.createOscillator();
+    const envelope = audioCtx.createGain();
+    oscillator.type = waveform;
+    oscillator.frequency.setValueAtTime(frequency, start);
+    if (endFrequency !== frequency) {
+        oscillator.frequency.exponentialRampToValueAtTime(endFrequency, start + duration);
+    }
+    envelope.gain.setValueAtTime(0.0001, start);
+    envelope.gain.exponentialRampToValueAtTime(Math.max(volume, 0.0002), start + 0.018);
+    envelope.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+    oscillator.connect(envelope);
+    envelope.connect(output);
+    oscillator.start(start);
+    oscillator.stop(start + duration + 0.02);
+}
+
+function playAmbientNote() {
+    if (!audioCtx || !musicGain || !audioSettings.enabled || !audioSettings.music) return;
+    const notes = [60, 64, 67, 71, 74, 71, 67, 64, 57, 60, 64, 67, 72, 67, 64, 60];
+    const midiNote = notes[musicStep % notes.length];
+    const frequency = 440 * Math.pow(2, (midiNote - 69) / 12);
+    playTone(frequency, 1.15, 0.16, 'triangle', frequency * 0.995, musicGain);
+    if (musicStep % 4 === 0) {
+        playTone(frequency / 2, 2.4, 0.11, 'sine', frequency / 2, musicGain);
+    }
+    musicStep += 1;
+}
+
+function startAmbientMusic() {
+    if (!ensureAudioContext() || !audioSettings.enabled || !audioSettings.music || musicTimer !== null) return;
+    musicGain.gain.setTargetAtTime(0.22, audioCtx.currentTime, 0.4);
+    playAmbientNote();
+    musicTimer = window.setInterval(playAmbientNote, 1450);
+}
+
+function stopAmbientMusic() {
+    if (musicTimer !== null) {
+        window.clearInterval(musicTimer);
+        musicTimer = null;
+    }
+    if (audioCtx && musicGain) {
+        musicGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.15);
+    }
+}
+
+function updateAudioControls() {
+    const soundButton = document.getElementById('btn-sound');
+    const musicButton = document.getElementById('btn-music');
+    const volumeSlider = document.getElementById('sound-volume');
+    if (soundButton) {
+        soundButton.textContent = audioSettings.enabled ? '🔊 Sound on' : '🔇 Sound off';
+        soundButton.setAttribute('aria-pressed', String(audioSettings.enabled));
+    }
+    if (musicButton) {
+        musicButton.textContent = audioSettings.music ? '🎵 Music on' : '🎵 Music off';
+        musicButton.setAttribute('aria-pressed', String(audioSettings.music));
+        musicButton.disabled = !audioSettings.enabled;
+    }
+    if (volumeSlider) volumeSlider.value = String(Math.round(audioSettings.volume * 100));
+}
+
+function toggleSound() {
+    audioSettings.enabled = !audioSettings.enabled;
+    if (audioSettings.enabled) {
+        ensureAudioContext();
+        if (masterGain) masterGain.gain.setTargetAtTime(audioSettings.volume * 0.45, audioCtx.currentTime, 0.08);
+        if (audioSettings.music) startAmbientMusic();
+    } else {
+        stopAmbientMusic();
+        if (audioCtx && masterGain) masterGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.08);
+    }
+    saveAudioSettings();
+    updateAudioControls();
+}
+
+function toggleMusic() {
+    audioSettings.music = !audioSettings.music;
+    if (audioSettings.enabled && audioSettings.music) startAmbientMusic();
+    else stopAmbientMusic();
+    saveAudioSettings();
+    updateAudioControls();
+}
+
+function setSoundVolume(value) {
+    const volume = Number(value);
+    if (!Number.isFinite(volume)) return;
+    audioSettings.volume = Math.min(1, Math.max(0, volume / 100));
+    if (audioCtx && masterGain) {
+        masterGain.gain.setTargetAtTime(
+            audioSettings.enabled ? audioSettings.volume * 0.45 : 0,
+            audioCtx.currentTime,
+            0.06
+        );
+    }
+    saveAudioSettings();
+}
+
+function playSound(type) {
+    if (!audioSettings.enabled || !ensureAudioContext()) return;
+    if (audioSettings.music) startAmbientMusic();
+    const volume = audioSettings.volume;
+    if (type === 'cash') {
+        playTone(660, 0.24, 0.28 * volume, 'sine', 990);
+        playTone(830, 0.28, 0.2 * volume, 'sine', 1245, masterGain, 0.08);
+    } else if (type === 'cook') {
+        playTone(190, 0.22, 0.2 * volume, 'triangle', 115);
+        playTone(280, 0.09, 0.08 * volume, 'sine', 420, masterGain, 0.05);
+    } else if (type === 'serve') {
+        playTone(523.25, 0.34, 0.2 * volume, 'sine');
+        playTone(659.25, 0.4, 0.18 * volume, 'sine', 659.25, masterGain, 0.07);
+        playTone(783.99, 0.45, 0.15 * volume, 'triangle', 783.99, masterGain, 0.14);
+    } else if (type === 'error') {
+        playTone(240, 0.18, 0.22 * volume, 'triangle', 180);
+        playTone(180, 0.2, 0.16 * volume, 'triangle', 140, masterGain, 0.12);
+    }
+}
+
+updateAudioControls();
 
 // --- FORMATTERS ---
 const suffixes = ["", "k", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc", "Ud", "Dd", "Td", "Qd", "Qnd", "Sxd", "Spd", "Ocd"];

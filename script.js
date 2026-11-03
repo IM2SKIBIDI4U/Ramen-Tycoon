@@ -2503,6 +2503,7 @@ function adminMaxEverything() {
 function saveGame() {
     game.lastSaveTime = Date.now();
     localSaveTimestamp = game.lastSaveTime;
+    localStorage.setItem('RamenUltimateData', JSON.stringify(game));
     accountSaveSync?.schedule();
 }
 
@@ -2543,7 +2544,6 @@ function closeOfflineModal() {
 
 // --- BOOT UP THE GAME ---
 window.onload = () => {
-    loadGame();          
     applyTheme();
     initTables();        
     updateUI();          
@@ -2635,7 +2635,6 @@ function initClerk() {
                     if (clerk.user?.id === syncUserId) {
                         if (game.lastSaveTime <= savedAt) game.lastSaveTime = savedAt;
                         localSaveTimestamp = savedAt;
-                        localStorage.removeItem('RamenUltimateData');
                         setSyncStatus('Progress synced to your account');
                     }
                     return true;
@@ -2668,7 +2667,7 @@ function initClerk() {
                 normalizeGameState();
                 resetMissionsIfNeeded();
                 localSaveTimestamp = game.lastSaveTime;
-                localStorage.removeItem('RamenUltimateData');
+                localStorage.setItem('RamenUltimateData', JSON.stringify(game));
                 applyTheme();
                 updateUI();
                 updateKitchenUI();
@@ -2683,6 +2682,11 @@ function initClerk() {
                     throw new Error('The cloud save is invalid. The local save was left unchanged.');
                 }
                 if (isValidCloudSave(cloudSave)) {
+                    if (startingLocalTimestamp > cloudSave.savedAt) {
+                        setSyncStatus('This device has newer progress — syncing it to your account…');
+                        scheduleUpload();
+                        return;
+                    }
                     restoreCloudSave(cloudSave);
                     setSyncStatus('Progress loaded from your account');
                     return;
@@ -2828,4 +2832,5 @@ function initClerk() {
         });
 }
 
+loadGame();
 initClerk();

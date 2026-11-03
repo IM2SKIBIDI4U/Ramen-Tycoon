@@ -316,7 +316,6 @@ let game = {
 };
 let localSaveTimestamp = 0;
 let accountSaveSync = null;
-
 window.vipPartyActive = 0; 
 
 const MISSION_DEFINITIONS = [
@@ -2429,13 +2428,15 @@ async function resetGame() {
     if (currentSave && !localStorage.getItem('RamenPreviousRunBackup')) {
         localStorage.setItem('RamenPreviousRunBackup', currentSave);
     }
-    localStorage.removeItem('RamenUltimateData');
     try {
         await accountSaveSync?.reset();
-        location.reload();
     } catch (error) {
+        console.error('Could not reset the account save:', error);
         alert(`The account save could not be reset: ${error.message}`);
+        return;
     }
+    localStorage.removeItem('RamenUltimateData');
+    location.reload();
 }
 
 function restorePreviousSave() {
@@ -2661,7 +2662,7 @@ function adminMaxEverything() {
 }
 
 function saveGame() {
-    game.lastSaveTime = Date.now();
+    game.lastSaveTime = Math.max(Date.now(), (Number(game.lastSaveTime) || 0) + 1);
     localSaveTimestamp = game.lastSaveTime;
     localStorage.setItem('RamenUltimateData', JSON.stringify(game));
     accountSaveSync?.schedule();
@@ -2676,6 +2677,7 @@ function loadGame() {
             localSaveTimestamp = Number(parsed.lastSaveTime) || 0;
         } catch (error) {
             localStorage.removeItem('RamenUltimateData');
+            localSaveTimestamp = 0;
             console.warn('Saved game was invalid. Starting a fresh restaurant.', error);
         }
 
@@ -2761,18 +2763,15 @@ setInterval(() => {
 
 function initClerk() {
     const authControl = document.getElementById('account-auth-control');
-    const syncStatus = document.getElementById('account-sync-status');
     if (!authControl) return;
 
-    const setSyncStatus = (message) => {
-        if (syncStatus) syncStatus.textContent = message;
-    };
-    const setSyncError = (error) => {
-        console.error('Game account sync failed:', error);
-        setSyncStatus(`Cloud save failed: ${error?.message || 'Unknown error'}. Progress is not saved until sync succeeds.`);
+    const setAccountStatus = (message) => {
+        const status = document.getElementById('account-sync-status');
+        if (status) status.textContent = message;
     };
     if (!window.Clerk || !window.__internal_ClerkUICtor) {
-        setSyncStatus('Clerk or its UI components could not load. Check the connection and try again.');
+        console.error('Clerk account service could not load.');
+        setAccountStatus('Account service unavailable. Your game saves locally in this browser.');
         return;
     }
 
@@ -2781,10 +2780,11 @@ function initClerk() {
         .then(() => {
             let syncUserId = null;
             let syncTimer = null;
-            let uploadInProgress = false;
-            let uploadRequested = false;
             let syncReady = false;
             let saveChangedDuringInitialSync = false;
+            let uploadInProgress = false;
+            let uploadRequested = false;
+            let resetInProgress = false;
 
             const isValidCloudSave = (save) => save
                 && save.version === 1
@@ -2793,59 +2793,12 @@ function initClerk() {
                 && Number.isFinite(save.game.wallet)
                 && Number.isFinite(save.game.tablesOwned);
 
-            const uploadSave = async () => {
-                if (uploadInProgress) {
-                    uploadRequested = true;
-                    return false;
-                }
-                const user = clerk.user;
-                if (!user || user.id !== syncUserId) return false;
-
-                uploadInProgress = true;
-                try {
-                    setSyncStatus('Syncing progress to your account…');
-                    const savedAt = Math.max(Date.now(), game.lastSaveTime || 0);
-                    const save = { version: 1, savedAt, game: { ...game, lastSaveTime: savedAt } };
-                    const metadata = { ...(user.unsafeMetadata || {}), ramenTycoonSave: save };
-                    if (new TextEncoder().encode(JSON.stringify(metadata)).length > 7500) {
-                        throw new Error('The save is too large for Clerk account metadata.');
-                    }
-                    await user.updateMetadata({ unsafeMetadata: { ramenTycoonSave: save } });
-                    if (clerk.user?.id === syncUserId) {
-                        if (game.lastSaveTime <= savedAt) game.lastSaveTime = savedAt;
-                        localSaveTimestamp = savedAt;
-                        setSyncStatus('Progress synced to your account');
-                    }
-                    return true;
-                } catch (error) {
-                    setSyncError(error);
-                    return false;
-                } finally {
-                    uploadInProgress = false;
-                    if (uploadRequested) {
-                        uploadRequested = false;
-                        void uploadSave();
-                    }
-                }
-            };
-
-            const scheduleUpload = () => {
-                if (!clerk.user || clerk.user.id !== syncUserId) return;
-                if (!syncReady) {
-                    saveChangedDuringInitialSync = true;
-                    return;
-                }
-                clearTimeout(syncTimer);
-                setSyncStatus('Progress changed — syncing…');
-                syncTimer = setTimeout(() => void uploadSave(), 800);
-            };
-
             const restoreCloudSave = (save) => {
                 game = Object.assign(game, save.game);
                 game.lastSaveTime = save.savedAt;
                 normalizeGameState();
                 resetMissionsIfNeeded();
-                localSaveTimestamp = game.lastSaveTime;
+                localSaveTimestamp = save.savedAt;
                 localStorage.setItem('RamenUltimateData', JSON.stringify(game));
                 applyTheme();
                 updateUI();
@@ -2855,22 +2808,86 @@ function initClerk() {
                 renderDecorPanel();
             };
 
+            const uploadSave = async () => {
+                if (uploadInProgress) {
+                    uploadRequested = true;
+                    return false;
+                }
+                const user = clerk.user;
+                if (!user || user.id !== syncUserId || resetInProgress) return false;
+
+                uploadInProgress = true;
+                try {
+                    setAccountStatus('Syncing local progress to your account…');
+                    const savedAt = Math.max(Date.now(), Number(game.lastSaveTime) || 0, localSaveTimestamp);
+                    game.lastSaveTime = savedAt;
+                    localSaveTimestamp = savedAt;
+                    const save = { version: 1, savedAt, game: { ...game } };
+                    localStorage.setItem('RamenUltimateData', JSON.stringify(game));
+                    const metadata = { ...(user.unsafeMetadata || {}), ramenTycoonSave: save };
+                    if (new TextEncoder().encode(JSON.stringify(metadata)).length > 7500) {
+                        throw new Error('The save is too large for Clerk account metadata.');
+                    }
+                    await user.updateMetadata({ unsafeMetadata: { ramenTycoonSave: save } });
+                    if (clerk.user?.id === syncUserId) {
+                        setAccountStatus('Progress saved to your account and this device.');
+                    }
+                    return true;
+                } catch (error) {
+                    console.error('Game account sync failed:', error);
+                    setAccountStatus(`Cloud save failed: ${error?.message || 'Unknown error'}. Your local progress is still saved.`);
+                    return false;
+                } finally {
+                    uploadInProgress = false;
+                    if (uploadRequested) {
+                        uploadRequested = false;
+                        if (syncReady && !resetInProgress) {
+                            clearTimeout(syncTimer);
+                            syncTimer = setTimeout(() => void uploadSave(), 300);
+                        }
+                    }
+                }
+            };
+
+            const scheduleUpload = () => {
+                if (!clerk.user || clerk.user.id !== syncUserId || resetInProgress) return;
+                if (!syncReady) {
+                    saveChangedDuringInitialSync = true;
+                    return;
+                }
+                clearTimeout(syncTimer);
+                setAccountStatus('Progress changed — syncing to your account…');
+                syncTimer = setTimeout(() => void uploadSave(), 800);
+            };
+
             const syncAccountSave = async (user, startingLocalTimestamp) => {
                 const cloudSave = user.unsafeMetadata?.ramenTycoonSave;
                 if (cloudSave != null && !isValidCloudSave(cloudSave)) {
-                    throw new Error('The cloud save is invalid. The local save was left unchanged.');
+                    throw new Error('The account save is invalid. The local save was left unchanged.');
                 }
+
+                if (localSaveTimestamp > startingLocalTimestamp) {
+                    setAccountStatus('Local progress changed while connecting — saving it to your account…');
+                    await uploadSave();
+                    return;
+                }
+
                 if (isValidCloudSave(cloudSave)) {
                     if (startingLocalTimestamp > cloudSave.savedAt) {
-                        setSyncStatus('This device has newer progress — syncing it to your account…');
-                        scheduleUpload();
+                        setAccountStatus('This device has newer progress — saving it to your account…');
+                        await uploadSave();
                         return;
                     }
                     restoreCloudSave(cloudSave);
-                    setSyncStatus('Progress loaded from your account');
+                    setAccountStatus('Progress loaded from your account and saved on this device.');
                     return;
                 }
-                if (startingLocalTimestamp) setSyncStatus('Moving this device save to your Clerk account…');
+
+                if (startingLocalTimestamp) {
+                    setAccountStatus('Linking this device’s local save to your account…');
+                } else {
+                    setAccountStatus('Creating an account save from this game…');
+                }
                 await uploadSave();
             };
 
@@ -2885,12 +2902,14 @@ function initClerk() {
                     accountToggle.className = 'account-menu-toggle';
                     accountToggle.setAttribute('aria-label', `Open account menu for ${displayName}`);
 
-                    const avatar = document.createElement('img');
-                    avatar.className = 'account-avatar';
-                    avatar.src = user.imageUrl;
-                    avatar.alt = '';
-                    avatar.referrerPolicy = 'no-referrer';
-                    accountToggle.append(avatar);
+                    if (user.imageUrl) {
+                        const avatar = document.createElement('img');
+                        avatar.className = 'account-avatar';
+                        avatar.src = user.imageUrl;
+                        avatar.alt = '';
+                        avatar.referrerPolicy = 'no-referrer';
+                        accountToggle.append(avatar);
+                    }
 
                     const name = document.createElement('span');
                     name.className = 'account-menu-name';
@@ -2921,7 +2940,7 @@ function initClerk() {
                             clerk.openUserProfile();
                         } catch (error) {
                             console.error('Could not open the Clerk account profile:', error);
-                            setSyncStatus(`Could not open account settings: ${error?.message || 'Unknown error'}`);
+                            setAccountStatus(`Could not open account settings: ${error?.message || 'Unknown error'}`);
                         }
                     });
 
@@ -2935,7 +2954,7 @@ function initClerk() {
                             await clerk.signOut({ redirectUrl: window.location.href });
                         } catch (error) {
                             console.error('Could not sign out of Clerk:', error);
-                            setSyncStatus(`Could not sign out: ${error?.message || 'Unknown error'}`);
+                            setAccountStatus(`Could not sign out: ${error?.message || 'Unknown error'}`);
                             signOut.disabled = false;
                         }
                     });
@@ -2960,40 +2979,48 @@ function initClerk() {
                     syncReady = false;
                     clearTimeout(syncTimer);
                     accountSaveSync = null;
-                    setSyncStatus('Sign in before playing to save progress to your account');
+                    setAccountStatus('Progress saves on this device. Sign in to link it to your account.');
                     return;
                 }
                 if (user.id === syncUserId) return;
 
+                clearTimeout(syncTimer);
                 const startingLocalTimestamp = localSaveTimestamp;
                 syncUserId = user.id;
                 syncReady = false;
+                saveChangedDuringInitialSync = false;
                 accountSaveSync = {
                     schedule: scheduleUpload,
                     reset: async () => {
                         if (!clerk.user || clerk.user.id !== syncUserId) return;
+                        resetInProgress = true;
+                        syncReady = false;
                         clearTimeout(syncTimer);
-                        await clerk.user.updateMetadata({ unsafeMetadata: { ramenTycoonSave: null } });
+                        try {
+                            await clerk.user.updateMetadata({ unsafeMetadata: { ramenTycoonSave: null } });
+                        } finally {
+                            resetInProgress = false;
+                        }
                     }
                 };
-                setSyncStatus('Loading account progress…');
-                syncAccountSave(user, startingLocalTimestamp).catch((error) => {
-                    setSyncError(error);
-                    accountSaveSync = null;
-                }).finally(() => {
-                    if (user.id === syncUserId) {
+                setAccountStatus('Connecting your local save to your account…');
+                syncAccountSave(user, startingLocalTimestamp)
+                    .catch((error) => {
+                        console.error('Game account sync failed:', error);
+                        setAccountStatus(`Account save failed: ${error?.message || 'Unknown error'}. Your local progress is still saved.`);
+                    })
+                    .finally(() => {
+                        if (user.id !== syncUserId) return;
                         syncReady = true;
                         if (saveChangedDuringInitialSync) {
                             saveChangedDuringInitialSync = false;
                             scheduleUpload();
                         }
-                    }
-                });
+                    });
             };
 
             handleClerkState();
             clerk.addListener(handleClerkState);
-
             const flushScheduledSave = () => {
                 if (!syncUserId || !syncReady || !syncTimer) return;
                 clearTimeout(syncTimer);
@@ -3007,7 +3034,7 @@ function initClerk() {
         })
         .catch((error) => {
             console.error('Clerk failed to initialize:', error);
-            setSyncStatus(`Clerk unavailable: ${error?.message || 'Unknown error'}`);
+            setAccountStatus(`Account service unavailable. Your game saves locally in this browser. ${error?.message || ''}`.trim());
         });
 }
 

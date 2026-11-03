@@ -215,22 +215,47 @@
         </div>
     </div>
 
-    <div id="admin-panel" class="hidden">
-        <h2 class="matrix-text">👑 GOD MODE TERMINAL</h2>
-        <div style="margin-bottom: 15px;">
-            <input type="number" id="custom-money" placeholder="Enter custom amount..." style="padding: 10px; border-radius: 5px; border:none; width: 60%;">
-            <button class="god-btn" onclick="setCustomMoney()">Set Money</button>
-        </div>
-        <div class="admin-grid">
-            <button class="god-btn" onclick="cheatMoney(1e15)">+1 Quadrillion</button>
-            <button onclick="adminMaxEverything()" style="background: #e74c3c; color: white; padding: 10px; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; margin: 5px;">👑 MAX OUT EVERYTHING</button>
-            <button class="god-btn" onclick="adminMaxIngredients()">Infinite Ingredients</button>
-            <button class="god-btn" onclick="cheatStars()">+1 Monkey Money</button>
-            <button class="god-btn" onclick="triggerEvent('rush')">Force Rush Hour</button>
-            <button class="god-btn" onclick="triggerEvent('health')">Force Health Inspector</button>
-            <button class="god-btn" style="color: #e74c3c; border-color: #e74c3c;" onclick="nukeRivals()">Nuke All Rivals</button>
-        </div>
-        <button class="reset-btn matrix-text" style="color: #ff4d4d; margin-top: 15px;" onclick="document.getElementById('admin-panel').classList.add('hidden')">[ CLOSE TERMINAL ]</button>
+    <div id="admin-backdrop" class="admin-backdrop hidden">
+        <section id="admin-panel" class="admin-panel" role="dialog" aria-modal="true" aria-labelledby="admin-title" aria-describedby="admin-description" tabindex="-1">
+            <header class="admin-header">
+                <div>
+                    <span class="admin-eyebrow">RAMEN MONKEY · DEVELOPER TOOLS</span>
+                    <h2 id="admin-title">👑 Admin Control Room</h2>
+                    <p id="admin-description">Testing shortcuts for your current save. Type <kbd>123abc</kbd> anytime to open.</p>
+                </div>
+                <button class="admin-close" type="button" aria-label="Close admin panel" onclick="closeAdmin()">✕</button>
+            </header>
+
+            <section class="admin-section" aria-labelledby="admin-currency-title">
+                <h3 id="admin-currency-title">💰 Cash & rewards</h3>
+                <div class="admin-money-row">
+                    <label class="sr-only" for="custom-money">Set wallet amount</label>
+                    <input type="number" id="custom-money" min="0" step="any" placeholder="Set wallet amount">
+                    <button class="admin-button" type="button" onclick="setCustomMoney()">Set cash</button>
+                </div>
+                <p id="admin-status" class="admin-status" role="status" aria-live="polite"></p>
+                <div class="admin-actions">
+                    <button class="admin-button" type="button" onclick="cheatMoney(1e15)">+ $1 quadrillion</button>
+                    <button class="admin-button" type="button" onclick="cheatStars()">+1 Monkey Money</button>
+                </div>
+            </section>
+
+            <section class="admin-section" aria-labelledby="admin-tools-title">
+                <h3 id="admin-tools-title">🛠️ Game tools</h3>
+                <div class="admin-actions">
+                    <button class="admin-button" type="button" onclick="adminMaxIngredients()">Fill all ingredients</button>
+                    <button class="admin-button admin-button-primary" type="button" onclick="adminMaxEverything()">Max out everything</button>
+                    <button class="admin-button" type="button" onclick="triggerEvent('rush')">Start rush hour</button>
+                    <button class="admin-button" type="button" onclick="triggerEvent('health')">Call health inspector</button>
+                    <button class="admin-button admin-button-danger" type="button" onclick="nukeRivals()">Defeat all rivals</button>
+                </div>
+            </section>
+
+            <footer class="admin-footer">
+                <span>Changes save to this game.</span>
+                <button class="admin-button admin-button-quiet" type="button" onclick="closeAdmin()">Close panel <kbd>Esc</kbd></button>
+            </footer>
+        </section>
     </div>
 
     <div id="fps-overlay" class="hidden" aria-label="First person restaurant mode">

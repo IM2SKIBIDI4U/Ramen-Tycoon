@@ -2363,8 +2363,21 @@ function nukeRivals() {
 }
 
 function closeAdmin() {
+    const backdrop = document.getElementById('admin-backdrop');
     const adminPanel = document.getElementById('admin-panel');
-    if (adminPanel) adminPanel.classList.add('hidden');
+    if (!backdrop || backdrop.classList.contains('hidden')) return;
+    backdrop.classList.add('hidden');
+    if (adminPreviousFocus instanceof HTMLElement && adminPreviousFocus.isConnected) adminPreviousFocus.focus();
+}
+
+let adminPreviousFocus = null;
+function openAdmin() {
+    const backdrop = document.getElementById('admin-backdrop');
+    const adminPanel = document.getElementById('admin-panel');
+    if (!backdrop || !adminPanel) return;
+    adminPreviousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    backdrop.classList.remove('hidden');
+    adminPanel.focus();
 }
 
 let goldenMonkeyTimer;
@@ -2404,10 +2417,42 @@ function claimGoldenMonkey(monkey) {
     saveGame();
 }
 
-let typed = ""; document.addEventListener('keydown', (e) => { typed += e.key.toLowerCase(); if (typed.endsWith("123abc")) { let ap = document.getElementById('admin-panel'); if(ap) ap.classList.remove('hidden'); typed = ""; } if (typed.length > 20) typed = typed.slice(-20); });
+let typed = "";
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+        closeAdmin();
+        return;
+    }
+    if (event.ctrlKey || event.metaKey || event.altKey || event.key.length !== 1) return;
+    typed = `${typed}${event.key.toLowerCase()}`.slice(-6);
+    if (typed === '123abc') {
+        openAdmin();
+        typed = '';
+    }
+});
+document.getElementById('admin-backdrop')?.addEventListener('click', (event) => {
+    if (event.target === event.currentTarget) closeAdmin();
+});
 function cheatMoney(amt) { game.wallet += amt; saveGame(); updateUI(); }
-function setCustomMoney() { let val = parseFloat(document.getElementById('custom-money').value); if(!isNaN(val)) { game.wallet = val; saveGame(); updateUI(); } }
-function adminMaxIngredients() { game.inv.noodle=1e15; game.inv.broth=1e15; game.inv.spice=1e15; game.inv.egg=1e15; game.inv.boba=1e15; game.inv.corn=1e15; game.inv.mushroom=1e15; if(document.getElementById('out-of-stock-msg')) document.getElementById('out-of-stock-msg').classList.add('hidden'); saveGame(); updateUI(); }
+function setCustomMoney() {
+    const input = document.getElementById('custom-money');
+    const amount = Number(input?.value);
+    const status = document.getElementById('admin-status');
+    if (!input?.value || !Number.isFinite(amount) || amount < 0) {
+        if (status) status.innerText = 'Enter a valid amount of 0 or more.';
+        return;
+    }
+    game.wallet = amount;
+    if (status) status.innerText = `Wallet set to $${formatMoney(amount)}.`;
+    saveGame();
+    updateUI();
+}
+function adminMaxIngredients() {
+    Object.keys(game.inv).forEach((ingredient) => { game.inv[ingredient] = 1e15; });
+    document.getElementById('out-of-stock-msg')?.classList.add('hidden');
+    saveGame();
+    updateUI();
+}
 function cheatStars() { game.monkeyMoney++; saveGame(); updateUI(); }
 
 function adminMaxEverything() {
@@ -2424,7 +2469,7 @@ function adminMaxEverything() {
     adminMaxIngredients();
     saveGame();
     updateUI();
-    location.reload();
+    updateKitchenUI();
 }
 
 function saveGame() {

@@ -205,7 +205,15 @@ function createMissionSet() {
     });
 }
 
-const charColors = { skin: ["#ffdbac", "#f1c27d", "#e0ac69", "#8d5524", "#4a3219"], hair: ["#090806", "#4a2511", "#b7a69e", "#d6c4c2", "#e25822"], shirt: ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6"], pants: ["#2980b9", "#2c3e50", "#7f8c8d"] };
+const charColors = {
+    skin: ["#ffdbac", "#f1c27d", "#e0ac69", "#8d5524", "#4a3219"],
+    hair: ["#090806", "#4a2511", "#b7a69e", "#d6c4c2", "#e25822"],
+    shirt: ["#e74c3c", "#3498db", "#2ecc71", "#f1c40f", "#9b59b6", "#f08a5d", "#4d908e", "#8d6e63"],
+    pants: ["#2980b9", "#2c3e50", "#7f8c8d", "#5d4037", "#455a64"],
+    names: ["Aiko", "Amir", "Bea", "Chloe", "Dante", "Hana", "Isa", "Jules", "Kai", "Leila", "Mateo", "Mina", "Noah", "Ravi", "Sofia", "Yuki"],
+    hairStyles: ["short", "parted", "curly", "long", "bun"],
+    accessories: ["none", "glasses", "sunglasses", "earrings", "cap"]
+};
 
 function generateRandomChar() { 
     let isVipRoll = Math.random() < 0.01;
@@ -215,10 +223,14 @@ function generateRandomChar() {
     }
     
     return { 
-        skin: charColors.skin[Math.floor(Math.random()*5)], 
-        hair: charColors.hair[Math.floor(Math.random()*5)], 
-        shirt: charColors.shirt[Math.floor(Math.random()*5)], 
-        pants: charColors.pants[Math.floor(Math.random()*3)], 
+        name: charColors.names[Math.floor(Math.random() * charColors.names.length)],
+        skin: charColors.skin[Math.floor(Math.random() * charColors.skin.length)],
+        hair: charColors.hair[Math.floor(Math.random() * charColors.hair.length)],
+        hairStyle: charColors.hairStyles[Math.floor(Math.random() * charColors.hairStyles.length)],
+        shirt: charColors.shirt[Math.floor(Math.random() * charColors.shirt.length)],
+        pants: charColors.pants[Math.floor(Math.random() * charColors.pants.length)],
+        accessory: charColors.accessories[Math.floor(Math.random() * charColors.accessories.length)],
+        build: Math.random() < 0.18 ? 'broad' : Math.random() < 0.2 ? 'slim' : 'average',
         isVIP: isVipRoll, 
         isCritic: Math.random() < 0.02, 
         wantsBoba: Math.random() < 0.2,
@@ -236,12 +248,19 @@ function generateRandomChar() {
     }; 
 }
 
-function renderCharHTML(c) { 
-    let crown = c.isVIP ? `<div class="vip-crown">👑</div>` : ''; 
-    let critic = c.isCritic ? `<div style="position:absolute; top:-20px; right:-10px; font-size:1.2rem; z-index:10;">🧐</div>` : ''; 
-    let boba = c.wantsBoba ? `<div style="position:absolute; top:-5px; right:-20px; font-size:1.2rem; z-index:15;">🧋</div>` : '';
-    let vipClass = c.isVIP ? ' vip-char' : '';
-    return `<div class="rpg-char${vipClass}" style="--skin:${c.skin}; --hair:${c.hair}; --shirt:${c.isVIP?'#f1c40f':c.shirt}; --pants:${c.pants};">${crown}${critic}${boba}<div class="rpg-head"><div class="rpg-hair"></div><div class="rpg-eyes"><div class="rpg-eye"></div><div class="rpg-eye"></div></div></div><div class="rpg-body"></div><div class="rpg-legs"><div class="rpg-leg"></div><div class="rpg-leg"></div></div></div>`; 
+function renderCharHTML(c, patience = 100) {
+    const name = c.name || 'Guest';
+    const hairStyle = charColors.hairStyles.includes(c.hairStyle) ? c.hairStyle : 'short';
+    const accessory = charColors.accessories.includes(c.accessory) ? c.accessory : 'none';
+    const build = ['broad', 'slim'].includes(c.build) ? c.build : 'average';
+    const mood = patience < 30 ? 'impatient' : patience < 65 ? 'waiting' : 'content';
+    const type = ['celebrity', 'foodie', 'regular'].includes(c.customerType) ? c.customerType : 'guest';
+    const crown = c.isVIP ? `<div class="vip-crown" aria-hidden="true">👑</div>` : '';
+    const critic = c.isCritic ? `<span class="customer-trait customer-critic" aria-label="Food critic">🧐</span>` : '';
+    const boba = c.wantsBoba ? `<span class="customer-trait customer-boba" aria-label="Boba fan">🧋</span>` : '';
+    const shirt = c.isVIP ? '#f1c40f' : (c.shirt || '#3498db');
+    const label = `${name}, ${getCustomerTypeLabel(c)}`;
+    return `<div class="rpg-char customer-${type} customer-${mood} customer-build-${build}${c.isVIP ? ' vip-char' : ''}" title="${label}" aria-label="${label}" style="--skin:${c.skin || '#f1c27d'}; --hair:${c.hair || '#4a2511'}; --shirt:${shirt}; --pants:${c.pants || '#2c3e50'};">${crown}${critic}${boba}<div class="rpg-head"><div class="rpg-hair hair-${hairStyle}"></div><div class="rpg-face"><span class="rpg-brow"></span><span class="rpg-eyes"><i class="rpg-eye"></i><i class="rpg-eye"></i></span><span class="rpg-nose"></span><span class="rpg-mouth"></span></div><span class="rpg-accessory accessory-${accessory}" aria-hidden="true"></span></div><div class="rpg-neck"></div><div class="rpg-body"><span class="rpg-arm rpg-arm-left"><i></i></span><span class="rpg-arm rpg-arm-right"><i></i></span><span class="rpg-collar"></span><span class="rpg-outfit-detail"></span></div><div class="rpg-legs"><span class="rpg-leg"><i class="rpg-shoe"></i></span><span class="rpg-leg"><i class="rpg-shoe"></i></span></div></div>`;
 }
 
 function getCustomerTypeLabel(customer) {
@@ -1561,6 +1580,14 @@ setInterval(() => {
                 bar.style.width = `${seat.patience}%`;
                 bar.style.backgroundColor = seat.patience < 30 ? '#d63031' : '#00b894';
             }
+            const seatElement = document.getElementById(`seat-${i}`);
+            const impatient = seat.patience < 30;
+            const waiting = !impatient && seat.patience < 65;
+            seatElement?.classList.toggle('guest-impatient', impatient);
+            const guest = seatElement?.querySelector('.rpg-char');
+            guest?.classList.toggle('customer-content', !impatient && !waiting);
+            guest?.classList.toggle('customer-waiting', waiting);
+            guest?.classList.toggle('customer-impatient', impatient);
             if (seat.patience <= 0) {
                 playSound('error');
                 spawnFloatingMoney("😡 WALKOUT!", `seat-${i}`, '#e74c3c');
@@ -1952,6 +1979,7 @@ function updateUI() {
     seats.forEach((seat, i) => {
         let el = document.getElementById(`seat-${i}`); if (!el) return;
         if (i >= game.tablesOwned) { el.classList.add('locked'); return; } else el.classList.remove('locked');
+        el.classList.toggle('guest-impatient', Boolean(seat.occupied && seat.charData && seat.patience < 30));
         
         let html = "";
         if (seat.occupied && seat.charData) {
@@ -1961,7 +1989,7 @@ function updateUI() {
             const order = seat.charData.ramenOrder || { broth: 'Shoyu', firmness: 'Medium' };
             html += `<div class="custom-ramen-order"><b>${getCustomerTypeLabel(seat.charData)} · ${order.broth} · ${order.firmness}</b><span>🥚 🥩 🌿 🎋 🌽 🍄</span></div>`;
             html += `<div class="patience-container"><div id="patience-bar-${i}" class="patience-fill" style="width:${seat.patience}%; background-color:${seat.patience < 30 ? '#d63031' : '#00b894'}"></div></div>`;
-            html += `<div class="customer-wrapper">${renderCharHTML(seat.charData)}</div>`;
+            html += `<div class="customer-wrapper">${renderCharHTML(seat.charData, seat.patience)}</div>`;
         } else { html += `<span class="status-text" style="color:#aaa;">Empty</span>`; }
         html += `<div class="belt-strip"></div>`; el.innerHTML = html; el.onclick = () => handleTableClick(i);
     });

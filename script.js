@@ -300,7 +300,7 @@ function normalizeGameState() {
         chefFever: 0, chefFeverEndsAt: 0,
         currentMenuPrice: 50, autoChefSpeedMulti: 1, restaurantXp: 0,
         popularity: 50, dailySpecialIndex: 0, specialEndsAt: Date.now() + 86400000,
-        deliveriesCompleted: 0
+        deliveriesCompleted: 0, lastEmergencyGrantAt: 0
     };
     Object.entries(numericDefaults).forEach(([key, fallback]) => {
         if (!Number.isFinite(game[key])) game[key] = fallback;
@@ -2558,26 +2558,45 @@ window.onload = () => {
 };
 
 // --- EMERGENCY BAILOUT SYSTEM ---
-// Checks every second if the player is soft-locked
 setInterval(() => {
     if (game.gameOver) return;
 
-    // Trigger bailout if wallet is under $100 AND player has fewer than 5 noodles or broth
-    if (game.wallet < 100 && ((game.inv.noodle || 0) < 5 || (game.inv.broth || 0) < 5)) {
-        const giftAmount = 1000;
-        
-        game.wallet += giftAmount;
-        game.inv.noodle = (game.inv.noodle || 0) + 20;
-        game.inv.broth = (game.inv.broth || 0) + 20;
+    const hasBlockedOrder = seats.some((seat) => {
+        if (!seat?.occupied || !seat.charData) return false;
+        let requiredIngredients = [];
+        if (seat.needsServing && seat.charData.wantsBoba) {
+            requiredIngredients = ['boba'];
+        } else if (seat.isCooking && !seat.bowlReadyAt) {
+            const step = RAMEN_ASSEMBLY[seat.cookStep];
+            if (!step) return false;
+            requiredIngredients = getIngredientsForRamenStep(seat, step);
+        } else {
+            return false;
+        }
+        const missingIngredients = requiredIngredients
+            .filter((ingredient) => (game.inv[ingredient] || 0) < 1);
+        if (!missingIngredients.length) return false;
+        const restockCost = missingIngredients.reduce((total, ingredient) => total + getIngredientCost(ingredient, 10), 0);
+        return game.wallet < restockCost;
+    });
 
-        // Visual feedback
-        playSound('cash');
-        spawnFloatingMoney(`+$${giftAmount} EMERGENCY GRANT!`, 'money', '#f1c40f');
-        showSetbackToast('🚨 EMERGENCY RELIEF: The City granted you $1,000 & fresh stock to keep cooking!');
-        
-        saveGame();
-        updateUI();
-    }
+    const bailoutCooldown = 60000;
+    if (!hasBlockedOrder || Date.now() - game.lastEmergencyGrantAt < bailoutCooldown) return;
+
+    const giftAmount = 1000;
+    game.wallet += giftAmount;
+    Object.keys(INGREDIENT_BATCH_COSTS).forEach((ingredient) => {
+        game.inv[ingredient] = (game.inv[ingredient] || 0) + 20;
+    });
+    game.lastEmergencyGrantAt = Date.now();
+
+    playSound('cash');
+    spawnFloatingMoney(`+$${giftAmount} EMERGENCY GRANT!`, 'money', '#f1c40f');
+    showSetbackToast('🚨 EMERGENCY RELIEF: You were low on cash and stock, so the City sent $1,000 and 20 of every ingredient!');
+    document.getElementById('out-of-stock-msg')?.classList.add('hidden');
+    saveGame();
+    updateUI();
+    updateKitchenUI();
 }, 1000);
 
 function initClerk() {

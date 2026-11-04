@@ -1,28 +1,37 @@
-name: Build Windows
+name: Build Windows Executable
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  workflow_dispatch:
+    branches: [ main ]
 
 jobs:
-  build:
+  build-windows:
+    permissions:
+      contents: write
     runs-on: windows-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
-      - name: Build project
+      - name: Build Web Frontend
         run: npm run build
+
+      - name: Build Desktop EXE
+        uses: tauri-apps/tauri-action@v0
+        with:
+          tagName: v1.0.0 # Tells the action what tag to create
+          releaseName: "Ramen Tycoon v1.0.0"
+          releaseBody: "Automated desktop build for Windows."
+          releaseDraft: true
+          prerelease: false
+          projectPath: ./
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

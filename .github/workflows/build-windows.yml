@@ -1,11 +1,36 @@
-- name: Build Desktop EXE
+name: Build Windows Executable
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-windows:
+    permissions:
+      contents: write
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Web
+        run: npm run build
+
+      - name: Build Desktop EXE
         uses: tauri-apps/tauri-action@v0
         with:
           tagName: v1.0.0
           releaseName: "Ramen Tycoon v1.0.0"
-          releaseBody: "Automated desktop build for Windows."
           releaseDraft: true
           projectPath: ./
-          tauriScript: "npx tauri" # Forces using npm/npx instead of pnpm
+          tauriScript: "npx tauri"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

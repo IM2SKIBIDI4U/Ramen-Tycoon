@@ -26,5 +26,7 @@ jobs:
 
       - name: Build Desktop EXE
         uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: /workspaces/Ramen-Tycoon/src-tauri/tauri.conf.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

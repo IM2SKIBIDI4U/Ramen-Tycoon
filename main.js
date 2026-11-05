@@ -7,12 +7,12 @@ function createWindow() {
     height: 800,
     webPreferences: {
       nodeIntegration: true,
-      contextIsolation: false
-    }
+      contextIsolation: false,
+    },
   });
 
-  // Loads your Vite production build output
-  win.loadFile(path.join(__dirname, 'dist/index.html'));
+  // Load the built HTML file
+  win.loadFile(path.join(__dirname, 'dist', 'index.html'));
 }
 
 app.whenReady().then(createWindow);

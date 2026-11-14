@@ -14,15 +14,27 @@
     }
 
     const clerk = window.Clerk;
+    const fallbackReturnTo = new URL('index.html', window.location.href);
+    const requestedReturnTo = new URLSearchParams(window.location.search).get('returnTo');
+    let returnToGame = fallbackReturnTo.toString();
+    if (requestedReturnTo) {
+        try {
+            const requested = new URL(requestedReturnTo, window.location.href);
+            if (requested.origin === window.location.origin && requested.pathname === fallbackReturnTo.pathname) {
+                returnToGame = requested.toString();
+            }
+        } catch {
+            // Ignore invalid return URLs and use the same-origin game page.
+        }
+    }
     clerk.load({ ui: { ClerkUI: window.__internal_ClerkUICtor } })
         .then(() => {
             if (clerk.user) {
-                window.location.replace(new URL('index.html', window.location.href));
+                window.location.replace(returnToGame);
                 return;
             }
             if (status) status.remove();
             const mode = new URLSearchParams(window.location.search).get('mode');
-            const returnToGame = new URL('index.html', window.location.href).toString();
             const commonOptions = {
                 routing: 'hash',
                 forceRedirectUrl: returnToGame,

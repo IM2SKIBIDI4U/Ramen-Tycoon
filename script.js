@@ -246,8 +246,10 @@ const TRACK_RECIPES = Array.from({length: 1000}, (_, i) => {
     let name = i < RAMEN_NAMES.length ? RAMEN_NAMES[i] : `${R_PRE[i % R_PRE.length]} ${R_BASE[Math.floor(i / R_PRE.length) % R_BASE.length]} Ramen`;
     if (i === 999) name = "The Universal Ramen";
     
-    let cost = Math.floor(4000 * Math.pow(1.072, i)); 
-    let value = Math.floor(65 * Math.pow(1.1345, i)); 
+    // Keep recipe progression meaningful over a long save: revenue grows just
+    // ahead of upgrade cost instead of accelerating to endgame in a short burst.
+    let cost = Math.floor(4000 * Math.pow(1.038, i));
+    let value = Math.floor(65 * Math.pow(1.045, i));
     
     return { name, cost, value };
 });
@@ -300,6 +302,7 @@ const CUSTOMER_PATIENCE_VARIANCE_MS = 0;
 let game = {
     wallet: 150, monkeyMoney: 0, turfMult: 1, lastSaveTime: Date.now(),
     tablesOwned: 5, idxTable: 4, idxBowl: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxSpecial: 0, currentMenuPrice: 50,
+    economyVersion: 1,
     activeDecor: 'theme-default', decorOwned: ['theme-default'], autoRefill: false,
     staff: { waiter: 0, ninja: 0, mascot: 0, host: 0, supplier: 0 }, rivals: JSON.parse(JSON.stringify(INITIAL_RIVALS)),
     inv: { ...defaultInv }, upgrades: {}, achievements: [], autoChefSpeedMulti: 1, idxAds: 0,
@@ -452,6 +455,7 @@ function getExpansionRevenueMultiplier() {
 }
 
 function normalizeGameState() {
+    const migrateRecipeEconomy = game.economyVersion !== 1;
     const numericDefaults = {
         wallet: 150, monkeyMoney: 0, turfMult: 1, tablesOwned: 5,
         idxTable: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxAds: 0,
@@ -468,6 +472,17 @@ function normalizeGameState() {
     game.idxTable = Math.max(0, Math.min(TRACK_TABLES.length, Math.floor(Number(game.idxTable) || 0)));
     game.idxTable = Math.max(game.idxTable, game.tablesOwned - 1);
     game.idxRecipe = Math.max(0, Math.min(TRACK_RECIPES.length, Math.floor(Number(game.idxRecipe) || 0)));
+    if (migrateRecipeEconomy) {
+        const savedMenuPrice = Math.max(50, Number(game.currentMenuPrice) || 50);
+        if (game.idxRecipe > 0 && savedMenuPrice > 50) {
+            const matchingIndex = Math.round(Math.log(savedMenuPrice / 65) / Math.log(1.045)) + 1;
+            game.idxRecipe = Math.max(1, Math.min(TRACK_RECIPES.length, matchingIndex));
+            if (game.idxRecipe < TRACK_RECIPES.length) {
+                game.currentMenuPrice = TRACK_RECIPES[game.idxRecipe - 1].value;
+            }
+        }
+        game.economyVersion = 1;
+    }
     game.idxWok = Math.max(0, Math.min(TRACK_WOK.length, Math.floor(Number(game.idxWok) || 0)));
     game.idxAuto = Math.max(0, Math.min(TRACK_AUTO.length, Math.floor(Number(game.idxAuto) || 0)));
     game.idxAds = Math.max(0, Math.min(TRACK_ADS.length, Math.floor(Number(game.idxAds) || 0)));
@@ -840,6 +855,9 @@ const FPS_MAP = (() => {
         ).join('')
     );
 })();
+const FPS_INTERNAL_WALLS = [
+    { x: 13, minY: 0.5, maxY: 11.5, openingFrom: 6.3, openingTo: 8.5 }
+];
 const FPS_BASE_TABLE_POSITIONS = [
     { x: 4.5, y: 3.5, design: 'round' }, { x: 8.5, y: 3.5, design: 'square' }, { x: 11.5, y: 3.5, design: 'booth' },
     { x: 4.5, y: 6.5, design: 'barrel' }, { x: 8.5, y: 6.5, design: 'low' }, { x: 11.5, y: 6.5, design: 'square' }
@@ -875,10 +893,14 @@ function getFpsTablePositions() {
     return positions;
 }
 const FPS_WORLD_OBJECTS = [
+    { x: 8.5, y: 0.45, kind: 'door', label: 'ENTRANCE' },
     { x: 2.4, y: 1.8, kind: 'menu', label: 'MENU' },
-    { x: 8.5, y: 1.3, kind: 'sign', label: 'RAMEN MONKEY' },
+    { x: 11.2, y: 1.3, kind: 'sign', label: 'RAMEN MONKEY' },
     { x: 15.5, y: 1.8, kind: 'kitchen', label: 'OPEN KITCHEN' },
-    { x: 2.5, y: 6.8, kind: 'host', label: 'HOST' }
+    { x: 2.5, y: 6.8, kind: 'host', label: 'HOST' },
+    { x: 15.4, y: 5.4, kind: 'stockroom', label: 'STOCKROOM' },
+    { x: 18.1, y: 5.4, kind: 'stove', label: 'NOODLE BAR' },
+    { x: 18.1, y: 8.1, kind: 'pass', label: 'SERVE' }
 ];
 
 function getFpsStaffPositions() {
@@ -894,13 +916,16 @@ function getFpsStaffPositions() {
     return positions;
 }
 const FPS_FOV = Math.PI / 3;
+const FPS_RENDER_DISTANCE = 18;
+const FPS_CAMERA_HEIGHT = 0.75;
 let fpsOpen = false;
 let fpsAnimationFrame = null;
 let fpsLastFrame = 0;
 let fpsKeys = {};
-let fpsPlayer = { x: 4.5, y: 8, angle: -Math.PI / 2, pitch: 0 };
+let fpsPlayer = { x: 8.5, y: 11, angle: -Math.PI / 2, pitch: 0 };
 let fpsCanvas = null;
 let fpsContext = null;
+let fpsCarriedBowls = new Set();
 
 function normalizeFpsAngle(angle) {
     while (angle > Math.PI) angle -= Math.PI * 2;
@@ -909,17 +934,24 @@ function normalizeFpsAngle(angle) {
 }
 
 function getFpsHorizon(canvasHeight) {
-    return canvasHeight / 2 + fpsPlayer.pitch * canvasHeight * 0.8;
+    const focal = window.innerWidth / (2 * Math.tan(FPS_FOV / 2));
+    return canvasHeight / 2 + Math.tan(fpsPlayer.pitch) * focal;
 }
 
 function isFpsWall(x, y) {
+    if (Math.floor(y) === 0 && x > 7 && x < 10) return false;
     const row = FPS_MAP[Math.floor(y)];
-    return !row || row[Math.floor(x)] === '#';
+    if (!row || row[Math.floor(x)] === '#') return true;
+    return FPS_INTERNAL_WALLS.some(wall =>
+        Math.floor(x) === wall.x
+        && y >= wall.minY && y <= wall.maxY
+        && !(y >= wall.openingFrom && y <= wall.openingTo)
+    );
 }
 
 function hasFpsLineOfSight(point) {
     const distance = Math.hypot(point.x - fpsPlayer.x, point.y - fpsPlayer.y);
-    if (distance > 28) return false;
+    if (distance > FPS_RENDER_DISTANCE) return false;
     const steps = Math.max(2, Math.ceil(distance / 0.12));
     for (let step = 1; step < steps; step++) {
         const progress = step / steps;
@@ -929,6 +961,30 @@ function hasFpsLineOfSight(point) {
         )) return false;
     }
     return true;
+}
+
+function projectFpsPoint(x, y, worldHeight, canvasWidth, canvasHeight) {
+    const dx = x - fpsPlayer.x;
+    const dy = y - fpsPlayer.y;
+    const cosAngle = Math.cos(fpsPlayer.angle);
+    const sinAngle = Math.sin(fpsPlayer.angle);
+    const forward = dx * cosAngle + dy * sinAngle;
+    const lateral = -dx * sinAngle + dy * cosAngle;
+    const pitch = fpsPlayer.pitch;
+    const cosPitch = Math.cos(pitch);
+    const sinPitch = Math.sin(pitch);
+    const relativeHeight = worldHeight - FPS_CAMERA_HEIGHT;
+    const depth = forward * cosPitch + relativeHeight * sinPitch;
+    if (depth <= 0.08) return null;
+    const verticalCamera = relativeHeight * cosPitch - forward * sinPitch;
+    const focal = canvasWidth / (2 * Math.tan(FPS_FOV / 2));
+    return {
+        x: canvasWidth / 2 + lateral * focal / depth,
+        y: canvasHeight / 2 - verticalCamera * focal / depth,
+        depth,
+        focal,
+        pixelsPerUnit: focal / depth
+    };
 }
 
 function resizeFpsCanvas() {
@@ -945,17 +1001,195 @@ function getFpsTargetTable() {
     let closest = null;
     getFpsTablePositions().forEach((position, index) => {
         if (index >= game.tablesOwned) return;
+        const seat = seats[index];
+        if (!seat?.occupied || !seat?.charData) return;
         const dx = position.x - fpsPlayer.x;
         const dy = position.y - fpsPlayer.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
-        if (distance < 2.1 && Math.abs(relative) < 0.8 && (!closest || distance < closest.distance)) {
+        if (distance < 2.1 && Math.abs(relative) < 0.8 && hasFpsLineOfSight(position) && (!closest || distance < closest.distance)) {
             closest = { index, distance };
         }
     });
     return closest;
 }
 
+function getFpsTargetObject() {
+    let closest = null;
+    FPS_WORLD_OBJECTS.forEach(object => {
+        const dx = object.x - fpsPlayer.x;
+        const dy = object.y - fpsPlayer.y;
+        const distance = Math.hypot(dx, dy);
+        const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
+        if (distance < 2.1 && Math.abs(relative) < 0.82 && hasFpsLineOfSight(object)
+            && (!closest || distance < closest.distance)) {
+            closest = { ...object, distance };
+        }
+    });
+    return closest;
+}
+
+function getFpsUpgradeRows() {
+    const paths = [
+        { id: 'tables', title: 'Dining tables', description: 'Seat more guests.', track: TRACK_TABLES, index: game.idxTable, level: game.tablesOwned, action: 'buyTable' },
+        { id: 'recipes', title: 'Featured bowl', description: 'Unlock a higher-value ramen recipe.', track: TRACK_RECIPES, index: game.idxRecipe, level: game.idxRecipe, action: 'buyRecipe' },
+        { id: 'wok', title: 'Wok upgrades', description: 'Advance more bowls per stove action.', track: TRACK_WOK, index: game.idxWok, level: game.idxWok, action: 'buyWok' },
+        { id: 'chef', title: 'Kitchen speed', description: 'Shorten your cooking shift.', track: TRACK_AUTO, index: game.idxAuto, level: game.idxAuto, action: 'buyAuto' },
+        { id: 'marketing', title: 'Marketing', description: 'Bring guests in more often.', track: TRACK_ADS, index: game.idxAds, level: game.idxAds, action: 'buyAds' },
+        { id: 'bowls', title: 'Bowl sets', description: 'Upgrade serving equipment.', track: TRACK_BOWLS, index: game.idxBowl, level: game.idxBowl, action: 'buyBowl' }
+    ];
+    return paths.map(path => ({ ...path, next: path.track[path.index] || null }));
+}
+
+function renderFpsUpgradePanel() {
+    const panel = document.getElementById('fps-upgrade-panel');
+    const container = document.getElementById('fps-upgrade-options');
+    if (!panel || !container) return;
+    const paths = getFpsUpgradeRows();
+    const upgradeHtml = paths.map(path => {
+        const next = path.next;
+        const price = next?.cost;
+        const afford = Number.isFinite(price) && game.wallet >= price;
+        return `<div class="fps-upgrade-option">
+            <div><strong>${path.title} · Lv ${formatMoney(path.level)}</strong>
+            <small>${next ? `${next.name} · ${path.description}` : 'All levels complete.'}</small></div>
+            <button type="button" onclick="buyFpsUpgrade('${path.id}')" ${!next || !afford ? 'disabled' : ''}>
+                ${next ? `$${formatMoney(price)}` : 'MAX'}
+            </button>
+        </div>`;
+    }).join('');
+    const staffHtml = TRACK_STAFF.map(staff => {
+        const level = Number(game.staff?.[staff.id]) || 0;
+        const cost = Math.ceil(staff.baseCost * Math.pow(staff.mult, level));
+        return `<div class="fps-upgrade-option">
+            <div><strong>${staff.name} · ${level} hired</strong><small>${staff.description || 'Improve restaurant service.'}</small></div>
+            <button type="button" onclick="buyFpsStaff('${staff.id}')" ${game.wallet < cost ? 'disabled' : ''}>$${formatMoney(cost)}</button>
+        </div>`;
+    }).join('');
+    container.innerHTML = `<h3 class="fps-panel-section">Shop upgrades</h3>${upgradeHtml}<h3 class="fps-panel-section">Hire staff</h3>${staffHtml}`;
+    panel.classList.remove('hidden');
+    if (document.pointerLockElement === fpsCanvas) document.exitPointerLock?.();
+}
+
+function closeFpsUpgradePanel() {
+    document.getElementById('fps-upgrade-panel')?.classList.add('hidden');
+}
+
+function toggleFpsUpgradePanel() {
+    const panel = document.getElementById('fps-upgrade-panel');
+    if (!panel) return;
+    if (panel.classList.contains('hidden')) renderFpsUpgradePanel();
+    else closeFpsUpgradePanel();
+}
+
+function buyFpsUpgrade(id) {
+    const path = getFpsUpgradeRows().find(item => item.id === id);
+    if (!path?.next || game.wallet < path.next.cost) {
+        playSound('error');
+        return;
+    }
+    const actions = { tables: buyTable, recipes: buyRecipe, wok: buyWok, chef: buyAuto, marketing: buyAds, bowls: buyBowl };
+    actions[id]?.();
+    renderFpsUpgradePanel();
+    updateFpsHud();
+}
+
+function buyFpsStaff(id) {
+    const staff = TRACK_STAFF.find(item => item.id === id);
+    if (!staff) return;
+    const level = Number(game.staff?.[id]) || 0;
+    const cost = Math.ceil(staff.baseCost * Math.pow(staff.mult, level));
+    if (game.wallet < cost) {
+        playSound('error');
+        return;
+    }
+    buyStaff(id, cost);
+    renderFpsUpgradePanel();
+    updateFpsHud();
+}
+
+function updateFpsHud() {
+    const economy = document.getElementById('fps-economy');
+    if (!economy) return;
+    const activeOrders = seats.slice(0, game.tablesOwned).filter(seat => seat?.occupied && seat?.charData).length;
+    const kitchenOrders = seats.slice(0, game.tablesOwned).filter(seat => seat?.isCooking).length;
+    economy.textContent = `Cash $${formatMoney(game.wallet)} · Guests ${activeOrders} · Cooking ${kitchenOrders} · Carrying ${fpsCarriedBowls.size}`;
+}
+
+function openFpsAccount() {
+    if (window.Clerk?.user) {
+        document.exitPointerLock?.();
+        try {
+            window.Clerk.openUserProfile();
+        } catch (error) {
+            console.error('Could not open the account profile:', error);
+            showFpsMessage('Account settings could not be opened.');
+        }
+        return;
+    }
+    const returnTo = new URL('index.html', window.location.href);
+    returnTo.searchParams.set('firstperson', '1');
+    const accountUrl = new URL('account.html', window.location.href);
+    accountUrl.searchParams.set('returnTo', returnTo.toString());
+    document.exitPointerLock?.();
+    window.location.assign(accountUrl.toString());
+}
+
+function interactWithFpsScene() {
+    const table = getFpsTargetTable();
+    const object = getFpsTargetObject();
+    if (object && (!table || object.distance < table.distance)) {
+        if (object.kind === 'stove') {
+            const activeOrder = seats.slice(0, game.tablesOwned).findIndex(seat => seat?.occupied && seat?.charData && seat?.isCooking);
+            if (activeOrder < 0) {
+                showFpsMessage('Take a guest order before cooking.');
+                return;
+            }
+            clickStove(activeOrder);
+            updateFpsHud();
+            return;
+        }
+        if (object.kind === 'stockroom') {
+            showFpsMessage(`Stockroom · ${Object.entries(game.inv).filter(([key]) => key !== 'boba').map(([key, amount]) => `${key} ${formatMoney(amount)}`).join(' · ')}`);
+            return;
+        }
+        if (object.kind === 'pass') {
+            const ready = seats.slice(0, game.tablesOwned).findIndex(seat => seat?.occupied && seat?.isCooking && seat?.bowlReadyAt);
+            if (ready < 0) showFpsMessage('No bowls are ready at the pass yet.');
+            else {
+                clickStove(ready);
+                updateFpsHud();
+            }
+            return;
+        }
+        if (object.kind === 'host') {
+            const waiting = waitList.length;
+            showFpsMessage(waiting ? `Host stand · ${waiting} guest${waiting === 1 ? '' : 's'} waiting.` : 'Host stand · No guests are waiting.');
+            return;
+        }
+        showFpsMessage(`${object.label} · Walk close to a guest to take their order.`);
+        return;
+    }
+    if (table) {
+        const seat = seats[table.index];
+        if (seat?.needsServing && !fpsCarriedBowls.has(table.index)) {
+            showFpsMessage('Pick up this bowl at the kitchen pass first.');
+            return;
+        }
+        interactWithFpsTable();
+        if (!seat?.needsServing) fpsCarriedBowls.delete(table.index);
+        updateFpsHud();
+        return;
+    }
+    showFpsMessage('Move close to a guest or restaurant station.');
+}
+
+let fpsMessage = '';
+let fpsMessageUntil = 0;
+function showFpsMessage(message) {
+    fpsMessage = message;
+    fpsMessageUntil = Date.now() + 1800;
+}
 function getFpsTableStatus(index) {
     const seat = seats[index];
     if (!seat || !seat.occupied) return 'Empty table';
@@ -981,6 +1215,18 @@ function getFpsTableAction(index) {
     if (seat.needsServing) return 'Serve ramen';
     if (seat.needsToPay) return 'Collect payment';
     return 'Check table';
+}
+
+function getFpsObjectAction(object) {
+    if (!object) return '';
+    if (object.kind === 'stove') {
+        const activeOrder = seats.slice(0, game.tablesOwned).find(seat => seat?.occupied && seat?.charData && seat?.isCooking);
+        return activeOrder?.bowlReadyAt ? 'Press E: Pick up the ready bowl' : 'Press E: Cook the next step';
+    }
+    if (object.kind === 'pass') return 'Press E: Collect a prepared bowl';
+    if (object.kind === 'stockroom') return 'Press E: Check ingredient stock';
+    if (object.kind === 'host') return 'Press E: Check the guest queue';
+    return `Press E: ${object.label}`;
 }
 
 function getFpsOrderGroup(index) {
@@ -1031,19 +1277,17 @@ function updateFpsMovement(delta) {
 }
 
 function drawFpsDecor(context, decor, canvasWidth, canvasHeight) {
-    const dx = decor.x - fpsPlayer.x;
-    const dy = decor.y - fpsPlayer.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
-    if (distance > 28 || Math.abs(relative) > FPS_FOV / 2 + 0.2 || !hasFpsLineOfSight(decor)) return;
-    const screenX = canvasWidth / 2 + (relative / FPS_FOV) * canvasWidth;
-    const size = Math.min(canvasHeight * 0.46, 260 / Math.max(0.5, distance));
-    const horizon = canvasHeight / 2 + fpsPlayer.pitch * canvasHeight * 0.8;
-    const centerY = horizon - canvasHeight * 0.16;
+    const ground = projectFpsPoint(decor.x, decor.y, 0, canvasWidth, canvasHeight);
+    if (!ground || ground.depth > FPS_RENDER_DISTANCE || !hasFpsLineOfSight(decor)) return;
+    const wallHeight = decor.kind === 'window' ? 1.65 : 1.45;
+    const wallAnchor = projectFpsPoint(decor.x, decor.y, wallHeight, canvasWidth, canvasHeight);
+    const screenX = ground.x;
+    const size = ground.pixelsPerUnit * 0.72;
+    const floorY = ground.y;
+    const centerY = wallAnchor?.y ?? floorY - size;
     context.save();
-    context.globalAlpha = Math.max(0.45, 1 - distance / 14);
+    context.globalAlpha = 1;
     if (decor.surface === 'floor') {
-        const floorY = horizon + canvasHeight * 0.27 + Math.min(55, distance * 3);
         if (decor.kind === 'rug') {
             context.fillStyle = '#8e44ad';
             context.shadowColor = 'rgba(0,0,0,0.4)';
@@ -1131,19 +1375,75 @@ function drawFpsDecor(context, decor, canvasWidth, canvasHeight) {
 }
 
 function drawFpsWorldObject(context, object, canvasWidth, canvasHeight) {
-    const dx = object.x - fpsPlayer.x;
-    const dy = object.y - fpsPlayer.y;
-    const distance = Math.hypot(dx, dy);
-    const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
-    if (distance > 28 || Math.abs(relative) > FPS_FOV / 2 + 0.18 || !hasFpsLineOfSight(object)) return;
-    const screenX = canvasWidth / 2 + (relative / FPS_FOV) * canvasWidth;
-    const size = Math.min(canvasHeight * 0.52, 320 / Math.max(0.6, distance));
-    const horizon = getFpsHorizon(canvasHeight);
-    const floorY = horizon + canvasHeight * 0.27 + Math.min(65, distance * 3);
-    const centerY = horizon - canvasHeight * 0.15;
+    const ground = projectFpsPoint(object.x, object.y, 0, canvasWidth, canvasHeight);
+    if (!ground || ground.depth > FPS_RENDER_DISTANCE || !hasFpsLineOfSight(object)) return;
+    const wallAnchor = projectFpsPoint(object.x, object.y, 1.35, canvasWidth, canvasHeight);
+    const screenX = ground.x;
+    const size = ground.pixelsPerUnit * 1.2;
+    const floorY = ground.y;
+    const centerY = wallAnchor?.y ?? floorY - size;
     context.save();
-    context.globalAlpha = Math.max(0.72, 1 - distance / 30);
-    if (object.kind === 'kitchen') {
+    context.globalAlpha = 1;
+    if (object.kind === 'door') {
+        context.fillStyle = '#3d281e';
+        context.fillRect(screenX - size * 0.58, floorY - size * 1.8, size * 1.16, size * 1.8);
+        context.fillStyle = '#6f4730';
+        context.fillRect(screenX - size * 0.48, floorY - size * 1.72, size * 0.96, size * 1.68);
+        context.fillStyle = 'rgba(130,205,225,0.65)';
+        context.fillRect(screenX - size * 0.34, floorY - size * 1.55, size * 0.68, size * 0.8);
+        context.fillStyle = '#e7b768';
+        context.beginPath();
+        context.arc(screenX + size * 0.34, floorY - size * 0.78, size * 0.055, 0, Math.PI * 2);
+        context.fill();
+        context.strokeStyle = '#c58b49';
+        context.lineWidth = Math.max(1, size * 0.045);
+        context.strokeRect(screenX - size * 0.58, floorY - size * 1.8, size * 1.16, size * 1.8);
+    } else if (object.kind === 'stockroom') {
+        context.fillStyle = '#263745';
+        context.fillRect(screenX - size * 0.48, floorY - size * 1.42, size * 0.96, size * 1.42);
+        context.fillStyle = '#dce7e6';
+        context.fillRect(screenX - size * 0.42, floorY - size * 1.36, size * 0.84, size * 1.3);
+        context.fillStyle = '#98c4bc';
+        context.fillRect(screenX - size * 0.38, floorY - size * 0.79, size * 0.76, size * 0.045);
+        context.fillRect(screenX - size * 0.38, floorY - size * 0.38, size * 0.76, size * 0.045);
+        context.fillStyle = '#4a6870';
+        context.fillRect(screenX + size * 0.3, floorY - size * 1.2, size * 0.045, size * 0.18);
+        context.font = `900 ${Math.max(7, size * 0.12)}px sans-serif`;
+        context.textAlign = 'center';
+        context.fillStyle = '#28444b';
+        context.fillText('FRESH', screenX, floorY - size * 1.48);
+    } else if (object.kind === 'stove') {
+        context.fillStyle = '#3b2c25';
+        context.fillRect(screenX - size * 0.8, floorY - size * 0.64, size * 1.6, size * 0.64);
+        context.fillStyle = '#a86f46';
+        context.fillRect(screenX - size * 0.86, floorY - size * 0.72, size * 1.72, size * 0.13);
+        [-0.42, 0.06, 0.48].forEach(offset => {
+            context.fillStyle = '#24292b';
+            context.beginPath();
+            context.ellipse(screenX + size * offset, floorY - size * 0.78, size * 0.19, size * 0.1, 0, 0, Math.PI * 2);
+            context.fill();
+            context.fillStyle = '#e77438';
+            context.shadowColor = '#ff923f';
+            context.shadowBlur = size * 0.08;
+            context.beginPath();
+            context.ellipse(screenX + size * offset, floorY - size * 0.79, size * 0.07, size * 0.035, 0, 0, Math.PI * 2);
+            context.fill();
+            context.shadowBlur = 0;
+        });
+    } else if (object.kind === 'pass') {
+        context.fillStyle = '#432d22';
+        context.fillRect(screenX - size * 0.85, floorY - size * 0.62, size * 1.7, size * 0.62);
+        context.fillStyle = '#d8a468';
+        context.fillRect(screenX - size * 0.92, floorY - size * 0.72, size * 1.84, size * 0.14);
+        context.fillStyle = '#f4ead7';
+        context.beginPath();
+        context.ellipse(screenX, floorY - size * 0.82, size * 0.28, size * 0.11, 0, 0, Math.PI * 2);
+        context.fill();
+        context.fillStyle = '#d86f46';
+        context.beginPath();
+        context.ellipse(screenX, floorY - size * 0.84, size * 0.19, size * 0.065, 0, 0, Math.PI * 2);
+        context.fill();
+    } else if (object.kind === 'kitchen') {
         context.fillStyle = '#241b18';
         context.fillRect(screenX - size * 0.8, floorY - size * 0.95, size * 1.6, size * 0.85);
         context.fillStyle = '#8e552e';
@@ -1182,17 +1482,13 @@ function drawFpsWorldObject(context, object, canvasWidth, canvasHeight) {
 }
 
 function drawFpsStaff(context, staff, canvasWidth, canvasHeight) {
-    const dx = staff.x - fpsPlayer.x;
-    const dy = staff.y - fpsPlayer.y;
-    const distance = Math.hypot(dx, dy);
-    const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
-    if (distance > 22 || Math.abs(relative) > FPS_FOV / 2 + 0.15 || !hasFpsLineOfSight(staff)) return;
-    const screenX = canvasWidth / 2 + (relative / FPS_FOV) * canvasWidth;
-    const size = Math.min(canvasHeight * 0.34, 170 / Math.max(0.7, distance));
-    const horizon = getFpsHorizon(canvasHeight);
-    const floorY = horizon + canvasHeight * 0.27 + Math.min(55, distance * 3);
+    const ground = projectFpsPoint(staff.x, staff.y, 0, canvasWidth, canvasHeight);
+    if (!ground || ground.depth > FPS_RENDER_DISTANCE || !hasFpsLineOfSight(staff)) return;
+    const screenX = ground.x;
+    const size = ground.pixelsPerUnit * 0.72;
+    const floorY = ground.y;
     context.save();
-    context.globalAlpha = Math.max(0.75, 1 - distance / 24);
+    context.globalAlpha = 1;
     context.fillStyle = '#1d1512';
     context.fillRect(screenX - size * 0.2, floorY - size * 0.42, size * 0.14, size * 0.42);
     context.fillRect(screenX + size * 0.06, floorY - size * 0.42, size * 0.14, size * 0.42);
@@ -1213,22 +1509,18 @@ function drawFpsStaff(context, staff, canvasWidth, canvasHeight) {
     context.restore();
 }
 
-function drawFpsTable(context, table, canvasWidth, canvasHeight) {
-    const dx = table.x - fpsPlayer.x;
-    const dy = table.y - fpsPlayer.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    const relative = normalizeFpsAngle(Math.atan2(dy, dx) - fpsPlayer.angle);
-    if (Math.abs(relative) > FPS_FOV / 2 + 0.15 || !hasFpsLineOfSight(table)) return;
-    const screenX = canvasWidth / 2 + (relative / FPS_FOV) * canvasWidth;
-    let tableHeight = Math.min(canvasHeight * 0.66, 420 / Math.max(0.4, distance));
+function drawFpsTable(context, table, canvasWidth, canvasHeight, targetIndex) {
+    const ground = projectFpsPoint(table.x, table.y, 0, canvasWidth, canvasHeight);
+    if (!ground || ground.depth > FPS_RENDER_DISTANCE || !hasFpsLineOfSight(table)) return;
+    const screenX = ground.x;
+    let tableHeight = ground.pixelsPerUnit * 0.78;
     if (table.design === 'low') tableHeight *= 0.72;
-    const tableWidth = tableHeight * (table.design === 'booth' ? 1.7 : table.design === 'barrel' ? 0.95 : 1.25);
-    const horizon = canvasHeight / 2 + fpsPlayer.pitch * canvasHeight * 0.8;
-    const floorY = horizon + canvasHeight * 0.23 + Math.min(40, distance * 3);
+    const tableWidth = ground.pixelsPerUnit * (table.design === 'booth' ? 1.35 : table.design === 'barrel' ? 0.8 : 1.05);
+    const floorY = ground.y;
     const seat = seats[table.index];
-    const isTarget = getFpsTargetTable()?.index === table.index;
+    const isTarget = targetIndex === table.index;
     context.save();
-    context.globalAlpha = Math.max(0.45, 1 - distance / 14);
+    context.globalAlpha = 1;
     context.fillStyle = 'rgba(0,0,0,0.35)';
     context.beginPath();
     context.ellipse(screenX, floorY + tableHeight * 0.48, tableWidth * 0.68, tableHeight * 0.11, 0, 0, Math.PI * 2);
@@ -1311,6 +1603,143 @@ function drawFpsTable(context, table, canvasWidth, canvasHeight) {
     context.restore();
 }
 
+function drawFpsFloor(context, width, height, night) {
+    const horizon = getFpsHorizon(height);
+    const floor = context.createLinearGradient(0, horizon, 0, height);
+    floor.addColorStop(0, night ? '#252033' : '#8a6240');
+    floor.addColorStop(1, night ? '#09070d' : '#372116');
+    context.fillStyle = floor;
+    context.fillRect(0, Math.max(0, horizon), width, height - Math.max(0, horizon));
+
+    const minX = Math.max(0, Math.floor(fpsPlayer.x - FPS_RENDER_DISTANCE));
+    const maxX = Math.min(FPS_MAP[0].length - 1, Math.ceil(fpsPlayer.x + FPS_RENDER_DISTANCE));
+    const minY = Math.max(0, Math.floor(fpsPlayer.y - FPS_RENDER_DISTANCE));
+    const maxY = Math.min(FPS_MAP.length - 1, Math.ceil(fpsPlayer.y + FPS_RENDER_DISTANCE));
+    for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+            const center = { x: x + 0.5, y: y + 0.5 };
+            if (isFpsWall(center.x, center.y) || !hasFpsLineOfSight(center)) continue;
+            const corners = [
+                projectFpsPoint(x, y, 0, width, height),
+                projectFpsPoint(x + 1, y, 0, width, height),
+                projectFpsPoint(x + 1, y + 1, 0, width, height),
+                projectFpsPoint(x, y + 1, 0, width, height)
+            ];
+            if (corners.some(point => !point)) continue;
+            const tone = (x + y) % 2 === 0;
+            context.beginPath();
+            context.moveTo(corners[0].x, corners[0].y);
+            corners.slice(1).forEach(point => context.lineTo(point.x, point.y));
+            context.closePath();
+            context.fillStyle = night
+                ? (tone ? 'rgba(58,48,77,0.88)' : 'rgba(38,31,51,0.88)')
+                : (tone ? 'rgba(183,130,79,0.9)' : 'rgba(160,109,65,0.9)');
+            context.fill();
+            context.strokeStyle = night ? 'rgba(190,167,231,0.11)' : 'rgba(255,225,175,0.2)';
+            context.lineWidth = 1;
+            context.stroke();
+        }
+    }
+}
+
+function drawFpsCeilingLights(context, width, height, night) {
+    const lights = [
+        { x: 2.8, y: 2.4 }, { x: 7.8, y: 2.4 }, { x: 11.4, y: 2.4 },
+        { x: 2.8, y: 8.2 }, { x: 8.8, y: 8.2 }, { x: 15.5, y: 3.4 }
+    ];
+    lights.forEach(light => {
+        const ceilingPoint = projectFpsPoint(light.x, light.y, 2.8, width, height);
+        const fixturePoint = projectFpsPoint(light.x, light.y, 2.3, width, height);
+        if (!ceilingPoint || !fixturePoint || ceilingPoint.depth > FPS_RENDER_DISTANCE || !hasFpsLineOfSight(light)) return;
+        const radius = fixturePoint.pixelsPerUnit * 0.13;
+        const glow = context.createRadialGradient(fixturePoint.x, fixturePoint.y, 0, fixturePoint.x, fixturePoint.y, radius * 8);
+        glow.addColorStop(0, night ? 'rgba(185,155,255,0.2)' : 'rgba(255,205,115,0.22)');
+        glow.addColorStop(1, 'rgba(255,205,115,0)');
+        context.fillStyle = glow;
+        context.beginPath();
+        context.arc(fixturePoint.x, fixturePoint.y, radius * 8, 0, Math.PI * 2);
+        context.fill();
+        context.strokeStyle = 'rgba(35,22,15,0.8)';
+        context.lineWidth = Math.max(1, radius * 0.1);
+        context.beginPath();
+        context.moveTo(ceilingPoint.x, ceilingPoint.y);
+        context.lineTo(fixturePoint.x, fixturePoint.y);
+        context.stroke();
+        context.fillStyle = night ? '#b7a1ff' : '#ffd27a';
+        context.shadowColor = night ? '#9b80ff' : '#ffcc68';
+        context.shadowBlur = Math.max(3, radius * 2.6);
+        context.beginPath();
+        context.ellipse(fixturePoint.x, fixturePoint.y, radius * 1.5, radius * 0.65, 0, 0, Math.PI * 2);
+        context.fill();
+        context.shadowBlur = 0;
+    });
+}
+
+function drawFpsHands(context, width, height) {
+    const carrying = fpsCarriedBowls.size > 0;
+    const armGradient = context.createLinearGradient(0, height * 0.91, 0, height);
+    armGradient.addColorStop(0, '#3f302b');
+    armGradient.addColorStop(1, '#171315');
+    context.save();
+    context.globalAlpha = 0.98;
+    context.fillStyle = armGradient;
+    context.strokeStyle = 'rgba(48,24,18,0.45)';
+    context.lineWidth = Math.max(1, width * 0.0015);
+    context.beginPath();
+    context.moveTo(0, height);
+    context.lineTo(0, height * 0.965);
+    context.quadraticCurveTo(width * 0.08, height * 0.925, width * 0.16, height * 0.96);
+    context.lineTo(width * 0.18, height);
+    context.closePath();
+    context.fill();
+    context.stroke();
+    context.beginPath();
+    context.moveTo(width, height);
+    context.lineTo(width, height * 0.965);
+    context.quadraticCurveTo(width * 0.92, height * 0.925, width * 0.84, height * 0.96);
+    context.lineTo(width * 0.82, height);
+    context.closePath();
+    context.fill();
+    context.stroke();
+    context.fillStyle = '#f2c18d';
+    context.beginPath();
+    context.ellipse(width * 0.16, height * 0.955, width * 0.035, height * 0.02, -0.12, 0, Math.PI * 2);
+    context.ellipse(width * 0.84, height * 0.955, width * 0.035, height * 0.02, 0.12, 0, Math.PI * 2);
+    context.fill();
+    if (carrying) {
+        const bowlX = width / 2;
+        const bowlY = height * 0.91;
+        const bowlWidth = Math.min(width * 0.15, height * 0.17);
+        const bowlHeight = bowlWidth * 0.56;
+        context.fillStyle = 'rgba(0,0,0,0.32)';
+        context.beginPath();
+        context.ellipse(bowlX, bowlY + bowlHeight * 0.5, bowlWidth * 0.65, bowlHeight * 0.2, 0, 0, Math.PI * 2);
+        context.fill();
+        context.fillStyle = '#f0d7b2';
+        context.beginPath();
+        context.ellipse(bowlX, bowlY, bowlWidth * 0.64, bowlHeight * 0.42, 0, 0, Math.PI * 2);
+        context.fill();
+        context.fillStyle = '#b64b36';
+        context.beginPath();
+        context.ellipse(bowlX, bowlY - bowlHeight * 0.06, bowlWidth * 0.5, bowlHeight * 0.27, 0, 0, Math.PI * 2);
+        context.fill();
+        context.fillStyle = '#f5df91';
+        context.beginPath();
+        context.ellipse(bowlX - bowlWidth * 0.1, bowlY - bowlHeight * 0.1, bowlWidth * 0.23, bowlHeight * 0.08, -0.2, 0, Math.PI * 2);
+        context.fill();
+        context.fillStyle = '#69a86a';
+        context.beginPath();
+        context.arc(bowlX + bowlWidth * 0.19, bowlY - bowlHeight * 0.1, bowlWidth * 0.055, 0, Math.PI * 2);
+        context.fill();
+        context.strokeStyle = 'rgba(255,245,221,0.8)';
+        context.lineWidth = Math.max(2, bowlWidth * 0.025);
+        context.beginPath();
+        context.ellipse(bowlX, bowlY, bowlWidth * 0.64, bowlHeight * 0.42, 0, 0, Math.PI * 2);
+        context.stroke();
+    }
+    context.restore();
+}
+
 function renderFpsScene(timestamp = 0) {
     if (!fpsOpen || !fpsContext) return;
     const delta = Math.min(0.05, (timestamp - fpsLastFrame) / 1000 || 0);
@@ -1320,71 +1749,45 @@ function renderFpsScene(timestamp = 0) {
     const height = window.innerHeight;
     const context = fpsContext;
     const night = game.nightMode;
-    const horizon = height / 2 + fpsPlayer.pitch * height * 0.8;
+    const horizon = getFpsHorizon(height);
     const ceiling = context.createLinearGradient(0, 0, 0, Math.max(1, horizon));
-    ceiling.addColorStop(0, night ? '#080d24' : '#21140e');
-    ceiling.addColorStop(1, night ? '#15131b' : '#704b32');
+    ceiling.addColorStop(0, night ? '#070a18' : '#21140e');
+    ceiling.addColorStop(0.72, night ? '#101323' : '#503728');
+    ceiling.addColorStop(1, night ? '#1c192a' : '#805b3d');
     context.fillStyle = ceiling;
-    context.fillRect(0, 0, width, horizon);
-    const floor = context.createLinearGradient(0, horizon, 0, height);
-    floor.addColorStop(0, night ? '#15131b' : '#5b3c2d');
-    floor.addColorStop(1, night ? '#09070a' : '#20130f');
-    context.fillStyle = floor;
-    context.fillRect(0, horizon, width, height - horizon);
-    context.save();
-    context.globalAlpha = night ? 0.12 : 0.18;
-    context.strokeStyle = night ? '#6c5ce7' : '#d7ad74';
-    context.lineWidth = 1;
-    for (let row = 0, y = horizon + 24; y < height; row++, y += Math.max(30, (y - horizon) * 0.27)) {
-        context.beginPath();
-        context.moveTo(0, y);
-        context.lineTo(width, y);
-        context.stroke();
-    }
-    for (let ray = -8; ray <= 8; ray++) {
-        context.beginPath();
-        context.moveTo(width / 2, horizon);
-        context.lineTo(width / 2 + ray * width * 0.18, height);
-        context.stroke();
-    }
-    context.restore();
-    context.save();
-    for (let i = 0; i < 4; i++) {
-        const lampX = width * (0.15 + i * 0.24);
-        const lampY = Math.max(34, horizon * 0.18);
-        context.strokeStyle = 'rgba(40,24,15,.8)';
-        context.lineWidth = 3;
-        context.beginPath();
-        context.moveTo(lampX, 0);
-        context.lineTo(lampX, lampY);
-        context.stroke();
-        context.fillStyle = night ? '#9d85d8' : '#f2b75d';
-        context.shadowColor = night ? '#8d70ff' : '#ffcf70';
-        context.shadowBlur = 18;
-        context.beginPath();
-        context.ellipse(lampX, lampY, 18, 8, 0, 0, Math.PI * 2);
-        context.fill();
-        context.shadowBlur = 0;
-    }
-    context.restore();
+    context.fillRect(0, 0, width, Math.max(0, horizon));
+    drawFpsFloor(context, width, height, night);
+    drawFpsCeilingLights(context, width, height, night);
 
     const rayStep = 2;
     for (let column = 0; column < width; column += rayStep) {
-        const rayAngle = fpsPlayer.angle - FPS_FOV / 2 + (column / width) * FPS_FOV;
+        const focal = width / (2 * Math.tan(FPS_FOV / 2));
+        const cameraRay = Math.atan(((column + rayStep / 2) - width / 2) / focal);
+        const rayAngle = fpsPlayer.angle + cameraRay;
         let distance = 0;
-        while (distance < 18) {
+        let hit = false;
+        while (distance < FPS_RENDER_DISTANCE) {
             distance += 0.025;
-            if (isFpsWall(fpsPlayer.x + Math.cos(rayAngle) * distance, fpsPlayer.y + Math.sin(rayAngle) * distance)) break;
+            if (isFpsWall(fpsPlayer.x + Math.cos(rayAngle) * distance, fpsPlayer.y + Math.sin(rayAngle) * distance)) {
+                hit = true;
+                break;
+            }
         }
-        const corrected = Math.max(0.1, distance * Math.cos(rayAngle - fpsPlayer.angle));
-        const wallHeight = Math.min(height, height / corrected * 0.82);
+        if (!hit) continue;
         const hitX = fpsPlayer.x + Math.cos(rayAngle) * distance;
         const hitY = fpsPlayer.y + Math.sin(rayAngle) * distance;
+        const projectedBottom = projectFpsPoint(hitX, hitY, 0, width, height);
+        const projectedTop = projectFpsPoint(hitX, hitY, 2.8, width, height);
+        if (!projectedBottom || !projectedTop) continue;
+        const wallTop = Math.max(-height * 2, projectedTop.y);
+        const wallBottom = Math.min(height * 3, projectedBottom.y);
+        const wallHeight = Math.max(1, wallBottom - wallTop);
+        const corrected = projectedBottom.depth;
         const wallCoordinate = Math.abs(Math.cos(rayAngle)) > Math.abs(Math.sin(rayAngle)) ? hitY : hitX;
-        const panel = Math.floor(Math.abs(wallCoordinate) * 1.5);
+        const panel = Math.floor(Math.abs(wallCoordinate) * 2);
         const shade = Math.max(32, Math.min(190, 188 - corrected * 8));
         const faceShade = panel % 2 ? 0.88 : 1;
-        const wallGradient = context.createLinearGradient(0, horizon - wallHeight / 2, 0, horizon + wallHeight / 2);
+        const wallGradient = context.createLinearGradient(0, wallTop, 0, wallBottom);
         if (night) {
             wallGradient.addColorStop(0, `rgb(${shade * 0.18},${shade * 0.2},${shade * faceShade})`);
             wallGradient.addColorStop(0.6, `rgb(${shade * 0.28},${shade * 0.3},${shade * 0.82})`);
@@ -1395,11 +1798,13 @@ function renderFpsScene(timestamp = 0) {
             wallGradient.addColorStop(1, `rgb(${shade * 0.42 * faceShade},${shade * 0.27 * faceShade},${shade * 0.17 * faceShade})`);
         }
         context.fillStyle = wallGradient;
-        context.fillRect(column, horizon - wallHeight / 2, rayStep + 1, wallHeight);
-        if (panel % 6 === 0) {
-            context.fillStyle = night ? 'rgba(150,132,220,0.2)' : 'rgba(255,220,164,0.22)';
-            context.fillRect(column, horizon - wallHeight * 0.06, rayStep + 1, Math.max(2, wallHeight * 0.018));
+        context.fillRect(column, wallTop, rayStep + 1, wallHeight);
+        if (panel % 4 === 0) {
+            context.fillStyle = night ? 'rgba(150,132,220,0.16)' : 'rgba(255,220,164,0.16)';
+            context.fillRect(column, wallTop + wallHeight * 0.24, 1, wallHeight * 0.55);
         }
+        context.fillStyle = night ? 'rgba(10,8,20,0.5)' : 'rgba(44,25,15,0.52)';
+        context.fillRect(column, wallBottom - Math.max(2, wallHeight * 0.055), rayStep + 1, Math.max(2, wallHeight * 0.055));
     }
 
     FPS_DECOR.forEach(decor => drawFpsDecor(context, decor, width, height));
@@ -1411,19 +1816,32 @@ function renderFpsScene(timestamp = 0) {
         .map(staff => ({ ...staff, distance: Math.hypot(staff.x - fpsPlayer.x, staff.y - fpsPlayer.y) }))
         .sort((a, b) => b.distance - a.distance)
         .forEach(staff => drawFpsStaff(context, staff, width, height));
+    const target = getFpsTargetTable();
+    const objectTarget = getFpsTargetObject();
     getFpsTablePositions()
         .map((position, index) => ({ ...position, index, distance: Math.hypot(position.x - fpsPlayer.x, position.y - fpsPlayer.y) }))
-        .filter(table => table.distance < 22)
+        .filter(table => table.distance < FPS_RENDER_DISTANCE)
         .sort((a, b) => b.distance - a.distance)
-        .forEach(table => drawFpsTable(context, table, width, height));
+        .forEach(table => drawFpsTable(context, table, width, height, target?.index));
+    drawFpsHands(context, width, height);
 
-    const target = getFpsTargetTable();
+    const activeTarget = objectTarget && (!target || objectTarget.distance < target.distance) ? objectTarget : null;
     const objective = document.querySelector('.fps-objective');
     const status = document.getElementById('fps-status');
-    if (objective) objective.innerText = target ? `Press E: ${getFpsTableAction(target.index)}` : 'Walk close to a table and face it';
-    if (status) status.innerText = target
-        ? `${getFpsTableStatus(target.index)} · ${game.tablesOwned} tables · ${game.staff?.waiter || 0} servers`
-        : `Position ${fpsPlayer.x.toFixed(1)}, ${fpsPlayer.y.toFixed(1)} · ${game.tablesOwned} tables · ${game.staff?.waiter || 0} servers · ${game.idxAuto || 0} chefs`;
+    if (objective) {
+        objective.innerText = Date.now() < fpsMessageUntil
+            ? fpsMessage
+            : activeTarget
+                ? getFpsObjectAction(activeTarget)
+                : target
+                    ? `Press E: ${getFpsTableAction(target.index)}`
+                    : 'Walk close to a guest or kitchen station';
+    }
+    if (status) status.innerText = activeTarget
+        ? `${activeTarget.label} · ${game.tablesOwned} tables · ${game.staff?.waiter || 0} servers`
+        : target
+            ? `${getFpsTableStatus(target.index)} · ${game.tablesOwned} tables · ${game.staff?.waiter || 0} servers`
+            : `Restaurant open · ${game.tablesOwned} tables · ${game.staff?.waiter || 0} servers · ${game.idxAuto || 0} chefs`;
     fpsAnimationFrame = requestAnimationFrame(renderFpsScene);
 }
 
@@ -1434,15 +1852,25 @@ function bindFirstPersonControls() {
         if (!fpsOpen) return;
         const key = event.key.toLowerCase();
         if (key === 'escape') {
+            if (!document.getElementById('fps-upgrade-panel')?.classList.contains('hidden')) {
+                closeFpsUpgradePanel();
+                return;
+            }
             closeFirstPerson();
             return;
         }
+        if (key === 'u' && !event.repeat) {
+            toggleFpsUpgradePanel();
+            event.preventDefault();
+            return;
+        }
+        if (!document.getElementById('fps-upgrade-panel')?.classList.contains('hidden')) return;
         if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(key)) {
             fpsKeys[key] = true;
             event.preventDefault();
         }
         if (key === 'e' && !event.repeat) {
-            interactWithFpsTable();
+            interactWithFpsScene();
             event.preventDefault();
         }
     });
@@ -1459,8 +1887,45 @@ function bindFirstPersonControls() {
         fpsCanvas.addEventListener('click', () => {
             if (fpsOpen && document.pointerLockElement !== fpsCanvas) fpsCanvas.requestPointerLock?.();
         });
+        let touchLook = null;
+        fpsCanvas.addEventListener('pointerdown', event => {
+            if (event.pointerType !== 'touch') return;
+            touchLook = { id: event.pointerId, x: event.clientX, y: event.clientY };
+            fpsCanvas.setPointerCapture?.(event.pointerId);
+        });
+        fpsCanvas.addEventListener('pointermove', event => {
+            if (!touchLook || touchLook.id !== event.pointerId) return;
+            fpsPlayer.angle = normalizeFpsAngle(fpsPlayer.angle + (event.clientX - touchLook.x) * 0.004);
+            fpsPlayer.pitch = Math.max(-0.38, Math.min(0.38, fpsPlayer.pitch - (event.clientY - touchLook.y) * 0.003));
+            touchLook.x = event.clientX;
+            touchLook.y = event.clientY;
+            event.preventDefault();
+        });
+        const endTouchLook = event => {
+            if (touchLook?.id === event.pointerId) touchLook = null;
+        };
+        fpsCanvas.addEventListener('pointerup', endTouchLook);
+        fpsCanvas.addEventListener('pointercancel', endTouchLook);
         window.fpsCanvasClickBound = true;
     }
+    document.querySelectorAll('[data-fps-key]').forEach(button => {
+        if (button.dataset.bound === 'true') return;
+        button.dataset.bound = 'true';
+        const key = button.dataset.fpsKey;
+        const release = event => {
+            fpsKeys[key] = false;
+            button.releasePointerCapture?.(event.pointerId);
+        };
+        button.addEventListener('pointerdown', event => {
+            if (!fpsOpen) return;
+            fpsKeys[key] = true;
+            button.setPointerCapture?.(event.pointerId);
+            event.preventDefault();
+        });
+        button.addEventListener('pointerup', release);
+        button.addEventListener('pointercancel', release);
+        button.addEventListener('lostpointercapture', () => { fpsKeys[key] = false; });
+    });
     window.addEventListener('resize', resizeFpsCanvas);
 }
 
@@ -1926,6 +2391,7 @@ function takeBowlOffStove(index) {
             return;
         }
         seat.needsServing = true;
+        if (fpsOpen) fpsCarriedBowls.add(seatIndex);
         armCustomerPatience(seat);
     });
     playSound('serve');
@@ -2405,7 +2871,7 @@ function prestigeGame() {
         let st = (game.monkeyMoney || 0) + 50; 
         let tm = game.turfMult; let d = game.decorOwned; let ad = game.activeDecor; let rv = game.rivals; let ach = game.achievements || [];
         localStorage.removeItem('RamenUltimateData');
-        game = { wallet: 150, monkeyMoney: st, turfMult: tm, lastSaveTime: Date.now(), tablesOwned: 5, idxTable: 4, idxBowl: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxAds: 0, idxSpecial: 0, currentMenuPrice: 50, activeDecor: ad, decorOwned: d, autoRefill: false, staff: { waiter: 0, ninja: 0, mascot: 0, host: 0, supplier: 0 }, rivals: rv, inv: { ...defaultInv }, upgrades: {}, achievements: ach, autoChefSpeedMulti: 1, staffTraining: { waiter: 0, ninja: 0, mascot: 0, host: 0, supplier: 0 }, expansionLevel: 0, shiftNumber: 1, shiftEndsAt: Date.now() + EXTREME_SHIFT_MS, strikes: 0, gameOver: false, gameOverReason: '', rentDebt: 0, chefFever: 0, chefFeverEndsAt: 0 };
+        game = { wallet: 150, monkeyMoney: st, turfMult: tm, lastSaveTime: Date.now(), tablesOwned: 5, idxTable: 4, idxBowl: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxAds: 0, idxSpecial: 0, currentMenuPrice: 50, economyVersion: 1, activeDecor: ad, decorOwned: d, autoRefill: false, staff: { waiter: 0, ninja: 0, mascot: 0, host: 0, supplier: 0 }, rivals: rv, inv: { ...defaultInv }, upgrades: {}, achievements: ach, autoChefSpeedMulti: 1, staffTraining: { waiter: 0, ninja: 0, mascot: 0, host: 0, supplier: 0 }, expansionLevel: 0, shiftNumber: 1, shiftEndsAt: Date.now() + EXTREME_SHIFT_MS, strikes: 0, gameOver: false, gameOverReason: '', rentDebt: 0, chefFever: 0, chefFeverEndsAt: 0 };
         saveGame(); location.reload(); 
     } else if (game.idxRecipe < TRACK_RECIPES.length) {
         alert("You must unlock Universal Ramen (Level 1000) before you can franchise!");
@@ -2674,6 +3140,7 @@ function loadGame() {
         try {
             let parsed = JSON.parse(saved);
             game = Object.assign(game, parsed);
+            if (!Object.hasOwn(parsed, 'economyVersion')) game.economyVersion = 0;
             localSaveTimestamp = Number(parsed.lastSaveTime) || 0;
         } catch (error) {
             localStorage.removeItem('RamenUltimateData');
@@ -2795,6 +3262,7 @@ function initClerk() {
 
             const restoreCloudSave = (save) => {
                 game = Object.assign(game, save.game);
+                if (!Object.hasOwn(save.game, 'economyVersion')) game.economyVersion = 0;
                 game.lastSaveTime = save.savedAt;
                 normalizeGameState();
                 resetMissionsIfNeeded();
@@ -2893,6 +3361,14 @@ function initClerk() {
 
             const renderAuth = (user) => {
                 authControl.replaceChildren();
+                const fpsAccountButton = document.querySelector('.fps-account-button');
+                if (fpsAccountButton) {
+                    fpsAccountButton.textContent = user ? '☁ Account' : '☁ Sign in';
+                    fpsAccountButton.setAttribute('aria-label', user ? 'Manage saved account' : 'Sign in to sync progress');
+                    fpsAccountButton.title = user
+                        ? `Signed in as ${user.fullName || user.primaryEmailAddress?.emailAddress || 'Account'}`
+                        : 'Sign in to save progress across devices';
+                }
                 if (user) {
                     const displayName = user.fullName || user.primaryEmailAddress?.emailAddress || 'Account';
                     const accountMenu = document.createElement('details');

@@ -271,29 +271,39 @@
         <div class="fps-topbar">
             <div><strong>🍜 RAMEN MONKEY</strong><span>FIRST-PERSON SERVICE SHIFT</span></div>
             <div class="fps-actions">
-                <button class="fps-menu-button" onclick="renderFpsUpgradePanel()">⚙ Upgrades <span>U</span></button>
+                <button class="fps-menu-button fps-account-button" type="button" onclick="openFpsAccount()">☁ Sign in</button>
+                <button class="fps-menu-button" onclick="toggleFpsUpgradePanel()">⚙ Upgrades <span>U</span></button>
                 <button class="fps-exit" onclick="closeFirstPerson()">✕ Exit Restaurant</button>
             </div>
         </div>
         <div class="fps-crosshair">+</div>
         <div class="fps-hud">
-            <div class="fps-objective">Walk to a table and press <b>E</b></div>
+            <div class="fps-objective">Walk close to a guest or station and press <b>E</b></div>
             <div class="fps-status" id="fps-status">Loading restaurant...</div>
-            <div class="fps-economy" id="fps-economy">Cash $150 · Orders 0/1 · Carrying 0/1</div>
-            <div class="fps-controls">Click the scene to capture mouse · WASD to move · Mouse to look up/down/left/right · ↑ ↓ ← → to look · E to interact · Shift to sprint · Esc to exit</div>
+            <div class="fps-economy" id="fps-economy">Cash $150 · Guests 0 · Cooking 0 · Carrying 0</div>
+            <div class="fps-controls">WASD to move · Mouse or drag to look · E to interact · Shift to sprint · U for upgrades · Esc to close</div>
         </div>
-        <div id="fps-upgrade-panel" class="fps-upgrade-panel hidden">
+        <div class="fps-touch-controls" aria-label="Touch controls">
+            <div class="fps-touch-pad" aria-label="Move">
+                <button type="button" data-fps-key="w" aria-label="Move forward">▲</button>
+                <button type="button" data-fps-key="a" aria-label="Move left">◀</button>
+                <button type="button" data-fps-key="s" aria-label="Move backward">▼</button>
+                <button type="button" data-fps-key="d" aria-label="Move right">▶</button>
+            </div>
+            <button class="fps-touch-interact" type="button" onclick="interactWithFpsScene()">INTERACT</button>
+        </div>
+        <aside id="fps-upgrade-panel" class="fps-upgrade-panel hidden" aria-label="Restaurant upgrades">
             <div class="fps-panel-card">
-                <button class="fps-panel-close" onclick="closeFpsUpgradePanel()">✕</button>
-                <span class="fps-panel-kicker">UPGRADE TERMINAL</span>
-                <h2>Restaurant operations</h2>
-                <p>Buy improvements without leaving the service floor.</p>
+                <button class="fps-panel-close" type="button" onclick="closeFpsUpgradePanel()">✕</button>
+                <span class="fps-panel-kicker">SHIFT MENU · PRESS U TO CLOSE</span>
+                <h2>Build the restaurant</h2>
+                <p>Upgrade your shop without leaving the floor.</p>
                 <div id="fps-upgrade-options"></div>
             </div>
-        </div>
+        </aside>
     </div>
 
-    <script defer src="script.js?v=23"></script>
+    <script defer src="script.js?v=24"></script>
     <div id="achieve-toast" class="hidden-toast">
     🏆 <b id="achieve-name">Achievement Unlocked!</b>
     </div>

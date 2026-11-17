@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="ramen-future.css?v=3">
+    <link rel="stylesheet" href="cozy-shop.css?v=1">
     <script defer crossorigin="anonymous" src="https://flying-scorpion-2042.clerk.accounts.dev/npm/@clerk/ui@1/dist/ui.browser.js" type="text/javascript"></script>
     <script defer crossorigin="anonymous" data-clerk-publishable-key="pk_test_Zmx5aW5nLXNjb3JwaW9uLTIwNDIuY2xlcmsuYWNjb3VudHMuZGV2JA" src="https://flying-scorpion-2042.clerk.accounts.dev/npm/@clerk/clerk-js@6/dist/clerk.browser.js" type="text/javascript"></script>
 </head>
@@ -28,7 +29,7 @@
                 <div id="account-auth-control" class="account-auth-control" aria-live="polite">
                     <a class="account-auth-button" href="account.html">Sign in / Sign up</a>
                 </div>
-                <small id="account-sync-status" class="auth-local-note">Sign in to link this save across devices.</small>
+                <small id="account-sync-status" class="auth-local-note">Sign in for cloud saves that follow you across devices.</small>
             </div>
             <div class="audio-controls" role="group" aria-label="Audio settings">
                 <button class="audio-toggle" id="btn-sound" type="button" onclick="toggleSound()" aria-pressed="true">🔊 Sound on</button>
@@ -59,7 +60,7 @@
                 </div>
                 <div class="hud-cell">
                     <span class="hud-label">SERVICE</span>
-                    <b class="hud-value"><span id="stat-served">0</span> bowls</b>
+                    <b class="hud-value"><span id="stat-served">0</span> meals</b>
                     <small class="hud-note">Combo <span id="stat-combo">0</span></small>
                 </div>
                 <div class="hud-cell">
@@ -73,6 +74,7 @@
         <div class="tab-nav">
             <button class="tab-btn active" id="btn-dining" onclick="switchTab('dining')">🍽️ Dining</button>
             <button class="tab-btn" id="btn-kitchen" onclick="switchTab('kitchen')">🔥 Kitchen</button>
+            <button class="tab-btn" id="btn-sushi" onclick="switchTab('sushi')">🍣 Sushi &amp; Fishing</button>
             <button class="tab-btn" id="btn-staff" onclick="switchTab('staff')">🐒 Staff</button>
             <button class="tab-btn" id="btn-map" onclick="switchTab('map')">🗺️ Turf Wars</button>
             <button class="tab-btn" id="btn-decor" onclick="switchTab('decor')">🎨 Decor</button>
@@ -95,6 +97,8 @@
                 <div class="ing-item"><span>🎋 Bamboo Shoots: <b id="inv-bamboo">0</b></span><button onclick="buyIngredient('bamboo', 10)">Buy 10 ($60)</button></div>
                 <div class="ing-item"><span>🌽 Sweet Corn: <b id="inv-corn">0</b></span><button onclick="buyIngredient('corn', 10)">Buy 10 ($90)</button></div>
                 <div class="ing-item"><span>🍄 Shiitake: <b id="inv-mushroom">0</b></span><button onclick="buyIngredient('mushroom', 10)">Buy 10 ($140)</button></div>
+                <div class="ing-item"><span>🍚 Sushi rice: <b id="inv-rice">0</b></span><button onclick="buyIngredient('rice', 10)">Buy 10 ($110)</button></div>
+                <div class="ing-item fish-stock"><span>🐟 Fresh fish: <b id="inv-fish">0</b></span><small>Catch it at the fishing dock</small></div>
                 <div class="ing-item"><span>🚚 Auto-Refill</span><button id="btn-auto-refill" onclick="buyAutoRefill()">Buy ($50k)</button></div>
             </div>
             <div id="out-of-stock-msg" class="hidden" style="color: #ff4d4d; font-weight: bold; margin-top: 5px;">⚠️ OUT OF STOCK! ⚠️</div>
@@ -103,7 +107,6 @@
         <div class="restaurant-command-bar glass-panel">
             <div class="command-group">
                 <span class="command-label">RESTAURANT CONTROL</span>
-                <button class="scene-control" id="btn-fps" onclick="toggleFirstPerson()">🚶 First Person</button>
                 <button class="scene-control" id="btn-night" onclick="toggleNightMode()">🌙 Night Shift</button>
                 <button class="scene-control" id="btn-fever" onclick="activateChefFever()" disabled>🔥 FEVER 0%</button>
             </div>
@@ -151,6 +154,41 @@
                 <div id="stoves-container"></div>
             </div>
 
+            <div id="view-sushi" class="view-panel hidden-view sushi-view">
+                <div class="sushi-heading">
+                    <div><span class="panel-kicker">THE FISHING DOCK</span><h2>From the river to the sushi counter</h2></div>
+                    <span class="sushi-inventory">🐟 <b id="sushi-fish-count">0</b> fish · 🍚 <b id="sushi-rice-count">0</b> rice</span>
+                </div>
+                <section class="sushi-counter-card">
+                    <div>
+                        <span class="sushi-card-kicker">A NEW SPECIALTY</span>
+                        <h3 id="sushi-counter-title">Open the sushi counter</h3>
+                        <p id="sushi-counter-description">Invest in your ramen shop to add sushi to the menu. Sushi guests order through the same dining room and bring in extra cash.</p>
+                    </div>
+                    <button class="modern-btn sushi-unlock-button" id="sushi-unlock-button" onclick="unlockSushi()">Open counter · $2,500</button>
+                </section>
+                <section class="fishing-card">
+                    <div class="fishing-card-copy">
+                        <span class="sushi-card-kicker">QUICK FISHING GAME</span>
+                        <h3>Cast a line</h3>
+                        <p>Reel in while the marker is over the gold catch zone to stock fresh fish for sushi orders.</p>
+                    </div>
+                    <div class="fishing-track" id="fishing-track" role="progressbar" aria-label="Fishing catch timing" aria-valuemin="0" aria-valuemax="100">
+                        <span class="fishing-zone" id="fishing-zone"></span>
+                        <span class="fishing-marker" id="fishing-marker"></span>
+                    </div>
+                    <div class="fishing-controls">
+                        <span id="fishing-status" role="status" aria-live="polite">Open the sushi counter to start fishing.</span>
+                        <button class="modern-btn fishing-button" id="fishing-button" onclick="startFishing()" disabled>Cast line</button>
+                    </div>
+                </section>
+                <div class="sushi-recipe-card">
+                    <span>🍣 YOUR SUSHI RECIPE</span>
+                    <b>Seasoned rice + nori + fresh fish</b>
+                    <small>Serve sushi guests at the tables; payments, combos, missions, and upgrades all count toward your ramen restaurant.</small>
+                </div>
+            </div>
+
             <div id="view-staff" class="view-panel hidden-view">
                 <h2>🐒 Hire Specialist Monkeys</h2>
                 <div class="pad-container" id="staff-container"></div>
@@ -183,7 +221,7 @@
                     </div>
                 </div>
                 <div class="mission-stats">
-                    <div><span>🍜 Bowls Served</span><b id="mission-served">0</b></div>
+                    <div><span>🍱 Meals Served</span><b id="mission-served">0</b></div>
                     <div><span>💰 Lifetime Revenue</span><b id="mission-revenue">$0</b></div>
                     <div><span>👑 Best Combo</span><b id="mission-best-combo">0</b></div>
                 </div>

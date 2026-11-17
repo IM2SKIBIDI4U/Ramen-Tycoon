@@ -283,9 +283,12 @@ const INITIAL_RIVALS = [
     { id: 'boss', name: '🦍 The Silverback Syndicate', hp: 1e15, maxHp: 1e15, cost: 1e12, multReward: 20.0 }
 ];
 
-const defaultInv = { noodle: 10, broth: 10, spice: 10, egg: 10, boba: 10, chashu: 10, nori: 10, bamboo: 10, corn: 10, mushroom: 10 };
-const INGREDIENT_BATCH_COSTS = { noodle: 50, broth: 50, spice: 20, egg: 80, boba: 150, chashu: 120, nori: 70, bamboo: 60, corn: 90, mushroom: 140 };
-const INGREDIENT_COST_PER_UNIT = Object.fromEntries(Object.entries(INGREDIENT_BATCH_COSTS).map(([key, cost]) => [key, cost / 10]));
+const defaultInv = { noodle: 10, broth: 10, spice: 10, egg: 10, boba: 10, chashu: 10, nori: 10, bamboo: 10, corn: 10, mushroom: 10, rice: 10, fish: 0 };
+const INGREDIENT_BATCH_COSTS = { noodle: 50, broth: 50, spice: 20, egg: 80, boba: 150, chashu: 120, nori: 70, bamboo: 60, corn: 90, mushroom: 140, rice: 110 };
+const INGREDIENT_COST_PER_UNIT = {
+    ...Object.fromEntries(Object.entries(INGREDIENT_BATCH_COSTS).map(([key, cost]) => [key, cost / 10])),
+    fish: 90
+};
 const RAMEN_ASSEMBLY = [
     { key: 'broth', label: 'Choose broth', emoji: '🥣', options: ['Shoyu', 'Miso', 'Tonkotsu', 'Spicy miso'] },
     { key: 'noodle', label: 'Set noodle firmness', emoji: '🍜', options: ['Soft', 'Medium', 'Firm'] },
@@ -295,6 +298,11 @@ const RAMEN_ASSEMBLY = [
     { key: 'bamboo', label: 'Add bamboo shoots', emoji: '🎋' },
     { key: 'corn', label: 'Add sweet corn', emoji: '🌽' },
     { key: 'mushroom', label: 'Add shiitake mushrooms', emoji: '🍄' }
+];
+const SUSHI_ASSEMBLY = [
+    { key: 'rice', label: 'Season sushi rice', emoji: '🍚' },
+    { key: 'nori', label: 'Lay the nori', emoji: '🌿' },
+    { key: 'fish', label: 'Add fresh fish', emoji: '🐟' }
 ];
 const EXTREME_SHIFT_MS = 180000;
 const CUSTOMER_PATIENCE_MIN_MS = 10000;
@@ -315,14 +323,14 @@ let game = {
     shiftNumber: 1, shiftEndsAt: Date.now() + EXTREME_SHIFT_MS, strikes: 0, gameOver: false, gameOverReason: '',
     rentDebt: 0, chefFever: 0, chefFeverEndsAt: 0,
     staffTraining: { waiter: 0, ninja: 0, mascot: 0, host: 0, supplier: 0 }, reviews: [],
-    expansionLevel: 0
+    expansionLevel: 0, sushiUnlocked: false, sushiServed: 0
 };
 let localSaveTimestamp = 0;
 let accountSaveSync = null;
 window.vipPartyActive = 0; 
 
 const MISSION_DEFINITIONS = [
-    { id: 'serve', icon: '🍜', title: 'Bowl Rush', description: 'Serve hungry customers', type: 'servedCount', baseTarget: 5, reward: 250 },
+    { id: 'serve', icon: '🍱', title: 'Meal Rush', description: 'Serve hungry customers', type: 'servedCount', baseTarget: 5, reward: 250 },
     { id: 'revenue', icon: '💰', title: 'Stack the Cash', description: 'Earn restaurant revenue', type: 'totalEarned', baseTarget: 500, reward: 400 },
     { id: 'vip', icon: '👑', title: 'VIP Treatment', description: 'Serve VIP or critic customers', type: 'vipServed', baseTarget: 1, reward: 750 },
     { id: 'combo', icon: '🔥', title: 'Perfect Service', description: 'Build a payment combo', type: 'bestCombo', baseTarget: 5, reward: 650 },
@@ -497,6 +505,7 @@ function normalizeGameState() {
     if (!Number.isFinite(game.shiftEndsAt)) game.shiftEndsAt = Date.now() + EXTREME_SHIFT_MS;
     game.activeDecor = typeof game.activeDecor === 'string' ? game.activeDecor : 'theme-default';
     game.autoRefill = Boolean(game.autoRefill);
+    game.sushiUnlocked = Boolean(game.sushiUnlocked);
     game.nightMode = Boolean(game.nightMode);
     game.popularity = Math.max(0, Math.min(100, game.popularity));
     game.staffTraining = { waiter: 0, ninja: 0, mascot: 0, host: 0, supplier: 0, ...(game.staffTraining || {}) };
@@ -512,7 +521,7 @@ function normalizeGameState() {
     game.missionCycle = Number.isFinite(game.missionCycle) ? game.missionCycle : 0;
     game.missionStreak = Number.isFinite(game.missionStreak) ? game.missionStreak : 0;
     game.lastMissionReset = Number.isFinite(game.lastMissionReset) ? game.lastMissionReset : Date.now();
-    ['servedCount', 'totalEarned', 'vipServed', 'combo', 'bestCombo', 'rivalsDefeated', 'eventsTriggered', 'deliveriesCompleted'].forEach((key) => {
+    ['servedCount', 'totalEarned', 'vipServed', 'combo', 'bestCombo', 'rivalsDefeated', 'eventsTriggered', 'deliveriesCompleted', 'sushiServed'].forEach((key) => {
         game[key] = Number.isFinite(game[key]) ? game[key] : 0;
     });
     if (!Array.isArray(game.missions) || game.missions.length !== 3) game.missions = createMissionSet();
@@ -876,21 +885,99 @@ const FPS_DECOR = [
 ];
 let fpsTableCache = { count: 0, positions: FPS_BASE_TABLE_POSITIONS };
 
-function getFpsTablePositions() {
-    const count = Math.max(1, Math.min(1000, Math.floor(Number(game.tablesOwned) || 1)));
-    if (fpsTableCache.count === count) return fpsTableCache.positions;
-    const positions = FPS_BASE_TABLE_POSITIONS.slice(0, Math.min(count, FPS_BASE_TABLE_POSITIONS.length));
-    const designs = ['round', 'square', 'booth', 'barrel', 'low'];
-    for (let row = 0; positions.length < count && row < 42; row++) {
-        for (let column = 0; positions.length < count && column < 24; column++) {
-            const x = 4.5 + column * 3.25;
-            const y = 11.5 + row * 2.7;
-            if (positions.some(table => Math.abs(table.x - x) < 0.7 && Math.abs(table.y - y) < 0.7)) continue;
-            positions.push({ x, y, design: designs[positions.length % designs.length] });
-        }
+const fishing = {
+    active: false,
+    position: 0,
+    direction: 1,
+    zoneStart: 42,
+    zoneEnd: 60,
+    timer: null
+};
+
+function renderSushiPanel() {
+    const title = document.getElementById('sushi-counter-title');
+    const description = document.getElementById('sushi-counter-description');
+    const unlockButton = document.getElementById('sushi-unlock-button');
+    const fishCount = document.getElementById('sushi-fish-count');
+    const riceCount = document.getElementById('sushi-rice-count');
+    const track = document.getElementById('fishing-track');
+    const zone = document.getElementById('fishing-zone');
+    const marker = document.getElementById('fishing-marker');
+    const fishingButton = document.getElementById('fishing-button');
+    if (!title || !description || !unlockButton || !fishCount || !riceCount || !track || !zone || !marker || !fishingButton) return;
+
+    title.textContent = game.sushiUnlocked ? 'Your sushi counter is open' : 'Open the sushi counter';
+    description.textContent = game.sushiUnlocked
+        ? `${formatMoney(game.sushiServed)} sushi orders served so far. Fish caught here joins the same stockroom your restaurant uses.`
+        : 'Invest $2,500 from your ramen restaurant to add sushi to the menu. Sushi guests order through the same dining room and bring in extra cash.';
+    unlockButton.classList.toggle('hidden', game.sushiUnlocked);
+    unlockButton.disabled = game.gameOver || game.wallet < 2500;
+    fishCount.textContent = formatMoney(game.inv.fish || 0);
+    riceCount.textContent = formatMoney(game.inv.rice || 0);
+    track.setAttribute('aria-valuenow', String(Math.round(fishing.position)));
+    zone.style.left = `${fishing.zoneStart}%`;
+    zone.style.width = `${fishing.zoneEnd - fishing.zoneStart}%`;
+    marker.style.left = `${fishing.position}%`;
+    fishingButton.disabled = !game.sushiUnlocked;
+    fishingButton.textContent = fishing.active ? 'Reel in!' : 'Cast line';
+}
+
+function unlockSushi() {
+    const cost = 2500;
+    if (game.sushiUnlocked || game.gameOver || game.wallet < cost || !chargeExtremeCash(cost)) {
+        playSound('error');
+        return;
     }
-    fpsTableCache = { count, positions };
-    return positions;
+    game.sushiUnlocked = true;
+    playSound('cash');
+    saveGame();
+    updateUI();
+    renderSushiPanel();
+    showRamenToast('🍣 Sushi counter open! Fish for ingredients and serve sushi orders.');
+}
+
+function startFishing() {
+    if (!game.sushiUnlocked || game.gameOver) return;
+    if (fishing.active) {
+        reelInFish();
+        return;
+    }
+    fishing.active = true;
+    fishing.position = 0;
+    fishing.direction = 1;
+    fishing.zoneStart = 12 + Math.random() * 65;
+    fishing.zoneEnd = fishing.zoneStart + 18;
+    document.getElementById('fishing-status').textContent = 'Watch the marker. Reel in when it reaches the gold zone!';
+    renderSushiPanel();
+    fishing.timer = window.setInterval(() => {
+        fishing.position += fishing.direction * 1.15;
+        if (fishing.position >= 100 || fishing.position <= 0) {
+            fishing.position = Math.max(0, Math.min(100, fishing.position));
+            fishing.direction *= -1;
+        }
+        const marker = document.getElementById('fishing-marker');
+        if (marker) marker.style.left = `${fishing.position}%`;
+        const track = document.getElementById('fishing-track');
+        if (track) track.setAttribute('aria-valuenow', String(Math.round(fishing.position)));
+    }, 25);
+}
+
+function reelInFish() {
+    if (!fishing.active) return;
+    const caught = fishing.position >= fishing.zoneStart && fishing.position <= fishing.zoneEnd;
+    stopFishing(caught
+        ? `Nice catch! You brought in ${fishing.position > fishing.zoneStart + 12 ? 2 : 1} fresh fish.`
+        : 'Missed the catch zone. Cast again and try to time it!');
+    if (!caught) {
+        playSound('error');
+        return;
+    }
+    const quantity = fishing.position > fishing.zoneStart + 12 ? 2 : 1;
+    game.inv.fish = (game.inv.fish || 0) + quantity;
+    playSound('serve');
+    saveGame();
+    updateUI();
+    renderSushiPanel();
 }
 const FPS_WORLD_OBJECTS = [
     { x: 8.5, y: 0.45, kind: 'door', label: 'ENTRANCE' },
@@ -903,17 +990,15 @@ const FPS_WORLD_OBJECTS = [
     { x: 18.1, y: 8.1, kind: 'pass', label: 'SERVE' }
 ];
 
-function getFpsStaffPositions() {
-    const positions = [];
-    const waiters = Math.min(24, Math.max(0, Number(game.staff?.waiter) || 0));
-    const chefs = Math.min(12, Math.max(0, Number(game.idxAuto) || 0));
-    for (let i = 0; i < waiters; i++) {
-        positions.push({ x: 2.4 + (i % 6) * 3.1, y: 9.3 + Math.floor(i / 6) * 2.8, kind: 'waiter', index: i });
+function stopFishing(message) {
+    fishing.active = false;
+    if (fishing.timer !== null) {
+        window.clearInterval(fishing.timer);
+        fishing.timer = null;
     }
-    for (let i = 0; i < chefs; i++) {
-        positions.push({ x: 14.2 + (i % 4) * 2.5, y: 2.9 + Math.floor(i / 4) * 2.5, kind: 'chef', index: i });
-    }
-    return positions;
+    const status = document.getElementById('fishing-status');
+    if (status) status.textContent = message;
+    renderSushiPanel();
 }
 const FPS_FOV = Math.PI / 3;
 const FPS_RENDER_DISTANCE = 18;
@@ -1959,7 +2044,18 @@ function closeFirstPerson() {
     if (fpsAnimationFrame) cancelAnimationFrame(fpsAnimationFrame);
 }
 
-function switchTab(tab) { document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active-view')); document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); document.getElementById(`view-${tab}`).classList.add('active-view'); document.getElementById(`btn-${tab}`).classList.add('active'); if(tab==='decor') renderDecorPanel(); if(tab==='staff') renderStaffPanel(); if(tab==='map') renderTurfPanel(); if(tab==='missions') renderMissionsPanel(); }
+function switchTab(tab) {
+    if (tab !== 'sushi' && fishing.active) stopFishing('You reeled in early. The fish got away.');
+    document.querySelectorAll('.view-panel').forEach(panel => panel.classList.remove('active-view'));
+    document.querySelectorAll('.tab-btn').forEach(button => button.classList.remove('active'));
+    document.getElementById(`view-${tab}`)?.classList.add('active-view');
+    document.getElementById(`btn-${tab}`)?.classList.add('active');
+    if (tab === 'decor') renderDecorPanel();
+    if (tab === 'staff') renderStaffPanel();
+    if (tab === 'map') renderTurfPanel();
+    if (tab === 'missions') renderMissionsPanel();
+    if (tab === 'sushi') renderSushiPanel();
+}
 
 function initTables() { let d = document.getElementById('dining-area'); if(d && d.children.length === 0) { for(let i=0; i<1000; i++) { let div = document.createElement('div'); div.id = `seat-${i}`; div.className = 'seat locked'; d.appendChild(div); } } }
 
@@ -2040,6 +2136,7 @@ function handleTableClick(index) {
 
     // 1. TAKE ORDER & START COOKING AUTOMATICALLY
     if (seat.needsMenu) { 
+        seat.charData.wantsSushi = game.sushiUnlocked && Math.random() < 0.25;
         seat.needsMenu = false; 
         seat.patience = 100; 
         seat.isCooking = true; 
@@ -2105,13 +2202,15 @@ function collectPayment(index) {
     game.bestCombo = Math.max(game.bestCombo, game.combo);
     const comboMultiplier = 1 + Math.min(game.combo, 10) * 0.05;
     const decorMultiplier = 1 + getActiveDecor().profitBonus;
-    let finalValue = (game.currentMenuPrice * mult) * getPrestigeMultiplier() * rushMultiplier * comboMultiplier * getDailySpecial().multiplier * getPopularityMultiplier() * (1 + game.idxBowl * 0.05) * getChefFeverMultiplier() * decorMultiplier * getExpansionRevenueMultiplier();
+    const menuPrice = seat.charData.wantsSushi ? Math.max(80, game.currentMenuPrice * 1.25) : game.currentMenuPrice;
+    let finalValue = (menuPrice * mult) * getPrestigeMultiplier() * rushMultiplier * comboMultiplier * getDailySpecial().multiplier * getPopularityMultiplier() * (1 + game.idxBowl * 0.05) * getChefFeverMultiplier() * decorMultiplier * getExpansionRevenueMultiplier();
     
     if (game.idxRecipe >= TRACK_RECIPES.length) finalValue *= 1000000;
     
     creditRestaurantCash(finalValue);
     game.totalEarned += finalValue;
     game.servedCount++;
+    if (seat.charData.wantsSushi) game.sushiServed++;
     game.chefFever = Math.min(100, game.chefFever + 20);
     if (seat.charData.isVIP || seat.charData.isCritic) game.vipServed++;
     game.popularity = Math.min(100, game.popularity + (seat.charData.isVIP ? 1.5 : 0.35));
@@ -2269,6 +2368,10 @@ function getIngredientsForRamenStep(seat, step) {
     return ingredients;
 }
 
+function getAssemblyForSeat(seat) {
+    return seat?.charData?.wantsSushi ? SUSHI_ASSEMBLY : RAMEN_ASSEMBLY;
+}
+
 function clickStove(index) {
     if (game.gameOver) return;
     let now = Date.now();
@@ -2290,7 +2393,7 @@ function clickStove(index) {
         takeBowlOffStove(index);
         return;
     }
-    const step = RAMEN_ASSEMBLY[seat.cookStep];
+    const step = getAssemblyForSeat(seat)[seat.cookStep];
     if (!step) return;
     const batchLimit = getEffectiveWokBatchSize();
     const candidates = [index];
@@ -2298,7 +2401,8 @@ function clickStove(index) {
         if (candidateIndex === index) continue;
         const candidate = seats[candidateIndex];
         if (candidate?.occupied && candidate.isCooking && !candidate.bowlReadyAt
-            && candidate.cookStep === seat.cookStep && candidate.charData) {
+            && candidate.cookStep === seat.cookStep
+            && candidate.charData?.wantsSushi === seat.charData?.wantsSushi) {
             candidates.push(candidateIndex);
         }
     }
@@ -2339,7 +2443,7 @@ function clickStove(index) {
         candidate.assemblyOrder.push(step.key);
         candidate.cookStep++;
         armCustomerPatience(candidate);
-        if (candidate.cookStep === RAMEN_ASSEMBLY.length) finishCooking(candidateIndex);
+        if (candidate.cookStep === getAssemblyForSeat(candidate).length) finishCooking(candidateIndex);
     });
     if (targets.length > 1) {
         showRamenToast(`🍳 WOK BATCH · ${targets.length} bowls advanced together`);
@@ -2353,9 +2457,9 @@ function clickStove(index) {
 function finishCooking(index) {
     const seat = seats[index];
     if (!seat || !seat.isCooking || seat.bowlReadyAt) return;
-    const requiredOrder = RAMEN_ASSEMBLY.map(step => step.key);
+    const requiredOrder = getAssemblyForSeat(seat).map(step => step.key);
     if (JSON.stringify(seat.assemblyOrder || []) !== JSON.stringify(requiredOrder)
-        || !seat.preparedRamen?.broth || !seat.preparedRamen?.firmness) {
+        || (!seat.charData?.wantsSushi && (!seat.preparedRamen?.broth || !seat.preparedRamen?.firmness))) {
         seat.cookStep = 0;
         seat.assemblyOrder = [];
         seat.preparedRamen = {};
@@ -2569,7 +2673,7 @@ function updateUI() {
     if(document.getElementById('inv-spice')) document.getElementById('inv-spice').innerText = formatMoney(game.inv.spice); 
     if(document.getElementById('inv-egg')) document.getElementById('inv-egg').innerText = formatMoney(game.inv.egg);
     if(document.getElementById('inv-boba')) document.getElementById('inv-boba').innerText = formatMoney(game.inv.boba);
-    ['chashu', 'nori', 'bamboo', 'corn', 'mushroom'].forEach(ingredient => {
+    ['chashu', 'nori', 'bamboo', 'corn', 'mushroom', 'rice', 'fish'].forEach(ingredient => {
         const element = document.getElementById(`inv-${ingredient}`);
         if (element) element.innerText = formatMoney(game.inv[ingredient] || 0);
     });
@@ -2609,10 +2713,13 @@ function updateUI() {
         let html = "";
         if (seat.occupied && seat.charData) {
             if (seat.needsMenu) html += `<div class="menu-request">📜?</div>`;
-            if (seat.needsServing) html += `<div class="serve-request">🍜</div>`;
+            if (seat.needsServing) html += `<div class="serve-request">${seat.charData.wantsSushi ? '🍣' : '🍜'}</div>`;
             if (seat.needsToPay && !seat.needsServing) html += `<div class="pay-request">$</div>`;
             const order = seat.charData.ramenOrder || { broth: 'Shoyu', firmness: 'Medium' };
-            html += `<div class="custom-ramen-order"><b>${getCustomerTypeLabel(seat.charData)} · ${order.broth} · ${order.firmness}</b><span>🥚 🥩 🌿 🎋 🌽 🍄</span></div>`;
+            const orderLabel = seat.charData.wantsSushi
+                ? '<b>Sushi order</b><span>🍚 🌿 🐟</span>'
+                : `<b>${order.broth} · ${order.firmness}</b><span>🥚 🥩 🌿 🎋 🌽 🍄</span>`;
+            html += `<div class="custom-ramen-order">${orderLabel}</div>`;
             html += `<div class="patience-container"><div id="patience-bar-${i}" class="patience-fill" style="width:${seat.patience}%; background-color:${seat.patience < 30 ? '#d63031' : '#00b894'}"></div></div>`;
             html += `<div class="customer-wrapper">${renderCharHTML(seat.charData, seat.patience)}</div>`;
         } else { html += `<span class="status-text" style="color:#aaa;">Empty</span>`; }
@@ -2630,6 +2737,7 @@ function updateUI() {
     renderMissionsPanel();
     renderResetRecoveryButton();
     renderExpansionPanel();
+    renderSushiPanel();
 }
 
 function updateKitchenUI() {
@@ -2644,18 +2752,20 @@ function updateKitchenUI() {
     seats.forEach((seat, i) => {
         if (seat.occupied && seat.isCooking) {
             let stove = document.createElement('div'); stove.className = `stove-station ${seat.bowlReadyAt ? 'bowl-ready' : ''}`; stove.id = `stove-${i}`; stove.onclick = () => clickStove(i);
-            const step = RAMEN_ASSEMBLY[seat.cookStep];
+            const step = getAssemblyForSeat(seat)[seat.cookStep];
             const label = seat.bowlReadyAt
                 ? `PULL BOWL · ${Math.max(0, (seat.bowlReadyAt - Date.now()) / 1000).toFixed(1)}s`
                 : `${step?.emoji || '🍜'} ${step?.label || 'Assemble ramen'}`;
             const order = seat.charData?.ramenOrder;
-            const spec = order ? `<div class="stove-order-spec">${order.broth} broth · ${order.firmness} noodles</div>` : '';
+            const spec = seat.charData?.wantsSushi
+                ? '<div class="stove-order-spec">Sushi order</div>'
+                : (order ? `<div class="stove-order-spec">${order.broth} broth · ${order.firmness} noodles</div>` : '');
             const batchCount = seat.cookBatchId ? (batchCounts.get(seat.cookBatchId) || 1) : 1;
             const batchBadge = batchCount > 1 ? `<div class="wok-batch-badge">WOK ×${batchCount}</div>` : '';
             stove.title = batchCount > 1
                 ? `This click advances ${batchCount} bowls at the same step. Pulling one finished bowl pulls the whole batch.`
-                : 'Click to prepare the next ramen step.';
-            stove.innerHTML = `${batchBadge}<div class="stove-label">${label}</div>${spec}<div class="manual-bowl step-${Math.min(seat.cookStep, 5)}">${seat.bowlReadyAt ? '🍜' : ''}</div><div class="stove-burner"></div>`;
+                : 'Click to prepare the next recipe step.';
+            stove.innerHTML = `${batchBadge}<div class="stove-label">${label}</div>${spec}<div class="manual-bowl step-${Math.min(seat.cookStep, 5)}">${seat.bowlReadyAt ? (seat.charData?.wantsSushi ? '🍣' : '🍜') : ''}</div><div class="stove-burner"></div>`;
             container.appendChild(stove);
         }
     });
@@ -2870,8 +2980,20 @@ function prestigeGame() {
     if(game.idxRecipe >= TRACK_RECIPES.length && confirm("Sell franchise for Monkey Money? Reset money/upgrades for 50 Monkey Money and a permanent profit multiplier!")) {
         let st = (game.monkeyMoney || 0) + 50; 
         let tm = game.turfMult; let d = game.decorOwned; let ad = game.activeDecor; let rv = game.rivals; let ach = game.achievements || [];
+        const sushiUnlocked = game.sushiUnlocked;
+        const sushiServed = game.sushiServed;
         localStorage.removeItem('RamenUltimateData');
-        game = { wallet: 150, monkeyMoney: st, turfMult: tm, lastSaveTime: Date.now(), tablesOwned: 5, idxTable: 4, idxBowl: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0, idxAds: 0, idxSpecial: 0, currentMenuPrice: 50, economyVersion: 1, activeDecor: ad, decorOwned: d, autoRefill: false, staff: { waiter: 0, ninja: 0, mascot: 0, host: 0, supplier: 0 }, rivals: rv, inv: { ...defaultInv }, upgrades: {}, achievements: ach, autoChefSpeedMulti: 1, staffTraining: { waiter: 0, ninja: 0, mascot: 0, host: 0, supplier: 0 }, expansionLevel: 0, shiftNumber: 1, shiftEndsAt: Date.now() + EXTREME_SHIFT_MS, strikes: 0, gameOver: false, gameOverReason: '', rentDebt: 0, chefFever: 0, chefFeverEndsAt: 0 };
+        game = {
+            wallet: 150, monkeyMoney: st, turfMult: tm, lastSaveTime: Date.now(),
+            tablesOwned: 5, idxTable: 4, idxBowl: 0, idxRecipe: 0, idxWok: 0, idxAuto: 0,
+            idxAds: 0, idxSpecial: 0, currentMenuPrice: 50, activeDecor: ad, decorOwned: d,
+            autoRefill: false, staff: { waiter: 0, ninja: 0, mascot: 0, host: 0, supplier: 0 },
+            rivals: rv, inv: { ...defaultInv }, upgrades: {}, achievements: ach,
+            autoChefSpeedMulti: 1, staffTraining: { waiter: 0, ninja: 0, mascot: 0, host: 0, supplier: 0 },
+            expansionLevel: 0, economyVersion: 1, sushiUnlocked, sushiServed, shiftNumber: 1,
+            shiftEndsAt: Date.now() + EXTREME_SHIFT_MS, strikes: 0, gameOver: false,
+            gameOverReason: '', rentDebt: 0, chefFever: 0, chefFeverEndsAt: 0
+        };
         saveGame(); location.reload(); 
     } else if (game.idxRecipe < TRACK_RECIPES.length) {
         alert("You must unlock Universal Ramen (Level 1000) before you can franchise!");
@@ -3181,9 +3303,6 @@ window.onload = () => {
     runMonkeyLoop(); 
     scheduleGoldenMonkey();
     scheduleRandomEvent();
-    if (new URLSearchParams(window.location.search).has('firstperson')) {
-        setTimeout(toggleFirstPerson, 250);
-    }
 };
 
 // --- EMERGENCY BAILOUT SYSTEM ---
@@ -3196,7 +3315,8 @@ setInterval(() => {
         if (seat.needsServing && seat.charData.wantsBoba) {
             requiredIngredients = ['boba'];
         } else if (seat.isCooking && !seat.bowlReadyAt) {
-            const step = RAMEN_ASSEMBLY[seat.cookStep];
+            const assembly = getAssemblyForSeat(seat);
+            const step = assembly[seat.cookStep];
             if (!step) return false;
             requiredIngredients = getIngredientsForRamenStep(seat, step);
         } else {
@@ -3238,7 +3358,7 @@ function initClerk() {
     };
     if (!window.Clerk || !window.__internal_ClerkUICtor) {
         console.error('Clerk account service could not load.');
-        setAccountStatus('Account service unavailable. Your game saves locally in this browser.');
+        setAccountStatus('Cloud saves are unavailable. Progress is saved in this browser until you can sign in.');
         return;
     }
 
@@ -3455,7 +3575,7 @@ function initClerk() {
                     syncReady = false;
                     clearTimeout(syncTimer);
                     accountSaveSync = null;
-                    setAccountStatus('Progress saves on this device. Sign in to link it to your account.');
+                    setAccountStatus('Progress saves on this device. Sign in for cloud saves across devices.');
                     return;
                 }
                 if (user.id === syncUserId) return;
@@ -3510,7 +3630,7 @@ function initClerk() {
         })
         .catch((error) => {
             console.error('Clerk failed to initialize:', error);
-            setAccountStatus(`Account service unavailable. Your game saves locally in this browser. ${error?.message || ''}`.trim());
+            setAccountStatus(`Cloud saves are unavailable. Progress is saved in this browser. ${error?.message || ''}`.trim());
         });
 }
 

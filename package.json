@@ -1,7 +1,7 @@
 {
   "name": "ramen-tycoon",
   "version": "1.0.0",
-  "description": "Ramen Tycoon Web & Desktop Game",
+  "description": "Ramen Tycoon Web and Desktop Game",
   "main": "main.js",
   "author": "IM2SKIBIDI4U",
   "license": "MIT",
@@ -13,7 +13,7 @@
     "electron:build": "npm run build && electron-builder --win"
   },
   "dependencies": {
-    "@clerk/clerk-js": "^5.0.0"
+    "@clerk/clerk-js": "^6.42.1"
   },
   "devDependencies": {
     "electron": "^33.0.0",
@@ -21,7 +21,7 @@
     "vite": "^5.0.0"
   },
   "build": {
-    "appId": "com.ramentcoon.game",
+    "appId": "com.ramentycoon.game",
     "productName": "Ramen Tycoon",
     "directories": {
       "output": "dist_electron"

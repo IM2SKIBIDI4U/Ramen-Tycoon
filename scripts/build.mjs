@@ -8,6 +8,7 @@ const frontendFiles = [
   "index.html",
   "style.css",
   "ramen-future.css",
+  "cozy-shop.css",
   "script.js",
   "account.html",
   "account.css",
